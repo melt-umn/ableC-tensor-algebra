@@ -1,0 +1,60 @@
+#ifndef _TENSORS_XH_
+#define _TENSORS_XH_
+
+#include <stdlib.h>
+#include "gc.h"
+#include <string.h>
+#include <stdio.h>
+
+struct tensor_insertion_s {
+  double val;
+  unsigned long* index;
+};
+
+struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor"))) tensor_s {
+  struct tensor_s* (*make)(unsigned long* dims);
+  struct tensor_s* (*make_filled)(unsigned long* dims, double* data);
+  void (*modify)(struct tensor_s* t, unsigned long* index, double val);
+  double (*get)(struct tensor_s* t, unsigned long* index);
+  void (*pack)(struct tensor_s* t);
+  unsigned long order;
+  
+  unsigned long* dims;
+  unsigned long*** indices;
+  double* data;
+  
+  struct tensor_insertion_s* buffer;
+  unsigned long bufferLen;
+  unsigned long bufferCnt;
+};
+
+struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:format"))) tensor_format_s {
+  struct tensor_s* (*make)(unsigned long* dims);
+  struct tensor_s* (*make_filled)(unsigned long* dims, double* data);
+  void (*modify)(struct tensor_s* t, unsigned long* index, double val);
+  double (*get)(struct tensor_s* t, unsigned long* index);
+  void (*pack)(struct tensor_s* t);
+  unsigned long order;
+};
+
+
+struct tensor_tree_s {
+  char isLeaf;
+  double val;
+  unsigned long index;
+  unsigned long numChildren;
+  struct tensor_tree_s* children;
+};
+
+static char tensor_checkTree(struct tensor_tree_s* t) {
+  if(t->isLeaf) return t->val != 0.0;
+  unsigned long end = t->numChildren;
+  for(unsigned long i = 0; i < end; i++) {
+    if(tensor_checkTree(&(t->children[i]))) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+#endif
