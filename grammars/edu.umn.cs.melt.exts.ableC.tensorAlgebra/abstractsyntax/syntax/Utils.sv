@@ -54,3 +54,24 @@ String ::= lst::[Expr] index::Integer
          | _::tl -> s"__arr${toString(index)}__, ${generateArray(tl, index + 1)}"
          end;
 }
+
+function errorCheckTypes
+[Message] ::= h::Expr lst::[Expr] env::Decorated Env
+{
+  h.env = env;
+  h.returnType = nothing();
+  
+  return if !h.typerep.isIntegerType
+         then [err(h.location, s"Dimensions of tensor must be integer type (got ${showType(h.typerep)})")]
+         else []
+         ++
+         case h of
+         | errorExpr(errs) -> errs
+         | _ -> []
+         end
+         ++
+         if !null(lst)
+         then errorCheckTypes(head(lst), tail(lst), env)
+         else [];
+}
+

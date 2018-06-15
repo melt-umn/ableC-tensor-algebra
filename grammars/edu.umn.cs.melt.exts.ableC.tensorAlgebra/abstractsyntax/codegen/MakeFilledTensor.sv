@@ -3,7 +3,7 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:codegen;
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 function declMakeFilledFunction
-Decl ::= fmt::TensorFormat
+Decl ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
 
@@ -23,13 +23,13 @@ Decl ::= fmt::TensorFormat
 }
 
 function generateMakeFilledFunction
-String ::= fmt::TensorFormat
+String ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
   
   return s"""
-    static struct tensor_s* tensor_makeFilled_${fmtNm}(unsigned long* dims, double* data) {
-      struct tensor_s* res = tensor_make_${fmtNm}(dims);
+    static struct tensor_${fmtNm}* tensor_makeFilled_${fmtNm}(unsigned long* dims, double* data) {
+      struct tensor_${fmtNm}* res = tensor_make_${fmtNm}(dims);
       unsigned long index_0 = 0;
       unsigned long size = ${generateProductDims(fmt.dimens, 0)};
       res->buffer = GC_malloc(sizeof(struct tensor_insertion_s) * size);

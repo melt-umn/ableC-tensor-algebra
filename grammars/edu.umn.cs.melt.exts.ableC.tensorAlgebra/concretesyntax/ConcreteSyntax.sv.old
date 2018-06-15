@@ -19,17 +19,17 @@ concrete productions top::ExternalDeclaration_c
   }
 
 concrete productions top::AssignExpr_c
-| b::Build_t '(' type::TypeName_c ')' '(' '{' dims::IndexList_c '}' ')'
+| b::Build_t '(' type::TypeSpecifier_c ')' '(' '{' dims::IndexList_c '}' ')'
   {
-    top.ast = tensor_empty(type.ast, dims.indxs, location=top.location);
+    top.ast = tensor_empty(type, dims.indxs, location=top.location);
   }
-| b::Build_t '(' type::TypeName_c ')' '(' data::TensorRep_c ')'
+| b::Build_t '(' type::TypeSpecifier_c ')' '(' data::TensorRep_c ')'
   {
-    top.ast = tensor_filled(type.ast, data.tensor, location=top.location);
+    top.ast = tensor_filled(type, data.tensor, location=top.location);
   }
-| b::Build_t '(' type::TypeName_c ')' '(' dims::Expr_c ')'
+| b::Build_t '(' type::TypeSpecifier_c ')' '(' dims::Expr_c ')'
   {
-    top.ast = tensor_array(type.ast, dims.ast, location=top.location);
+    top.ast = tensor_array(type, dims.ast, location=top.location);
   }
 | 'value' '(' tensor::Expr_c ')' '(' idx::IndexList_c ')'
   {
@@ -49,6 +49,12 @@ concrete productions top::TypeSpecifier_c
     top.realTypeSpecifiers = [tensorTypeExpr(top.givenQualifiers, fromId(fmt))];
     top.preTypeSpecifiers = [];
   }
+
+--concrete productions top::TypeName_c
+--| 'tensor' '<' fmt::Identifier_t '>'
+--  {
+--    top.ast = typeName(tensorTypeExpr(nilQualifier(), fromId(fmt)), baseTypeExpr());
+--  }
 
 terminal Dense_t 'dense';
 terminal Sparse_t 'sparse';

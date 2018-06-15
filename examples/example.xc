@@ -1,44 +1,55 @@
 #include <stdio.h>
 #include "tensors.xh"
 
+tensor format csv = ({dense, sparse});
+tensor format cvs = ({dense, sparse}, {1, 0});
+tensor format three = ({dense, sparse, sparse});
+tensor format d = ({dense, dense});
+tensor format f = ({dense, sparse});
+tensor format ft = ({dense, sparse, dense}, {1, 0, 2});
+
 int main() {
-  tensor format csv = format({dense, sparse});
-  tensor format cvs = format({dense, sparse}, {1, 0});
-  tensor format three = format ({dense, sparse, sparse});
-  tensor format d = format ({dense, dense});
+  tensor<csv> t = build (tensor<csv>) ({3, 4 / 2});
+  tensor<cvs> s = build (tensor<cvs>) ({6 + 1, 9});
+  tensor<csv> q = build (tensor<csv>) ([[1.0, 3.2, 6.9], [2.3, 6.7, 8.2]]);
+  tensor<three> w = build (tensor<three>) ({6, 7 * 3, 2});
+  tensor<three> z = build (tensor<three>) ([[[1.2, 3.7], [6.2, 5.1]], [[2.1, 3.2], [3.4, 3.1]]]);
 
-  tensor t = build  tensor({3, 4 / 2}, csv);
-  tensor s = build tensor({6 + 1, 9}, cvs);
-  tensor q = build tensor([[1.0, 3.2, 6.9], [2.3, 6.7, 8.2]], csv);
-  tensor w = build tensor({6, 7 * 3, 2}, three);
-  tensor z = build tensor([[[1.2, 3.7], [6.2, 5.1]], [[2.1, 3.2], [3.4, 3.1]]], three);
+  float res = value (z)(1, 1, 0);
+  printf("Eventually this will be true %f == 3.4\n", res);
 
-  //float res = tensor z(1, 1, 0);
-  //printf("Eventually this will be true %f == 3.4\n", res);
-
-  //printf("This should evaluate to %f: %f\n", 0.0, tensor s(0, 7));
-  //tensor value s(0, 7) = 2.2 / 3.2;
-  //printf("This should evaluate to %f: %f\n", 2.2 / 3.2, tensor s(0, 7));
+  printf("This should evaluate to %f: %f\n", 0.0, value (s)(0, 7));
+  value (s)(0, 7) = 2.2 / 3.2;
+  printf("This should evaluate to %f: %f\n", 2.2 / 3.2, value (s)(0, 7));
 
 ////Error testing
-//  tensor err0 = build tensor({2, 8}, two); // undeclared format two
-//  tensor err1 = build tensor({3, 2}, three); // three has 3 dimensions, only 2 provided
-//  tensor err2 = build tensor({1, 9 , 8+2}, csv); // csv has only 2 dimensions, 3 provided
-//  tensor err3 = build tensor({7*6}, cvs); // cvs has 2 dimensions, only one provided
-//  tensor err4 = build tensor([[2, 1], [3, 2, 3]], cvs); // length of inside dimensions do not match
-//  tensor err5 = build tensor([[2, 1], [3.2, 6.7*2.5]], three); // three has 3 dimensions, only 2 provided
+//  tensor<two> err0 = build (tensor<two>) ({2, 8}); // undeclared format two
+//  tensor<three> err1 = build (tensor<three>) ({3, 2}); // three has 3 dimensions, only 2 provided
+//  tensor<csv> err2 = build (tensor<csv>) ({1, 9 , 8+2}); // csv has only 2 dimensions, 3 provided
+//  tensor<cvs> err3 = build (tensor<cvs>) ({7*6}); // cvs has 2 dimensions, only one provided
+//  tensor<cvs> err4 = build (tensor<cvs>) ([[2, 1], [3, 2, 3]](; // length of inside dimensions do not match
+//  tensor<three> err5 = build (tensor<three>) ([[2, 1], [3.2, 6.7*2.5]]); // three has 3 dimensions, only 2 provided
 
-  tensor format f;
+  tensor<f> tensor_t;
+  tensor_t = build (tensor<f>) ({3, 9});
+  tensor_t = build (tensor<f>) ([[3.2, 7.5, 6.2 / 3.1], [1.4, 2.3, 5.3]]);
 
-  f = format({dense, sparse});
-  tensor format ft = format({dense, sparse, sparse});
-  ft = format({dense, sparse, dense}, {1, 0, 2});
-
-  t = build tensor({3, 9}, f);
-  t = build tensor({4, 6, 7}, format({sparse, sparse, dense}, {2, 1, 0}));
-  t = build tensor([[3.2, 7.5, 6.2 / 3.1], [1.4, 2.3, 5.3]], f);
+  printf("This should be true: 7.5 == %f\n", value (tensor_t)(0, 1));
+  printf("As well as this: %f == %f\n", 5.3, value (tensor_t)(1, 2));
 
   printf("Hello, world!\n");
+
+  tensor<cvs> mat = inst read<tensor<cvs>>("pwtk.mtx");
+  printf("mat(1, 1) = %f\n", value (mat)(0, 0));
+  printf("mat(2, 1) = %f\n", value (mat)(1, 0));
+  printf("mat(3, 1) = %f\n", value (mat)(2, 0));
+  printf("mat(4, 1) = %f\n", value (mat)(3, 0));
+  printf("mat(5, 1) = %f\n", value (mat)(4, 0));
+  printf("mat(6, 1) = %f\n", value (mat)(5, 0));
+  printf("mat(7, 1) = %f\n", value (mat)(6, 0));
+  printf("mat(8, 1) = %f\n", value (mat)(7, 0));
+  printf("mat(9, 1) = %f\n", value (mat)(8, 0));
+  printf("mat(10, 1) = %f\n", value (mat)(9, 0));
 
   return 0;
 }

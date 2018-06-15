@@ -5,38 +5,16 @@
 #include "gc.h"
 #include <string.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
 
 struct tensor_insertion_s {
   double val;
   unsigned long* index;
 };
-
-struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor"))) tensor_s {
-  struct tensor_s* (*make)(unsigned long* dims);
-  struct tensor_s* (*make_filled)(unsigned long* dims, double* data);
-  void (*modify)(struct tensor_s* t, unsigned long* index, double val);
-  double (*get)(struct tensor_s* t, unsigned long* index);
-  void (*pack)(struct tensor_s* t);
-  unsigned long order;
-  
-  unsigned long* dims;
-  unsigned long*** indices;
-  double* data;
-  
-  struct tensor_insertion_s* buffer;
-  unsigned long bufferLen;
-  unsigned long bufferCnt;
-};
-
-struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:format"))) tensor_format_s {
-  struct tensor_s* (*make)(unsigned long* dims);
-  struct tensor_s* (*make_filled)(unsigned long* dims, double* data);
-  void (*modify)(struct tensor_s* t, unsigned long* index, double val);
-  double (*get)(struct tensor_s* t, unsigned long* index);
-  void (*pack)(struct tensor_s* t);
-  unsigned long order;
-};
-
 
 struct tensor_tree_s {
   char isLeaf;
@@ -55,6 +33,212 @@ static char tensor_checkTree(struct tensor_tree_s* t) {
     }
   }
   return 0;
+}
+
+char _eq_str(char* str1, char* str2, int length) {
+  for(int i = 0; i < length; i++) {
+    if(str1[i] != str2[i]) return 0;
+  }
+  return 1;
+}
+
+char _is_whitespace(char c) {
+  switch(c) {
+    case ' ':
+    case '\n':
+    case '\t':
+    case '\r':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+char _is_newline(char c) {
+  switch(c) {
+    case '\n':
+    case '\r':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+char** _read_line(char* file) {
+  char** res = GC_malloc(sizeof(char*) * 2);
+  if(file == 0) {
+    res[0] = 0;
+    res[1] = 0;
+    return res;
+  }
+  
+  int start = 0;
+  while(file[start] != '\0' && _is_whitespace(file[start])) {
+    start++;
+  }
+  if(file[start] == '\0') {
+    res[0] = 0;
+    res[1] = 0;
+    return res;
+  }
+  
+  res[0] = file + start;
+  
+  int length = start;
+  while(file[length] != '\0' && !_is_newline(file[length])) {
+    length++;
+  }
+  
+  if(file[length] != '\0') {
+    char* temp = GC_malloc(sizeof(char) * (length - start + 1));
+    memcpy(temp, res[0], sizeof(char) * (length - start));
+    res[0] = temp;
+    res[0][length - start] = '\0';
+    
+    res[1] = file + length + 1;
+  } else {
+    res[1] = 0;
+  }
+  
+  return res;
+}
+
+template<a>
+a _read_rb(char* file) {
+  
+}
+
+template<a>
+a _read_mtx(char* file) {
+  char** lines = _read_line(file);
+  char* header = lines[0];
+  file = lines[1];
+
+  char data[32];
+  char fmt[32];  
+  char dataType;
+  char formatType;
+
+  if(sscanf(header, "%%%%MatrixMarket matrix coordinate %s %s", data, fmt) != 2) {
+    fprintf(stderr, "File is not a MatrixMarket format\n");
+    return 0;
+  }
+
+  if(strcmp(data, "real") == 0) {
+    dataType = 0;
+  } else if(strcmp(data, "integer") == 0) {
+    dataType = 1;
+  } else if(strcmp(data, "complex") == 0) {
+    fprintf(stderr, "Complex numbers are not supported in tensors\n");
+    return 0;
+  } else {
+    fprintf(stderr, "Data type specifier is not recognized.\n");
+    return 0;
+  }
+  
+  if(strcmp(fmt, "general") == 0) {
+    formatType = 0;
+  } else if(strcmp(fmt, "symmetric") == 0) {
+    formatType = 1;
+  } else if(strcmp(fmt, "skew-symmetric") == 0) {
+    formatType = 1;
+  } else if(strcmp(fmt, "hermitian") == 0) {
+    fprintf(stderr, "Complex numbers are not supported in tensors\n");
+    return 0;
+  } else {
+    fprintf(stderr, "Symmetry specifer is not recognized.\n");
+    return 0;
+  }
+  
+  lines = _read_line(file);
+  char* line = lines[0];
+  file = lines[1];
+  while(line[0] == '%') {
+    lines = _read_line(file);
+    line = lines[0];
+    file = lines[1];
+  }
+  
+  unsigned long rows, cols, entries;
+  if(sscanf(line, "%lu %lu %lu", &rows, &cols, &entries) != 3) {
+    fprintf(stderr, "Matrix size specifier line is not valid.\n");
+    return 0;
+  }
+  
+  unsigned long arr[] = {rows, cols};
+  a res = build (a)(arr);
+  
+  unsigned long r, c;
+  double elem_d;
+  long elem_i;
+  for(unsigned long i = 0; i < entries; i++) {
+    lines = _read_line(file);
+    line = lines[0];
+    file = lines[1];
+    
+    if(line == 0) {
+      fprintf(stderr, "End of file reached without finding appropriate number of elements\n");
+      return 0;
+    }
+    
+    if(dataType == 0) {
+      if(sscanf(line, "%lu %lu %le", &r, &c, &elem_d) != 3) {
+        fprintf(stderr, "Element specifier is not correct format\n");
+        return 0;
+      }
+    
+      value (res)(r-1, c-1) = elem_d;
+      if(formatType == 1) {
+        value (res)(c-1, r-1) = elem_d;
+      }
+    } else {
+      if(sscanf(line, "%lu %lu %ld", &r, &c, &elem_i) != 3) {
+        fprintf(stderr, "Element specifier is not correct format\n");
+        return 0;
+      }
+      
+      value (res)(r-1, c-1) = elem_i;
+      if(formatType == 1) {
+        value (res)(c-1, r-1) = elem_i;
+      }
+    }
+  }
+  
+  return res;
+}
+
+template <a>
+a _read_tns(char* file) {
+
+}
+
+template<a>
+a read(char* fileName) {
+  int len = strlen(fileName);
+  char* ext = fileName + len - 3;
+  
+  int fd = open(fileName, O_RDONLY);
+  struct stat stat_buf;
+  fstat(fd, &stat_buf);
+  int size = stat_buf.st_size;
+  char *file = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+  
+  a res;
+  if(_eq_str(ext, "rb", 2)) {
+    res = inst _read_rb<a>(file);
+  } if(_eq_str(ext, "mtx", 3) || _eq_str(ext, "ttx", 3)) {
+    res = inst _read_mtx<a>(file);
+  } else if(_eq_str(ext, "tns", 3)) {
+    res = inst _read_tns<a>(file);
+  } else {
+    fprintf(stderr, "Unknown file extension for tensor: %s\n", ext);
+    return 0;
+  }
+  
+  munmap(file, size);
+  close(fd);
+
+  return res;
 }
 
 #endif

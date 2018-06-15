@@ -3,14 +3,17 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:codegen;
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 function declAll
-Decl ::= fmt::TensorFormat
+Decl ::= fmt::TensorFormatItem
 {
   return decls(
     consDecl(
-      declMakeFilledFunction(fmt),
+      declStruct(fmt),
       consDecl(
-        declModifyFunction(fmt),
-        nilDecl()
+        declMakeFilledFunction(fmt),
+        consDecl(
+          declModifyFunction(fmt),
+          nilDecl()
+        )
       )
     )
   );

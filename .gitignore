@@ -4,6 +4,10 @@
 !.gitignore
 
 build.xml
+*.mtx
+*.tns
+*.rb
+*.ttx
 *.a
 *.i
 *.jar

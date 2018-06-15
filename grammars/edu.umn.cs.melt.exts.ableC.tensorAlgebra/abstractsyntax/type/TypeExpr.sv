@@ -1,44 +1,44 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:type;
 
 imports edu:umn:cs:melt:ableC:abstractsyntax:host;
+imports edu:umn:cs:melt:ableC:abstractsyntax:env;
+
+imports silver:langutil;
 imports silver:langutil:pp;
 
-abstract production formatTypeExpr
-top::BaseTypeExpr ::= q::Qualifiers
-{
-  forwards to typeModifierTypeExpr(
-                directTypeExpr(formatType(q)),
-                pointerTypeExpr(nilQualifier(), baseTypeExpr()));
-}
-
-abstract production formatType
-top::Type ::= q::Qualifiers
-{
-  top.lpp = pp"tensor format";
-  top.rpp = pp"";
-  
-  forwards to
-    tagType(
-      q,
-      refIdTagType(structSEU(), "tensor_format_s", s"edu:umn:cs:melt:exts:ableC:tensorAlgebra:format"));
-}
+import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 abstract production tensorTypeExpr
-top::BaseTypeExpr ::= q::Qualifiers
+top::BaseTypeExpr ::= q::Qualifiers fmt::Name
 {
   forwards to typeModifierTypeExpr(
-                directTypeExpr(tensorType(q)),
+                directTypeExpr(tensorType(q, fmt, top.env)),
                 pointerTypeExpr(nilQualifier(), baseTypeExpr()));
 }
 
 abstract production tensorType
-top::Type ::= q::Qualifiers
+top::Type ::= q::Qualifiers fmt::Name env::Decorated Env
 {
-  top.lpp = pp"tensor";
+  top.lpp = pp"tensor<${text(fmt.name)}>";
   top.rpp = pp"";
+
+  fmt.env = env;
+
+  local fmtNm::String =
+    fmt.tensorFormatItem.proceduralName;
+  
+  local errors::[Message] =
+    fmt.tensorFormatLookupCheck;
   
   forwards to
-    tagType(
-      q,
-      refIdTagType(structSEU(), "tensor_s", s"edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor"));
+  if !null(errors)
+  then errorType()
+  else tagType(
+         q,
+         refIdTagType(
+           structSEU(), 
+           s"tensor_${fmtNm}", 
+           s"edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_${fmtNm}"
+         )
+       );
 }

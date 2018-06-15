@@ -3,7 +3,7 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:codegen;
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 function declPackFunction
-Decl ::= fmt::TensorFormat
+Decl ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
 
@@ -30,14 +30,14 @@ Decl ::= fmt::TensorFormat
 
 
 function generateGenerateIndexFunction
-String ::= fmt::TensorFormat
+String ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
   local order::String = toString(fmt.dimens);
-  local ordered::[Integer] = reverse(fmt.order);
+  local ordered::[Integer] = reverse(fmt.dimenOrder);
   
   return s"""
-    static unsigned long* tensor_generateIndex_${fmtNm}(struct tensor_s* t, unsigned long higher, unsigned long bottom) {
+    static unsigned long* tensor_generateIndex_${fmtNm}(struct tensor_${fmtNm}* t, unsigned long higher, unsigned long bottom) {
       unsigned long* dims = t->dims;
       unsigned long* res = GC_malloc(sizeof(unsigned long) * ${order});
       res[${toString(head(ordered))}] = bottom;
@@ -64,12 +64,12 @@ String ::= order::[Integer]
 
 
 function generateGetBufferFunction
-String ::= fmt::TensorFormat
+String ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
   
   return s"""
-    static double tensor_getBuff_${fmtNm}(struct tensor_s* t, unsigned long* index) {
+    static double tensor_getBuff_${fmtNm}(struct tensor_${fmtNm}* t, unsigned long* index) {
       struct tensor_insertion_s* buffer = t->buffer;
       unsigned long bufferCnt = t->bufferCnt;
       double res = tensor_get_${fmtNm}(t, index);
@@ -106,16 +106,16 @@ String ::= dims::Integer idx::Integer
 
 
 function generatePackFunction
-String ::= fmt::TensorFormat
+String ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
   local order::Integer = fmt.dimens;
-  local dimOrder::[Integer] = reverse(fmt.order);
-  local dimType::[Integer] = fmt.types;
+  local dimOrder::[Integer] = reverse(fmt.dimenOrder);
+  local dimType::[Integer] = fmt.specifiers;
   local firstDim::Integer = head(dimOrder);
   
   return s"""
-    static void tensor_pack_${fmtNm}(struct tensor_s* t) {
+    static void tensor_pack_${fmtNm}(struct tensor_${fmtNm}* t) {
       unsigned long* dims = t->dims;
       unsigned long*** indices = t->indices;
       double* data = t->data;
@@ -143,7 +143,7 @@ String ::= fmt::TensorFormat
         struct tensor_tree_s** temp_tree;
         unsigned long total;
         
-        ${generatePackBody_Assemble(fmt.order, dimType)}
+        ${generatePackBody_Assemble(fmt.dimenOrder, dimType)}
         
         t->data = GC_malloc(sizeof(double) * numChildren);
         for(unsigned long i = 0; i < numChildren; i++) {

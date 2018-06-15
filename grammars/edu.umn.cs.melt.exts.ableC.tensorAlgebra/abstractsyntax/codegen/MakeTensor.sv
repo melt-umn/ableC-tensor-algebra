@@ -3,7 +3,7 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:codegen;
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 function declMakeFunction
-Decl ::= fmt::TensorFormat
+Decl ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
 
@@ -13,14 +13,14 @@ Decl ::= fmt::TensorFormat
 }
 
 function generateMakeFunction
-String ::= fmt::TensorFormat
+String ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
   local dimens::Integer = fmt.dimens;
   
   return s"""
-    static struct tensor_s* tensor_make_${fmtNm}(unsigned long* dims) {
-      struct tensor_s* res = GC_malloc(sizeof(struct tensor_s));
+    static struct tensor_${fmtNm}* tensor_make_${fmtNm}(unsigned long* dims) {
+      struct tensor_${fmtNm}* res = GC_malloc(sizeof(struct tensor_${fmtNm}));
       res->dims = GC_malloc(sizeof(unsigned long) * ${toString(dimens)});
       memcpy(res->dims, dims, sizeof(unsigned long) * ${toString(dimens)});
       res->buffer = GC_malloc(sizeof(struct tensor_insertion_s) * 8);
@@ -30,7 +30,7 @@ String ::= fmt::TensorFormat
       res->indices = GC_malloc(sizeof(unsigned long**) * ${toString(dimens)});
       unsigned long count = 1;
       
-      ${generateMakeBody(fmt.order, fmt.types)}
+      ${generateMakeBody(fmt.dimenOrder, fmt.specifiers)}
       
       return res;
     }

@@ -3,7 +3,7 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:codegen;
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 function declModifyFunction
-Decl ::= fmt::TensorFormat
+Decl ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
 
@@ -13,13 +13,13 @@ Decl ::= fmt::TensorFormat
 }
 
 function generateModifyFunction
-String ::= fmt::TensorFormat
+String ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
   local dimens::Integer = fmt.dimens;
   
   return s"""
-    static void tensor_modify_${fmtNm}(struct tensor_s* t, unsigned long* index, double val) {
+    static void tensor_modify_${fmtNm}(struct tensor_${fmtNm}* t, unsigned long* index, double val) {
       unsigned long* dims = t->dims;
       unsigned long*** indices = t->indices;
       double* data = t->data;
@@ -28,7 +28,7 @@ String ::= fmt::TensorFormat
       unsigned long start, end;
       
       ${generateIndexCheck(dimens)}
-      ${generateModifyBody(fmt.order, fmt.types, dimens)}
+      ${generateModifyBody(fmt.dimenOrder, fmt.specifiers, dimens)}
     }
   """;
 }

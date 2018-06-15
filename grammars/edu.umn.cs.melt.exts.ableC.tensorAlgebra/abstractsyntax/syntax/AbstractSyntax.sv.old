@@ -102,15 +102,21 @@ top::Decl ::= nm::Name types::[Integer] order::[Integer]
 }
 
 abstract production tensor_empty
-top::Expr ::= type::TypeName dims::[Expr]
+top::Expr ::= type::TypeSpecifier_c dims::[Expr]
 {
-  local formatType::Type = type.typerep;
-
+  type.givenQualifiers = nilQualifier();
+  local baseType::BaseTypeExpr =
+    case type.realTypeSpecifiers of
+    | [e] -> e
+    | _ -> errorTypeExpr([err(type.location, s"Unrecognized type")])
+    end;
+  baseType.env = top.env;
+  baseType.returnType = nothing();
+  baseType.givenRefId = nothing();
   local format::Name =
-    case formatType of
-    | pointerType(_, 
-        tensorType(_, fmt, _)) -> fmt
-    | _ -> name("error", location=top.location)
+    case baseType of
+    | tensorTypeExpr(_, fmt) -> fmt
+    | _ -> name("error", location=type.location)
     end;
   format.env = top.env;
 
@@ -126,15 +132,14 @@ top::Expr ::= type::TypeName dims::[Expr]
   local dimens::Integer = fmt.dimens;
   
   local errors::[Message] = 
-    case formatType of
-    | pointerType(_,
-        tensorType(_, _, _)) -> 
+    case type.preTypeSpecifiers, baseType of
+    | [], tensorTypeExpr(_, _) -> 
       format.tensorFormatLookupCheck
       ++
       if dimens > 0 && dimens != arrayLength(dims)
       then [err(top.location, s"Number of dimensions specified does not match format.")]
       else []
-    | _ -> [err(top.location, s"Tensor cannot be built using a non-tensor type.")]
+    | _, _ -> [err(type.location, s"Tensor cannot be built using a non-tensor type.")]
     end
     ++
     errorCheckTypes(head(dims), tail(dims), top.env);
@@ -160,15 +165,21 @@ top::Expr ::= type::TypeName dims::[Expr]
 }
 
 abstract production tensor_filled
-top::Expr ::= type::TypeName data::Tensor
+top::Expr ::= type::TypeSpecifier_c data::Tensor
 {
-  local formatType::Type = type.typerep;
-  
+  type.givenQualifiers = nilQualifier();
+  local baseType::BaseTypeExpr =
+    case type.realTypeSpecifiers of
+    | [e] -> e
+    | _ -> errorTypeExpr([err(type.location, s"Unrecognized type")])
+    end;
+  baseType.env = top.env;
+  baseType.returnType = nothing();
+  baseType.givenRefId = nothing();
   local format::Name =
-    case formatType of
-    | pointerType(_,
-        tensorType(_, fmt, _)) -> fmt
-    | _ -> name("error", location=top.location)
+    case baseType of
+    | tensorTypeExpr(_, fmt) -> fmt
+    | _ -> name("error", location=type.location)
     end;
   format.env = top.env;
 
@@ -187,15 +198,14 @@ top::Expr ::= type::TypeName data::Tensor
   data.env = top.env;
   
   local errors::[Message] =
-    case formatType of
-    | pointerType(_,
-        tensorType(_, _, _)) ->
+    case type.preTypeSpecifiers, baseType of
+    | [], tensorTypeExpr(_, _) ->
       format.tensorFormatLookupCheck
       ++
       if dimens > 0 && dimens != data.dimensions
       then [err(top.location, s"Number of dimensions specified does not match format.")]
       else []
-    | _ -> [err(top.location, s"Tensor cannot be built using a non-tensor type.")]
+    | _, _ -> [err(type.location, s"Tensor cannot be built using a non-tensor type.")]
     end
     ++
     data.err;
@@ -223,18 +233,24 @@ top::Expr ::= type::TypeName data::Tensor
 }
 
 abstract production tensor_array
-top::Expr ::= type::TypeName dims::Expr
+top::Expr ::= type::TypeSpecifier_c dims::Expr
 {
-  local formatType::Type = type.typerep;
-  
+  type.givenQualifiers = nilQualifier();
+  local baseType::BaseTypeExpr =
+    case type.realTypeSpecifiers of
+    | [e] -> e
+    | _ -> errorTypeExpr([err(type.location, s"Unrecognized type")])
+    end;
+  baseType.env = top.env;
+  baseType.returnType = nothing();
+  baseType.givenRefId = nothing();
   local format::Name =
-    case formatType of
-    | pointerType(_,
-        tensorType(_, fmt, _)) -> fmt
-    | _ -> name("__error__", location=top.location)
+    case baseType of
+    | tensorTypeExpr(_, fmt) -> fmt
+    | _ -> name(s"_err_${showType(baseType.typerep)}", location=type.location)
     end;
   format.env = top.env;
-
+  
   top.pp = ppConcat([
              text("build tensor<${format.name}> ("),
              dims.pp,
@@ -247,11 +263,10 @@ top::Expr ::= type::TypeName dims::Expr
   local dimens::Integer = fmt.dimens;
   
   local errors::[Message] =
-    case formatType of
-    | pointerType(_,
-        tensorType(_, _, _)) ->
+    case type.preTypeSpecifiers, baseType of
+    | [], tensorTypeExpr(_, _) ->
       format.tensorFormatLookupCheck
-    | _ -> [err(top.location, s"Tensor cannot be built using a non-tensor type. Got ${showType(formatType)}")]
+    | _, _ -> [err(type.location, s"Tensor cannot be built using a non-tensor type. Got ${showType(baseType.typerep)}")]
     end
     ++
     case dims.typerep of
@@ -259,28 +274,19 @@ top::Expr ::= type::TypeName dims::Expr
       if type.isIntegerType
       then []
       else [err(dims.location, s"Tensor must be built using an array of integer dimensions.")]
-    | pointerType(_, type) ->
-      if type.isIntegerType
-      then []
-      else [err(dims.location, s"Tensor must be built using an array of integer dimensions.")]      
     | _ -> [err(dims.location, s"Tensor must be built using an array of dimensions.")]
     end;
   
   local fmtNm::String = fmt.proceduralName;
   
-  local dimType::Type =
-    case dims.typerep of
-    | arrayType(type, q, _, _) -> pointerType(q, type)
-    | x -> x
-    end;
-  
   local fwrd::Expr =
     substExpr(
       declRefSubstitution(s"__dimens", dims) ::
-        typedefSubstitution("__dim_type__", directTypeExpr(dimType)) ::
+        typedefSubstitution("__dim_type__", directTypeExpr(dims.typerep)) ::
         [],
       parseExpr(s"""
       ({
+        char *str = "${showType(baseType.typerep)}";
         proto_typedef __dim_type__;
         __dim_type__ _dimens = __dimens;
         unsigned long* __tensor_arr = GC_malloc(sizeof(unsigned long) * ${toString(dimens)});
