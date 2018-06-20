@@ -239,6 +239,6 @@ TensorCond ::= c::TensorCond fmt:: tm:Map<Name TensorFormatItem>
 
 function sparse_dimensions
 [Pair<String Integer>] ::= lat::MergeLattice fmts :: tm:Map<Name TensorFormatItem>
-{ 
+{
   return [];
 }
