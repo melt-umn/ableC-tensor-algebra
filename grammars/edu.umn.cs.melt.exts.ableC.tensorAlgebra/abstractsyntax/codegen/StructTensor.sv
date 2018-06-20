@@ -15,9 +15,8 @@ Decl ::= fmt::TensorFormatItem
                unsigned long*** indices;
                double* data;
                
-               struct tensor_insertion_s* buffer;
-               unsigned long bufferLen;
                unsigned long bufferCnt;
+               struct tensor_tree_s buffer;
              };
            """)
          );

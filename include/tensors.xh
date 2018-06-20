@@ -11,11 +11,6 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-struct tensor_insertion_s {
-  double val;
-  unsigned long* index;
-};
-
 struct tensor_tree_s {
   char isLeaf;
   double val;

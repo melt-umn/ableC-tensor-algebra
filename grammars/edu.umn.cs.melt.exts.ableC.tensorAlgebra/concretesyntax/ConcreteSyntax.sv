@@ -42,6 +42,10 @@ concrete productions top::Stmt_c
   {
     top.ast = tensor_assign(tensor.ast, idx.indxs, op.assignOp, val.ast);
   }
+| 'tensor' dest::TensorElem_c '=' src::TensorElemExpr_c ';' 
+  {
+    top.ast = tensor_compute(dest.base, dest.index, src.tExpr);
+  }
 
 concrete productions top::TypeSpecifier_c
 | 'tensor' '<' fmt::Identifier_t '>'
@@ -50,9 +54,57 @@ concrete productions top::TypeSpecifier_c
     top.preTypeSpecifiers = [];
   }
 
+
+synthesized attribute base::Name;
+synthesized attribute index::[String];
+nonterminal TensorElem_c with base, index, location;
+concrete productions top::TensorElem_c
+| base::Identifier_t '(' index::TensorIndexList_c  ')'
+  {
+    top.base = fromId(base);
+    top.index = index.index;
+  }
+
+nonterminal TensorIndexList_c with index;
+concrete productions top::TensorIndexList_c
+| a::Identifier_t
+  {
+    top.index = [a.lexeme];
+  }
+| a::Identifier_t ',' res::TensorIndexList_c
+  {
+    top.index = a.lexeme :: res.index;
+  }
+
+
+terminal DoubleParensOpen_t '((';
+
+synthesized attribute tExpr :: TensorExpr;
+nonterminal TensorElemExpr_c with tExpr, location;
+concrete productions top::TensorElemExpr_c
+| '((' expr::Expr_c ')' ')'
+  {
+    top.tExpr = tExpr(expr.ast, location=top.location);
+  }
+| elem::TensorElem_c
+  {
+    top.tExpr = access(elem.base, elem.index, location=top.location);
+  }
+| left::TensorElemExpr_c '+' right::TensorElemExpr_c
+  {
+    top.tExpr = add(left.tExpr, right.tExpr, location=top.location);
+  }
+| left::TensorElemExpr_c '*' right::TensorElemExpr_c
+  {
+    top.tExpr = mul(left.tExpr, right.tExpr, location=top.location);
+  }
+| '(' inner::TensorElemExpr_c ')'
+  {
+    top.tExpr = inner.tExpr;
+  }
+
 terminal Dense_t 'dense';
 terminal Sparse_t 'sparse';
-
 
 synthesized attribute specs::[Integer];
 nonterminal SpecifierList_c with location, specs;

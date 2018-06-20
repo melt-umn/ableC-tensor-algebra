@@ -14,7 +14,7 @@ top::TensorFormatItem ::= specifiers::[Integer] dimenOrder::[Integer] source::Lo
 {
   top.specifiers = specifiers;
   top.dimenOrder = dimenOrder;
-  top.dimens = arrayLength(specifiers);
+  top.dimens = listLength(specifiers);
   top.proceduralName = formName(specifiers, dimenOrder);
   top.sourceLocation = source;
 }

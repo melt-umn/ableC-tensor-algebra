@@ -33,7 +33,7 @@ top::Decl ::= nm::Name types::[Integer]
              text("});")
            ]);
 
-  local order::[Integer] = defaultOrder(arrayLength(types));
+  local order::[Integer] = defaultOrder(listLength(types));
   local fmt::TensorFormatItem = tensorFormatItem(types, order, nm.location);
   
   local fwrd::Decl =
@@ -54,14 +54,14 @@ top::Decl ::= nm::Name types::[Integer]
 abstract production format_with
 top::Decl ::= nm::Name types::[Integer] order::[Integer]
 {
-  local dimens::Integer = arrayLength(order);
+  local dimens::Integer = listLength(order);
 
   local errors::[Message] =
     case types of
     | [] -> [err(nm.location, s"Cannot have zero dimensional tensor. Not supported")]
     | _ -> []
     end ++
-    if arrayLength(types) != dimens
+    if listLength(types) != dimens
     then [err(nm.location, s"Tensor format must have same number of specified dimensions in type and order.")]
     else []
     ++
@@ -131,7 +131,7 @@ top::Expr ::= type::TypeName dims::[Expr]
         tensorType(_, _, _)) -> 
       format.tensorFormatLookupCheck
       ++
-      if dimens > 0 && dimens != arrayLength(dims)
+      if dimens > 0 && dimens != listLength(dims)
       then [err(top.location, s"Number of dimensions specified does not match format.")]
       else []
     | _ -> [err(top.location, s"Tensor cannot be built using a non-tensor type.")]
@@ -395,4 +395,42 @@ top::Stmt ::= tensor::Expr index::[Expr] op::AssignmentOp val::Expr
     end;
 
   forwards to op.fwrd(fmtNm)(tensor, index, val);
+}
+
+abstract production tensor_compute
+top::Stmt ::= base::Name index::[String] expr::TensorExpr
+{
+  top.pp = ppConcat([
+             text("tensor "),
+             base.pp,
+             text("("),
+             ppImplode(text(", "), map(text(_), index)),
+             text(") = "),
+             expr.pp,
+             text(";")
+           ]);
+  
+  propagate substituted;
+  top.functionDefs := [];
+  expr.env = top.env;
+  
+  local baseValues::[ValueItem] =
+    lookupValue(base.name, top.env);
+  
+  local errors::[Message] =
+    case baseValues of
+    | b::[] -> case b.typerep of
+               | pointerType(_,
+                   tensorType(_, _, _)
+                 ) -> []
+               | _ -> [err(base.location, s"Tensor computation expected a tensor (got ${showType(b.typerep)})")]
+               end
+    | _ -> [err(base.location, s"Tensor computation expected a tensor")]
+    end ++
+    expr.errors;
+  
+  forwards to 
+  if !null(errors)
+  then warnStmt(errors)
+  else codeGen(base, index, expr, top.env, expr.location);
 }

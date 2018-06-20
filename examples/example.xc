@@ -2,11 +2,14 @@
 #include "tensors.xh"
 
 tensor format csv = ({dense, sparse});
-tensor format cvs = ({dense, sparse}, {1, 0});
+tensor format cvs = ({sparse, sparse}, {1, 0});
 tensor format three = ({dense, sparse, sparse});
 tensor format d = ({dense, dense});
 tensor format f = ({dense, sparse});
 tensor format ft = ({dense, sparse, dense}, {1, 0, 2});
+
+tensor format fB = ({dense, sparse});
+tensor format fA = ({dense, dense});
 
 int main() {
   tensor<csv> t = build (tensor<csv>) ({3, 4 / 2});
@@ -39,17 +42,23 @@ int main() {
 
   printf("Hello, world!\n");
 
-  tensor<cvs> mat = inst read<tensor<cvs>>("pwtk.mtx");
-  printf("mat(1, 1) = %f\n", value (mat)(0, 0));
-  printf("mat(2, 1) = %f\n", value (mat)(1, 0));
-  printf("mat(3, 1) = %f\n", value (mat)(2, 0));
-  printf("mat(4, 1) = %f\n", value (mat)(3, 0));
-  printf("mat(5, 1) = %f\n", value (mat)(4, 0));
-  printf("mat(6, 1) = %f\n", value (mat)(5, 0));
-  printf("mat(7, 1) = %f\n", value (mat)(6, 0));
-  printf("mat(8, 1) = %f\n", value (mat)(7, 0));
-  printf("mat(9, 1) = %f\n", value (mat)(8, 0));
-  printf("mat(10, 1) = %f\n", value (mat)(9, 0));
+//  tensor<cvs> mat = inst read<tensor<cvs>>("matrix.mtx");
+//  printf("mat(1, 1) = %f\n", value (mat)(0, 0));
+//  printf("mat(2, 2) = %f\n", value (mat)(1, 1));
+//  printf("mat(3, 3) = %f\n", value (mat)(2, 2));
+//  printf("mat(4, 4) = %f\n", value (mat)(3, 3));
+//  printf("mat(5, 5) = %f\n", value (mat)(4, 4));
+//  printf("mat(6, 6) = %f\n", value (mat)(5, 5));
+//  printf("mat(7, 7) = %f\n", value (mat)(6, 6));
+//  printf("mat(8, 8) = %f\n", value (mat)(7, 7));
+//  printf("mat(9, 9) = %f\n", value (mat)(8, 8));
+//  printf("mat(10, 1) = %f\n", value (mat)(9, 0));
 
+  tensor<fA> A = build (tensor<fA>) ({256, 256});
+  tensor<fB> B = build (tensor<fB>) ({256, 256});
+  tensor<fB> C = build (tensor<fB>) ({256, 256});
+
+  tensor A(i, j) = B(i, j) + C(i, j);
+  
   return 0;
 }

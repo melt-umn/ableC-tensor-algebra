@@ -9,7 +9,8 @@ Decl ::= fmt::TensorFormatItem
 
   return maybeValueDecl(
     s"tensor_modify_${fmtNm}",
-    parseDecl(generateModifyFunction(fmt)));
+    parseDecl(generateModifyFunction(fmt))
+  );
 }
 
 function generateModifyFunction
@@ -28,13 +29,13 @@ String ::= fmt::TensorFormatItem
       unsigned long start, end;
       
       ${generateIndexCheck(dimens)}
-      ${generateModifyBody(fmt.dimenOrder, fmt.specifiers, dimens)}
+      ${generateModifyBody(fmt.dimenOrder, fmt.specifiers, fmtNm, dimens)}
     }
   """;
 }
 
 function generateModifyBody
-String ::= order::[Integer] types::[Integer] dims::Integer
+String ::= order::[Integer] types::[Integer] fmtNm::String dims::Integer
 {
   return
     if !null(order)
@@ -44,7 +45,7 @@ String ::= order::[Integer] types::[Integer] dims::Integer
          if spec == storeDense
          then s"""
            pTI = (pTI * indices[${dimen}][0][0]) + index[${dimen}];
-           ${generateModifyBody(tail(order), types, dims)}
+           ${generateModifyBody(tail(order), types, fmtNm, dims)}
          """
          else s"""
            found = 0;
@@ -59,23 +60,12 @@ String ::= order::[Integer] types::[Integer] dims::Integer
            }
            if(!found) {
              if(val != 0.0 || t->bufferCnt > 0) {
-               if(t->bufferLen == t->bufferCnt) {
-                 struct tensor_insertion_s* temp = GC_malloc(sizeof(struct tensor_insertion_s) * 2 * t->bufferLen);
-                 t->bufferLen *= 2;
-                 for(unsigned long k = 0; k < t->bufferCnt; k++) {
-                   temp[k] = t->buffer[k];
-                 }
-                 t->buffer = temp;
-               }
-               struct tensor_insertion_s* insert = &(t->buffer[t->bufferCnt]);
-               insert->val = val;
-               insert->index = GC_malloc(sizeof(unsigned long) * ${toString(dims)});
-               memcpy(insert->index, index, sizeof(unsigned long) * ${toString(dims)});
-               t->bufferCnt++;
+               tensor_insertBuff_${fmtNm}(&(t->buffer), index, val);
+               t->bufferCnt += 1;
              }
              return;
            }
-           ${generateModifyBody(tail(order), types, dims)}
+           ${generateModifyBody(tail(order), types, fmtNm, dims)}
          """
          end end end
     else s"data[pTI] = val;";

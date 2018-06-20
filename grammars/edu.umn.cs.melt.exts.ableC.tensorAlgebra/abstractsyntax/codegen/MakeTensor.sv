@@ -9,7 +9,8 @@ Decl ::= fmt::TensorFormatItem
 
   return maybeValueDecl(
     s"tensor_make_${fmtNm}",
-    parseDecl(generateMakeFunction(fmt)));
+    parseDecl(generateMakeFunction(fmt))
+  );
 }
 
 function generateMakeFunction
@@ -23,14 +24,21 @@ String ::= fmt::TensorFormatItem
       struct tensor_${fmtNm}* res = GC_malloc(sizeof(struct tensor_${fmtNm}));
       res->dims = GC_malloc(sizeof(unsigned long) * ${toString(dimens)});
       memcpy(res->dims, dims, sizeof(unsigned long) * ${toString(dimens)});
-      res->buffer = GC_malloc(sizeof(struct tensor_insertion_s) * 8);
-      res->bufferLen = 8;
+      res->buffer.isLeaf = 0;
+      res->buffer.index = 0;
+      res->buffer.numChildren = 0;
       res->bufferCnt = 0;
       res->data = 0;
       res->indices = GC_malloc(sizeof(unsigned long**) * ${toString(dimens)});
       unsigned long count = 1;
       
       ${generateMakeBody(fmt.dimenOrder, fmt.specifiers)}
+      
+      res->bufferCnt = 0;
+      res->buffer.isLeaf = 0;
+      res->buffer.index = 0;
+      res->buffer.numChildren = 0;
+      res->buffer.children = 0;
       
       return res;
     }

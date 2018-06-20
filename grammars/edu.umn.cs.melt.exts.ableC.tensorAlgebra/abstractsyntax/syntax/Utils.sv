@@ -20,7 +20,7 @@ function createDefaultOrder
 function checkOrder
 Boolean ::= order::[Integer]
 {
-  return containsAll(defaultOrder(arrayLength(order)), order);
+  return containsAll(defaultOrder(listLength(order)), order);
 }
 
 function containsAll

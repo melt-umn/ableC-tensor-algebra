@@ -7,244 +7,195 @@ Decl ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
 
-  return decls(consDecl(
-    declTensorGet(fmt),
+  return decls(
     consDecl(
       maybeValueDecl(
-        s"tensor_generateIndex_${fmtNm}",
-        parseDecl(generateGenerateIndexFunction(fmt))
-      ), consDecl(
+        s"tensor_packTree_${fmtNm}",
+        parseDecl(generatePackTree(fmt))
+      ),
+      consDecl(
         maybeValueDecl(
-          s"tensor_getBuff_${fmtNm}",
-          parseDecl(generateGetBufferFunction(fmt))
-        ), consDecl(
-          maybeValueDecl(
-            s"tensor_pack_${fmtNm}",
-            parseDecl(generatePackFunction(fmt))
-          ), nilDecl()
-        )
+          s"tensor_pack_${fmtNm}",
+          parseDecl(generatePackFunction(fmt))
+        ), 
+        nilDecl()
       )
     )
-  ));
+  );
 }
 
-
-function generateGenerateIndexFunction
-String ::= fmt::TensorFormatItem
-{
-  local fmtNm::String = fmt.proceduralName;
-  local order::String = toString(fmt.dimens);
-  local ordered::[Integer] = reverse(fmt.dimenOrder);
-  
-  return s"""
-    static unsigned long* tensor_generateIndex_${fmtNm}(struct tensor_${fmtNm}* t, unsigned long higher, unsigned long bottom) {
-      unsigned long* dims = t->dims;
-      unsigned long* res = GC_malloc(sizeof(unsigned long) * ${order});
-      res[${toString(head(ordered))}] = bottom;
-      ${generateGenerateIndexBody(tail(ordered))}
-      return res;
-    }
-  """;
-}
-
-function generateGenerateIndexBody
-String ::= order::[Integer]
-{
-  local dim::String = toString(head(order));
-  
-  return 
-    if !null(order)
-    then s"""
-      res[${dim}] = (higher % dims[${dim}]);
-      higher = higher / dims[${dim}];
-      ${generateGenerateIndexBody(tail(order))}
-    """
-    else s"";
-}
-
-
-function generateGetBufferFunction
+function generatePackTree
 String ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
   
   return s"""
-    static double tensor_getBuff_${fmtNm}(struct tensor_${fmtNm}* t, unsigned long* index) {
-      struct tensor_insertion_s* buffer = t->buffer;
-      unsigned long bufferCnt = t->bufferCnt;
-      double res = tensor_get_${fmtNm}(t, index);
-      for(unsigned long i = 0; i < bufferCnt; i++) {
-        char match = 1;
-        if(0) {}
-        ${generateGetBufferBody(fmt.dimens, 0)}
-      }
-      
-      return res;
+    static void tensor_packTree_${fmtNm}(struct tensor_tree_s* tree, unsigned long* dims) {
+      unsigned long count = 1;
+      unsigned long cTemp, index;
+      struct tensor_tree_s* temp;
+      ${generatePackTreeBody(fmt.dimenOrder, fmt.specifiers)}
     }
   """;
 }
 
-function generateGetBufferBody
-String ::= dims::Integer idx::Integer
+function generatePackTreeBody
+String ::= order::[Integer] types::[Integer]
 {
-  local index::String = toString(idx);
+  local dim::Integer = head(order);
+  local type::Integer = getElem(types, dim);
   
-  return
-    if dims == idx
-    then s"""
-      else {
-        res = buffer[i].val;
-      }
-    """
-    else s"""
-      else if(index[${index}] != buffer[i].index[${index}]) {
-      
-      }
-      ${generateGetBufferBody(dims, idx + 1)}
-    """;
-}
+  return if null(tail(order))
+         then if type == storeDense
+              then s"""
+                index = 0;
+                temp = GC_malloc(sizeof(struct tensor_tree_s) * count * dims[${toString(dim)}]);
+                for(unsigned long i = 0; i < count; i++) {
+                  unsigned long oldSize = tree[i].numChildren;
+                  tree[i].numChildren = dims[${toString(dim)}];
+                  tree[i].children = &(temp[index]);
+                  
+                  unsigned idx = 0;
+                  for(unsigned long j = 0; j < dims[${toString(dim)}]; j++) {
+                    if(idx < oldSize && tree[i].children[idx].index == j) {
+                      temp[index] = tree[i].children[idx];
+                      idx++;
+                    } else {
+                      temp[index].isLeaf = 1;
+                      temp[index].val = 0.0;
+                    }
+                    index++;
+                  }
+                }
+              """
+              else s"""
+              
+              """
+         else if type == storeDense
+              then s"""
+                index = 0;
+                temp = GC_malloc(sizeof(struct tensor_tree_s) * count * dims[${toString(dim)}]);
+                for(unsigned long i = 0; i < count; i++) {
+                  unsigned long oldSize = tree[i].numChildren;
+                  struct tensor_tree_s* start = &(temp[index]);
+                  tree[i].numChildren = dims[${toString(dim)}];
 
+                  unsigned idx = 0;
+                  for(unsigned long j = 0; j < dims[${toString(dim)}]; j++) {
+                    if(idx < oldSize && tree[i].children[idx].index == j) {
+                      temp[index] = tree[i].children[idx];
+                      idx++;
+                    } else {
+                      temp[index].isLeaf = 0;
+                      temp[index].index = j;
+                      temp[index].numChildren = 0;
+                    }
+                    index++;
+                  }
+                  
+                  tree[i].children = start;
+                }
+                
+                count = count * dims[${toString(dim)}];
+                tree = temp;
+                
+                ${generatePackTreeBody(tail(order), types)}
+              """
+              else s"""
+                cTemp = 0;
+                for(unsigned long i = 0; i < count; i++) {
+                  cTemp += tree[i].numChildren;
+                }
+                
+                temp = GC_malloc(sizeof(struct tensor_tree_s) * cTemp);
+                index = 0;
+                
+                for(unsigned long i = 0; i < count; i++) {
+                  for(unsigned long j = 0; j < tree[i].numChildren; j++) {
+                    temp[index] = tree[i].children[j];
+                    index++;
+                  }
+                }
+                
+                tree = temp;
+                count = cTemp;
+                
+                ${generatePackTreeBody(tail(order), types)}
+              """;
+}  
 
 function generatePackFunction
 String ::= fmt::TensorFormatItem
 {
   local fmtNm::String = fmt.proceduralName;
   local order::Integer = fmt.dimens;
-  local dimOrder::[Integer] = reverse(fmt.dimenOrder);
-  local dimType::[Integer] = fmt.specifiers;
-  local firstDim::Integer = head(dimOrder);
   
   return s"""
     static void tensor_pack_${fmtNm}(struct tensor_${fmtNm}* t) {
-      unsigned long* dims = t->dims;
-      unsigned long*** indices = t->indices;
-      double* data = t->data;
-      
       if(t->bufferCnt > 0) {
-        unsigned long size = ${generateProductDims(order, 0)};
+        unsigned long* dims = t->dims;
+        unsigned long*** indices = t->indices;
+        double* data = t->data;
+        struct tensor_tree_s* buffer = &(t->buffer);
         
-        unsigned long dimSize = dims[${toString(firstDim)}];
-        size /= dimSize;
-        struct tensor_tree_s* tree = GC_malloc(sizeof(struct tensor_tree_s) * size);
-        
-        for(unsigned long k = 0; k < size; k++) {
-          ${generatePackBody_Leaf(firstDim, getElem(dimType, firstDim), fmtNm)}
-        }
-        
-        struct tensor_tree_s* temp;
-        ${generatePackBody_Tree(tail(dimOrder), dimType)}
+        unsigned long pI0 = 0;
+        ${generatePackBody_Tree(fmt.dimenOrder, fmt.specifiers, fmtNm, 1)}
+        tensor_packTree_${fmtNm}(buffer, dims);
         
         t->indices = GC_malloc(sizeof(unsigned long**) * ${toString(order)});
         unsigned long numChildren = 1;
-        struct tensor_tree_s** trees = &tree;
+        struct tensor_tree_s** trees = &buffer;
         
-        unsigned long newChildren;
-        unsigned long index;
         struct tensor_tree_s** temp_tree;
-        unsigned long total;
+        unsigned long total, dimSize, index, newChildren;
         
-        ${generatePackBody_Assemble(fmt.dimenOrder, dimType)}
+        ${generatePackBody_Assemble(fmt.dimenOrder, fmt.specifiers)}
         
         t->data = GC_malloc(sizeof(double) * numChildren);
         for(unsigned long i = 0; i < numChildren; i++) {
           t->data[i] = trees[i]->val;
         }
         t->bufferCnt = 0;
+        t->buffer.numChildren = 0;
+        t->buffer.children = 0;
       }
     }
   """;
 }
 
-function generatePackBody_Leaf
-String ::= dim::Integer type::Integer fmtNm::String
-{
-  return if type == storeDense
-         then s"""
-           tree[k].numChildren = dimSize;
-           tree[k].children = GC_malloc(sizeof(struct tensor_tree_s) * dimSize);
-           for(unsigned long j = 0; j < dimSize; j++) {
-             tree[k].children[j].isLeaf = 1;
-             tree[k].children[j].val = tensor_getBuff_${fmtNm}(t, tensor_generateIndex_${fmtNm}(t, k, j));
-             tree[k].children[j].index = j;
-           }
-         """
-         else s"""
-           unsigned int count = 0;
-           struct tensor_tree_s* temp = GC_malloc(sizeof(struct tensor_tree_s) * dimSize);
-           for(unsigned long j = 0; j < dimSize; j++) {
-             unsigned long* index = tensor_generateIndex_${fmtNm}(t, k, j);
-             double val = tensor_getBuff_${fmtNm}(t, index);
-             if(val != 0.0) {
-               temp[count].val = val;
-               temp[count].index = j;
-               count++;
-             }
-           }
-           
-           tree[k].numChildren = count;
-           tree[k].children = GC_malloc(sizeof(struct tensor_tree_s) * count);
-           for(unsigned long j = 0; j < count; j++) {
-             tree[k].children[j].isLeaf = 1;
-             tree[k].children[j].val = temp[j].val;
-             tree[k].children[j].index = temp[j].index;
-           }
-         """;
-}
-
 function generatePackBody_Tree
-String ::= dims::[Integer] specs::[Integer]
+String ::= order::[Integer] types::[Integer] fmtNm::String dim::Integer
 {
-  local dimen::Integer = head(dims);
-  local dim::String = toString(dimen);
-  local spec::Integer = getElem(specs, dimen);
+  local dimen::Integer = head(order);
+  local type::Integer = getElem(types, dimen);
+  local str_dim::String = toString(dim);
+  local dims::String = toString(dimen);
 
-  return if null(dims)
-         then s""
-         else s"""
-           dimSize = dims[${dim}];
-           size /= dimSize;
-           temp = GC_malloc(sizeof(struct tensor_tree_s) * size);
-           for(unsigned long k = 0; k < size; k++) {
-             ${if spec == storeDense
-               then s"""
-                 temp[k].numChildren = dimSize;
-                 temp[k].children = GC_malloc(sizeof(struct tensor_tree_s) * dimSize);
-                 for(unsigned long j = 0; j < dimSize; j++) {
-                   temp[k].children[j].isLeaf = 0;
-                   temp[k].children[j].index = j;
-                   temp[k].children[j].numChildren = tree[k * dimSize + j].numChildren;
-                   temp[k].children[j].children = tree[k * dimSize + j].children;
-                 }
-               """
-               else s"""
-                 unsigned long count = 0;
-                 struct tensor_tree_s* tmp = GC_malloc(sizeof(struct tensor_tree_s) * dimSize);
-                 for(unsigned long j = 0; j < dimSize; j++) {
-                   if(tensor_checkTree(&(tree[k * dimSize + j]))) {
-                     tmp[count].numChildren = tree[k * dimSize + j].numChildren;
-                     tmp[count].children = tree[k * dimSize + j].children;
-                     tmp[count].index = j;
-                     count++;
-                   }
-                 }
-                 
-                 temp[k].index = k;
-                 temp[k].numChildren = count;
-                 temp[k].children = GC_malloc(sizeof(struct tensor_tree_s) * count);
-                 for(unsigned long j = 0; j < count; j++) {
-                   temp[k].children[j].isLeaf = 0;
-                   temp[k].children[j].index = tmp[j].index;
-                   temp[k].children[j].numChildren = tmp[j].numChildren;
-                   temp[k].children[j].children = tmp[j].children;
-                 }
-               """
-             }
-           }
-           tree = temp;
-           
-           ${generatePackBody_Tree(tail(dims), specs)}
-         """;
+  return if null(order)
+         then s"""
+           unsigned long index[] = {${generateIndexArray(listLength(types))}};
+           double value = data[pI${toString(dim - 1)}];
+           tensor_insertBuff_${fmtNm}(buffer, index, value);
+         """
+         else if type == storeDense
+              then s"""
+                for(unsigned long i${toString(dim)} = 0;
+                    i${toString(dim)} < dims[${dims}]; 
+                    i${toString(dim)}++) {
+                  unsigned long pI${toString(dim)} = (pI${toString(dim - 1)} * dims[${dims}]) + i${toString(dim)};
+                  ${generatePackBody_Tree(tail(order), types, fmtNm, dim+1)}
+                }
+              """
+              else s"""
+                for(unsigned long pI${toString(dim)} = indices[${dims}][0][pI${toString(dim-1)}];
+                    pI${toString(dim)} < indices[${dims}][0][pI${toString(dim-1)} + 1];
+                    pI${toString(dim)}++) {
+                    unsigned long i${toString(dim)} = indices[${dims}][1][pI${toString(dim)}];
+                    ${generatePackBody_Tree(tail(order), types, fmtNm, dim+1)}
+                }
+              """;
 }
+
 
 function generatePackBody_Assemble
 String ::= dims::[Integer] specs::[Integer]

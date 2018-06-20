@@ -9,7 +9,8 @@ Decl ::= fmt::TensorFormatItem
 
   return maybeValueDecl(
     s"tensor_get_${fmtNm}",
-    parseDecl(generateGetFunction(fmt)));
+    parseDecl(generateGetFunction(fmt))
+  );
 }
 
 function generateGetFunction

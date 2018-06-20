@@ -36,7 +36,7 @@ t::Tensor ::= sub::[Tensor]
           ++ combineErrors(head(sub), tail(sub), t.env);
 
   t.dimensions = head(sub).dimensions + 1;
-  t.size = arrayLength(sub);
+  t.size = listLength(sub);
 
   t.asArray = asArrayTensors(t.pos, head(sub), tail(sub), 0);
   t.dimArray = toString(t.size) ++ ", " ++ head(sub).dimArray;
@@ -87,7 +87,7 @@ t::Tensor ::= sub::[Expr]
           ++ errorChecking(head(sub), tail(sub), t.env);
 
   t.dimensions = 1;
-  t.size = arrayLength(sub);
+  t.size = listLength(sub);
 
   t.asArray = asArrayExprs(t.pos, sub, 0);
   t.dimArray = toString(t.size);
@@ -175,15 +175,6 @@ Boolean ::= lst::[Tensor] size::Integer
               then false
               else sizesCheck(tail(lst), size)
          else true;
-}
-
-function arrayLength
-Integer ::= lst::[a]
-{
-  return case lst of
-         | [] -> 0
-         | _::tl -> 1 + arrayLength(tl)
-         end;
 }
 
 function ppTensorArray
