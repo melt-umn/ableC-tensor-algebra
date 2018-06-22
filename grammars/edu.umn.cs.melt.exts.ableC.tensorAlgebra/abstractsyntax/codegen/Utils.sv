@@ -31,11 +31,13 @@ Decl ::= fmt::TensorFormatItem
 }
 
 function getElem
-a ::= lst::[a] idx::Integer
+Maybe<a> ::= lst::[a] idx::Integer
 {
   return
-    if idx <= 0
-    then head(lst)
+    if null(lst)
+    then nothing()
+    else if idx <= 0
+    then just(head(lst))
     else getElem(tail(lst), idx - 1);
 }
 
@@ -64,8 +66,11 @@ function orderList
   return
     case order of
     | [] -> []
-    | h::tl -> getElem(lst, h)
-            :: orderList(lst, tl)
+    | h::tl -> case getElem(lst, h) of
+               | nothing() -> []
+               | just(i) -> [i]
+               end
+               ++ orderList(lst, tl)
     end;
 }
 

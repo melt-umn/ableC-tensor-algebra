@@ -428,7 +428,7 @@ top::Stmt ::= base::Name index::[String] expr::TensorExpr
     | _ -> [err(base.location, s"Tensor computation expected a tensor")]
     end ++
     expr.errors;
-  
+
   forwards to 
   if !null(errors)
   then warnStmt(errors)

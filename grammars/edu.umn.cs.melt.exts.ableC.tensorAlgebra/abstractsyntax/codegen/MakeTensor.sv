@@ -52,7 +52,11 @@ String ::= order::[Integer] types::[Integer]
     if !null(order)
     then let dim::Integer = head(order) in
          let dimen::String = toString(dim) in
-         let spec::Integer = getElem(types, dim) in
+         let spec::Integer = case getElem(types, dim) of
+                             | nothing() -> 0
+                             | just(i) -> i
+                             end
+         in
          if spec == storeDense
          then s"""
            res->indices[${dimen}] = GC_malloc(sizeof(unsigned long*));

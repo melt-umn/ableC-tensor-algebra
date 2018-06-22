@@ -30,3 +30,171 @@ top::TensorAssignExpr ::=
   top.tensorValue = nullTensorExpr(location=top.location);
   top.tensorFormat = tm:empty(\n::Name nm::Name -> compareString(n.name, nm.name));
 }
+
+function findDenseDimension
+Pair<String Integer> ::= expr::TensorAssignExpr var::String
+{
+  return 
+    case expr of
+    | nullAssignExpr() -> pair("error", -1)
+    | _ ->
+        let fmt::tm:Map<Name TensorFormatItem> = expr.tensorFormat
+        in
+        case findDenseDimensionExpr(expr.tensorAssign, var, fmt) of
+        | nothing() -> 
+            case findDenseDimensionExpr(expr.tensorValue, var, fmt) of
+            | nothing() -> pair("error", -1)
+            | just(x) -> x
+            end
+        | just(x) -> x
+        end
+        end
+    end;
+}
+
+function findDenseDimensionExpr
+Maybe<Pair<String Integer>> ::= expr::TensorExpr var::String fmt::tm:Map<Name TensorFormatItem>
+{
+  return 
+    case expr of
+    | access(nm, acc) ->
+        let i::Integer =
+          positionOf(
+            \a::String
+             b::String
+             -> a == b
+            ,
+            var,
+            acc
+          )
+        in
+          if i == -1
+          then nothing()
+          else 
+          let ft::TensorFormatItem = head(tm:lookup(nm, fmt))
+          in
+          if case getElem(ft.specifiers, i) of
+             | nothing() -> false
+             | just(i) -> i == storeDense
+             end
+          then just(pair(nm.name, i + 1))
+          else nothing()
+          end
+        end
+    | add(l, r) -> 
+        case findDenseDimensionExpr(l, var, fmt) of
+        | nothing() -> findDenseDimensionExpr(r, var, fmt)
+        | x -> x
+        end
+    | mul(l, r) -> 
+        case findDenseDimensionExpr(l, var, fmt) of
+        | nothing() -> findDenseDimensionExpr(r, var, fmt)
+        | x -> x
+        end
+    | _ -> nothing()
+    end;
+}
+
+function findAccesses
+[Pair<String Integer>] ::= expr::TensorAssignExpr var::String
+{
+  return 
+    case expr.tensorAssign of
+    | access(nm, acc) ->
+        let ind::Integer =
+          positionOf(
+            \ a::String
+              b::String
+            -> a == b
+            ,
+            var,
+            acc
+          )
+        in
+        if ind == -1
+        then []
+        else [pair(nm.name, ind)]
+        end
+    | _ -> []
+    end ++
+    findAccessesExpr(expr.tensorValue, var);
+}
+
+function findAccessesExpr
+[Pair<String Integer>] ::= expr::TensorExpr var::String
+{
+  return
+    case expr of
+    | nullTensorExpr() -> []
+    | access(nm, acc) ->
+        let ind::Integer =
+          positionOf(
+            \ a::String
+              b::String
+            -> a == b
+            ,
+            var,
+            acc
+          )
+        in
+        if ind == -1
+        then []
+        else [pair(nm.name, ind)]
+        end
+    | tExpr(_) -> []
+    | add(l, r) -> 
+        findAccessesExpr(l, var) ++
+        findAccessesExpr(r, var)
+    | mul(l, r) ->
+        findAccessesExpr(l, var) ++
+        findAccessesExpr(r, var)
+    | _ -> []
+    end;
+}
+
+function getExprs
+[Expr] ::= e::TensorExpr
+{
+  return
+    case e of
+    | nullTensorExpr() -> []
+    | access(_, _) -> []
+    | tExpr(ex) -> [ex]
+    | add(l, r) -> getExprs(l) ++ getExprs(r)
+    | mul(l, r) -> getExprs(l) ++ getExprs(r)
+    end;
+}
+
+function sparse_assign
+[Pair<String Integer>] ::= expr::TensorAssignExpr var::String
+{
+  return
+    case expr.tensorAssign of
+    | access(nm, acc) -> 
+        let idx::Integer = 
+          positionOf(
+            \ a::String
+              b::String
+            -> a == b
+            ,
+            var,
+            acc
+          )
+        in
+        if idx == -1
+        then []
+        else 
+        let ft::TensorFormatItem = head(tm:lookup(nm, expr.tensorFormat))
+        in
+        case getElem(ft.specifiers, idx) of
+        | nothing() -> []
+        | just(x) -> 
+            if x == storeSparse
+            then [pair(nm.name, idx + 1)]
+            else []
+        end
+        end
+        end
+    | _ -> []
+    end;
+}

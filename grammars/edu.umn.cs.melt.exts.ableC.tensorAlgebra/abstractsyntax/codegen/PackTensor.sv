@@ -43,7 +43,10 @@ function generatePackTreeBody
 String ::= order::[Integer] types::[Integer]
 {
   local dim::Integer = head(order);
-  local type::Integer = getElem(types, dim);
+  local type::Integer = case getElem(types, dim) of
+                        | nothing() -> 0
+                        | just(i) -> i
+                        end;
   
   return if null(tail(order))
          then if type == storeDense
@@ -167,7 +170,10 @@ function generatePackBody_Tree
 String ::= order::[Integer] types::[Integer] fmtNm::String dim::Integer
 {
   local dimen::Integer = head(order);
-  local type::Integer = getElem(types, dimen);
+  local type::Integer = case getElem(types, dimen) of
+                        | nothing() -> 0
+                        | just(i) -> i
+                        end;
   local str_dim::String = toString(dim);
   local dims::String = toString(dimen);
 
@@ -202,7 +208,10 @@ String ::= dims::[Integer] specs::[Integer]
 {
   local dimInt::Integer = head(dims);
   local dim::String = toString(dimInt);
-  local type::Integer = getElem(specs, dimInt);
+  local type::Integer = case getElem(specs, dimInt) of
+                        | nothing() -> 0
+                        | just(i) -> i
+                        end;
   
   return if null(dims)
          then s""

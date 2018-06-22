@@ -8,8 +8,9 @@ tensor format d = ({dense, dense});
 tensor format f = ({dense, sparse});
 tensor format ft = ({dense, sparse, dense}, {1, 0, 2});
 
-tensor format fB = ({dense, sparse});
-tensor format fA = ({dense, dense});
+tensor format fC = ({sparse});
+tensor format fB = ({sparse, sparse, sparse});
+tensor format fA = ({dense, sparse});
 
 int main() {
   tensor<csv> t = build (tensor<csv>) ({3, 4 / 2});
@@ -54,11 +55,24 @@ int main() {
 //  printf("mat(9, 9) = %f\n", value (mat)(8, 8));
 //  printf("mat(10, 1) = %f\n", value (mat)(9, 0));
 
-  tensor<fA> A = build (tensor<fA>) ({256, 256});
-  tensor<fB> B = build (tensor<fB>) ({256, 256});
-  tensor<fB> C = build (tensor<fB>) ({256, 256});
+  tensor<fA> A = build (tensor<fA>) ({64, 42});
+  tensor<fB> B = build (tensor<fB>) ({64, 42, 512});
+  tensor<fC> C = build (tensor<fC>) ({512});
+  
+  value (B)(0, 0, 0) = 1.0;
+  value (B)(1, 2, 0) = 2.0;
+  value (B)(1, 2, 1) = 3.0;
+  
+  value (C)(0) = 4.0;
+  value (C)(1) = 5.0;
 
-  tensor A(i, j) = B(i, j) + C(i, j);
+  value (A)(0, 0) = 1.0;
+  value (A)(1, 2) = 1.0;
+
+  tensor A(i, j) = B(i, j, k) * C(k);
+
+  printf("A(0, 0) = %f (should be 4.0)\n", value (A)(0, 0));
+  printf("A(1, 2) = %f (should be 23.0)\n", value (A)(1, 2));
   
   return 0;
 }

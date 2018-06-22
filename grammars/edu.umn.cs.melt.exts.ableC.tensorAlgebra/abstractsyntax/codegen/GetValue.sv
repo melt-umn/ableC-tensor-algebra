@@ -42,7 +42,11 @@ String ::= order::[Integer] specs::[Integer]
     if !null(order)
     then let dim::Integer = head(order) in
          let dimen::String = toString(dim) in
-         let spec::Integer = getElem(specs, dim) in
+         let spec::Integer = case getElem(specs, dim) of
+                             | nothing() -> 0
+                             | just(i) -> i
+                             end
+         in
          if spec == storeDense
          then s"""
            pTI = (pTI * indices[${dimen}][0][0]) + index[${dimen}];
