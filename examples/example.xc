@@ -41,8 +41,6 @@ int main() {
 //  printf("This should be true: 7.5 == %f\n", value (tensor_t)(0, 1));
 //  printf("As well as this: %f == %f\n", 5.3, value (tensor_t)(1, 2));
 
-//  printf("Hello, world!\n");
-
 //  tensor<cvs> mat = inst read<tensor<cvs>>("matrix.mtx");
 //  printf("mat(1, 1) = %f\n", value (mat)(0, 0));
 //  printf("mat(2, 2) = %f\n", value (mat)(1, 1));
