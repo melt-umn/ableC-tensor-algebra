@@ -402,11 +402,11 @@ function exp_sparse
              end
              end
         end
-    | tExpr(_) -> []
     | add(l, r) ->
         exp_sparse(l, fmt, var) ++ exp_sparse(r, fmt, var)
     | mul(l, r) ->
         exp_sparse(l, fmt, var) ++ exp_sparse(r, fmt, var)
+    | _ -> []
     end;
 }
 
@@ -482,11 +482,11 @@ function exp_dense
              end
              end
         end
-    | tExpr(_) -> []
     | add(l, r) ->
         exp_dense(l, fmt, var) ++ exp_dense(r, fmt, var)
     | mul(l, r) ->
         exp_dense(l, fmt, var) ++ exp_dense(r, fmt, var)
+    | _ -> []
     end;
 }
 

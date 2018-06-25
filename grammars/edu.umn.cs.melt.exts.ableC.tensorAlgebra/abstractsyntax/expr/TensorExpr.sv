@@ -79,3 +79,38 @@ top::TensorExpr ::= left::TensorExpr right::TensorExpr
 
   top.errors = left.errors ++ right.errors;
 }
+
+function tensorExprEqual
+Boolean ::= a::TensorExpr b::TensorExpr
+{
+  return
+    case a, b of
+    | nullTensorExpr(), nullTensorExpr() -> true
+    | access(n, ac), access(nm, acc) ->
+        n.name == nm.name
+        && foldl(
+           \ b1::Boolean
+             b2::Boolean
+           -> b1 && b2
+           ,
+           true,
+           zipWith(
+             \ a::String
+               b::String
+             -> a == b
+             ,
+             ac,
+             acc
+           )
+         )
+    | tExpr(e1), tExpr(e2) ->
+        e1.pp.result == e2.pp.result
+    | add(l1, r1), add(l2, r2) ->
+        tensorExprEqual(l1, l2)
+        && tensorExprEqual(r1, r2)
+    | mul(l1, r1), mul(l2, r2) ->
+        tensorExprEqual(l1, l2)
+        && tensorExprEqual(r1, r2)
+    | _, _ -> false
+    end;
+}

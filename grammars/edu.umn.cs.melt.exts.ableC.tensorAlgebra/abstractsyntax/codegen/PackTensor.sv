@@ -55,15 +55,19 @@ String ::= order::[Integer] types::[Integer]
                 temp = GC_malloc(sizeof(struct tensor_tree_s) * count * dims[${toString(dim)}]);
                 for(unsigned long i = 0; i < count; i++) {
                   unsigned long oldSize = tree[i].numChildren;
+                  struct tensor_tree_s* oldChildren = tree[i].children;
                   tree[i].numChildren = dims[${toString(dim)}];
                   tree[i].children = &(temp[index]);
                   
                   unsigned idx = 0;
                   for(unsigned long j = 0; j < dims[${toString(dim)}]; j++) {
-                    if(idx < oldSize && tree[i].children[idx].index == j) {
-                      temp[index] = tree[i].children[idx];
+                    if(idx < oldSize && oldChildren[idx].index == j) {
+                      temp[index].index = j;
+                      temp[index].isLeaf = 1;
+                      temp[index].val = oldChildren[idx].val;
                       idx++;
                     } else {
+                      temp[index].index = j;
                       temp[index].isLeaf = 1;
                       temp[index].val = 0.0;
                     }
@@ -80,13 +84,17 @@ String ::= order::[Integer] types::[Integer]
                 temp = GC_malloc(sizeof(struct tensor_tree_s) * count * dims[${toString(dim)}]);
                 for(unsigned long i = 0; i < count; i++) {
                   unsigned long oldSize = tree[i].numChildren;
+                  struct tensor_tree_s* oldChildren = tree[i].children;
                   struct tensor_tree_s* start = &(temp[index]);
                   tree[i].numChildren = dims[${toString(dim)}];
 
                   unsigned idx = 0;
                   for(unsigned long j = 0; j < dims[${toString(dim)}]; j++) {
-                    if(idx < oldSize && tree[i].children[idx].index == j) {
-                      temp[index] = tree[i].children[idx];
+                    if(idx < oldSize && oldChildren[idx].index == j) {
+                      temp[index].index = j;
+                      temp[index].isLeaf = 0;
+                      temp[index].numChildren = oldChildren[idx].numChildren;
+                      temp[index].children = oldChildren[idx].children;
                       idx++;
                     } else {
                       temp[index].isLeaf = 0;
@@ -114,10 +122,12 @@ String ::= order::[Integer] types::[Integer]
                 index = 0;
                 
                 for(unsigned long i = 0; i < count; i++) {
+                  unsigned long idx = index;
                   for(unsigned long j = 0; j < tree[i].numChildren; j++) {
                     temp[index] = tree[i].children[j];
                     index++;
                   }
+                  tree[i].children = &(temp[idx]);
                 }
                 
                 tree = temp;

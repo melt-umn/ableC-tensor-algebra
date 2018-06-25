@@ -104,3 +104,14 @@ function parseOrder
          | mul(l, r) -> parseOrder(l, env) ++ parseOrder(r, env)
          end;
 }
+
+function containsAny
+Boolean ::= eq::(Boolean ::= a a) items::[a] array::[a]
+{
+  return
+    if null(items)
+    then false
+    else
+      containsBy(eq, head(items), array)
+      || containsAny(eq, tail(items), array);
+}

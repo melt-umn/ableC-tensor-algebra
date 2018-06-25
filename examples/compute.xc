@@ -14,11 +14,11 @@ int main() {
   value (A)(0, 3) = 2.0;
   value (A)(7, 7) = 6.0;
   value (A)(7, 0) = 4.0;
-  
+
   value (x)(0) = 3.0;
   value (x)(3) = 2.0;
   value (x)(7) = 1.0;
-  
+
   value (y)(0) = 1.0;
   value (y)(7) = 1.0;
   
