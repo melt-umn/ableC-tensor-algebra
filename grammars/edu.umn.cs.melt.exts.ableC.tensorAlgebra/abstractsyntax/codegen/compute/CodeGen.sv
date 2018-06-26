@@ -40,7 +40,7 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
           ${build_output(assign, acc, loc)}
           {
             ${setup_gen(head(tensors) :: [], head(formats) :: [])}
-            ${code_gen(assign, acc, loc, [])}
+            ${code_gen(assign, acc, loc, [], env)}
           }
         }
       """)
@@ -422,7 +422,7 @@ String ::= tensor::Name format::TensorFormatItem
 }
 
 function code_gen
-String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<TensorExpr String>]
+String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<TensorExpr String>] env::Decorated Env
 {
   local lattice::MergeLattice = merge_lattice(expr, head(order), loc);
   local optimized::MergeLattice = lattice_optimize(lattice, expr.tensorFormat);
@@ -502,7 +502,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
             )}
             
             // section 6.2, emit-available-expressions
-            ${emitAvailExprs(expr, iv, tail(order))}
+            ${emitAvailExprs(expr, iv, tail(order), env)}
             
             if(0) {}
             
@@ -517,12 +517,12 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                 in
                 s"""
                   else {
-                    ${code_gen(pnt.exprs, tail(order), loc, nSubs ++ subs)}
+                    ${code_gen(pnt.exprs, tail(order), loc, nSubs ++ subs, env)}
 
                     // section 6.2, emit-reduction-compute
-                    ${emitReduceCompute(nxtExpr, iv, tail(order))}
+                    ${emitReduceCompute(nxtExpr, iv, tail(order), env)}
                     // section 6.2, emit-compute
-                    ${emitCompute(nxtExpr, iv, tail(order), subs)}
+                    ${emitCompute(nxtExpr, iv, tail(order), subs, env)}
                   }
                 """
                 end
@@ -538,12 +538,12 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                             else s"else if(${implode("&&", map(equals_iv(_, iv), sd))}){"
                           }
                      
-                          ${code_gen(pnt.exprs, tail(order), loc, nSubs ++ subs)}
+                          ${code_gen(pnt.exprs, tail(order), loc, nSubs ++ subs, env)}
                           
                           // #7, emit-reduction-compute
-                          ${emitReduceCompute(nxtExpr, iv, tail(order))}
+                          ${emitReduceCompute(nxtExpr, iv, tail(order), env)}
                           // #7, emit-compute()
-                          ${emitCompute(nxtExpr, iv, tail(order), subs)}
+                          ${emitCompute(nxtExpr, iv, tail(order), subs, env)}
                           
                           ${if null(sd)
                             then ""
@@ -658,7 +658,7 @@ String ::= p::Pair<TensorExpr String>
 }
 
 function emitAvailExprs
-String ::= ex::TensorAssignExpr iv::String left::[String]
+String ::= ex::TensorAssignExpr iv::String left::[String] env::Decorated Env
 {
   local subs::[Pair<TensorExpr String>] =
     findSubs(ex.tensorValue, iv, left);
@@ -707,7 +707,7 @@ String ::= ex::TensorAssignExpr iv::String left::[String]
       implode("\n",
         map(
           \ p::Pair<TensorExpr String> ->
-          s"double ${p.snd} = ${evalExpr(p.fst)};"
+          s"double ${p.snd} = ${evalExpr(p.fst, env)};"
           ,
           subs
       ))
@@ -724,7 +724,7 @@ String ::= ex::TensorAssignExpr iv::String left::[String]
 }
 
 function emitReduceCompute
-String ::= ex::TensorAssignExpr iv::String left::[String]
+String ::= ex::TensorAssignExpr iv::String left::[String] env::Decorated Env
 {
   local subs::[Pair<TensorExpr String>] =
     findSubs(ex.tensorValue, iv, left);
@@ -760,7 +760,7 @@ String ::= ex::TensorAssignExpr iv::String left::[String]
       implode("\n",
         map(
           \ p::Pair<TensorExpr String> ->
-          s"${p.snd} += ${evalExpr(p.fst)};"
+          s"${p.snd} += ${evalExpr(p.fst, env)};"
           ,
           subs
       ))
@@ -768,7 +768,7 @@ String ::= ex::TensorAssignExpr iv::String left::[String]
 }
 
 function emitCompute
-String ::= ex::TensorAssignExpr iv::String left::[String] sbs::[Pair<TensorExpr String>]
+String ::= ex::TensorAssignExpr iv::String left::[String] sbs::[Pair<TensorExpr String>] env::Decorated Env
 {
   local subs::[Pair<TensorExpr String>] =
     sbs
@@ -811,7 +811,7 @@ String ::= ex::TensorAssignExpr iv::String left::[String] sbs::[Pair<TensorExpr 
   return
     if layer
     then
-      s"${out}->data[p${out}${toString(listLength(acc))}] += ${evalExpr(expr.tensorValue)};"
+      s"${out}->data[p${out}${toString(listLength(acc))}] += ${evalExpr(expr.tensorValue, env)};"
     else "";
 }
 
@@ -1090,8 +1090,10 @@ String ::= c::TensorCond
 }
 
 function evalExpr
-String ::= e::TensorExpr
+String ::= e::TensorExpr env::Decorated Env
 {
+  e.env = env;
+
   return
     case e of
     | nullTensorExpr() -> ""
@@ -1099,7 +1101,7 @@ String ::= e::TensorExpr
     | tExpr(declRefExpr(name(s))) -> s
     | tExpr(expr) -> 
         s"_expr_${toString(expr.location.line)}_${toString(expr.location.column)}"
-    | add(l, r) -> s"(${evalExpr(l)} + ${evalExpr(r)})"
-    | mul(l, r) -> s"(${evalExpr(l)} * ${evalExpr(r)})"
+    | add(l, r) -> s"(${evalExpr(l, env)} + ${evalExpr(r, env)})"
+    | mul(l, r) -> s"(${evalExpr(l, env)} * ${evalExpr(r, env)})"
     end;
 }

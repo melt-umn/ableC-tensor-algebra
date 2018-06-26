@@ -3,13 +3,15 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:expr;
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 synthesized attribute errors::[Message];
-nonterminal TensorExpr with pp, errors, env, location;
+inherited attribute parenExpr::[TensorExpr];
+nonterminal TensorExpr with pp, errors, env, location, parenExpr, proceduralName;
 
 abstract production nullTensorExpr
 top::TensorExpr ::=
 {
   top.pp = ppConcat([text("null")]);
   top.errors = [];
+  top.proceduralName = "";
 }
 
 abstract production access
@@ -35,6 +37,8 @@ top::TensorExpr ::= name::Name access::[String]
                end
     | _ -> [err(top.location, s"Tesnsor access expcted a tensor")]
     end;
+  
+  top.proceduralName = "";
 }
 
 abstract production tExpr
@@ -50,6 +54,8 @@ top::TensorExpr ::= expr::Expr
            then []
            else [err(top.location, s"Expected numeric expression (got ${showType(expr.typerep)}")]
     end;
+  
+  top.proceduralName = s"(${show(1000, top.pp)})";
 }
 
 abstract production add
@@ -64,6 +70,17 @@ top::TensorExpr ::= left::TensorExpr right::TensorExpr
   ]);
   
   top.errors = left.errors ++ right.errors;
+  
+  left.parenExpr = [top];
+  right.parenExpr = [top];
+  
+  top.proceduralName = 
+    if null(top.parenExpr) 
+    then s"${left.proceduralName} + ${right.proceduralName}"
+    else case head(top.parenExpr) of
+         | mul(_, _) -> s"(${left.proceduralName} + ${right.proceduralName})"
+         | _ -> s"${left.proceduralName} + ${right.proceduralName}"
+         end;
 }
 
 abstract production mul
@@ -78,6 +95,12 @@ top::TensorExpr ::= left::TensorExpr right::TensorExpr
   ]);
 
   top.errors = left.errors ++ right.errors;
+  
+  left.parenExpr = [top];
+  right.parenExpr = [top];
+  
+  top.proceduralName =
+    s"${left.proceduralName} * ${right.proceduralName}";
 }
 
 function tensorExprEqual
@@ -104,7 +127,7 @@ Boolean ::= a::TensorExpr b::TensorExpr
            )
          )
     | tExpr(e1), tExpr(e2) ->
-        e1.pp.result == e2.pp.result
+        show(1000, e1.pp) == show(1000, e2.pp)
     | add(l1, r1), add(l2, r2) ->
         tensorExprEqual(l1, l2)
         && tensorExprEqual(r1, r2)

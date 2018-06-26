@@ -400,6 +400,7 @@ top::Stmt ::= tensor::Expr index::[Expr] op::AssignmentOp val::Expr
 abstract production tensor_compute
 top::Stmt ::= base::Name index::[String] expr::TensorExpr
 {
+  expr.parenExpr = [];
   top.pp = ppConcat([
              text("tensor "),
              base.pp,
