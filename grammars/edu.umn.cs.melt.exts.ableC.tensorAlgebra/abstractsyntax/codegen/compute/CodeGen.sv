@@ -9,7 +9,10 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
   local formats::[TensorFormatItem] = getFormats(tensors, env);
 
   local acc::[String] =
-    findOrder(access,  parseOrder(expr, env));
+    findOrder(
+      orderList(access, head(formats).dimenOrder),  
+      parseOrder(expr, env)
+    );
 
   local assign :: TensorAssignExpr =
     assignExpr(nm, access, expr, tensors, formats, location=loc);
@@ -32,10 +35,13 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
       parseStmt(s"""
         {
           ${check_dims(assign, acc)}
-          // TODO: setup output matrix to have proper spaces
-          ${pack_tensors(tensors, formats)}
+          ${pack_tensors(tail(tensors), tail(formats))}
           ${setup_gen(tensors, formats)}
-          ${code_gen(assign, acc, loc, [])}
+          ${build_output(assign, acc, loc)}
+          {
+            ${setup_gen(head(tensors) :: [], head(formats) :: [])}
+            ${code_gen(assign, acc, loc, [])}
+          }
         }
       """)
     );
@@ -53,6 +59,257 @@ function generateExprSubs
     then []
     else declRefSubstitution(head(nm), head(ex)) ::
          generateExprSubs(tail(ex), tail(nm));
+}
+
+function build_output
+String ::= expr::TensorAssignExpr order::[String] loc::Location
+{
+  local nm::Name =
+    case expr.tensorAssign of
+    | access(n, _) -> n
+    | _ -> name("error", location=loc)
+    end;
+  local out::String = nm.name;
+  local fmt::TensorFormatItem =
+    head(tm:lookup(nm, expr.tensorFormat));
+
+  return s"""
+  {
+    ${out}->bufferCnt = 0;
+    ${out}->buffer.numChildren = 0;
+    ${out}->buffer.children = 0;
+    
+    unsigned long* index = GC_malloc(sizeof(unsigned long) * ${toString(fmt.dimens)});
+    ${build_body(expr, order, loc)}
+    {
+      ${build_pack(out, fmt)}
+    }
+  }
+  """;
+}
+
+function build_pack
+String ::= name::String fmt::TensorFormatItem
+{
+  local dims::String =
+    toString(fmt.dimens);
+
+  return s"""
+    struct tensor_${fmt.proceduralName}* t = ${name};
+    struct tensor_tree_s* buffer = &(t->buffer);
+    unsigned long* dims = t->dims;
+    
+    tensor_packTree_${fmt.proceduralName}(buffer, dims);
+    
+    t->indices = GC_malloc(sizeof(unsigned long**) * ${dims});
+    unsigned long numChildren = 1;
+    struct tensor_tree_s** trees = &(buffer);
+    
+    struct tensor_tree_s** temp_tree;
+    unsigned long total, dimSize, index, newChildren;
+    
+    ${generatePackBody_Assemble(fmt.dimenOrder, fmt.specifiers)}
+    
+    t->data = GC_malloc(sizeof(double) * numChildren);
+    for(unsigned long i = 0; i < numChildren; i++) {
+      t->data[i] = trees[i]->val;
+    }
+    t->bufferCnt = 0;
+    t->buffer.numChildren = 0;
+    t->buffer.children = 0;
+  """;
+}
+
+function build_body
+String ::= expr::TensorAssignExpr order::[String] loc::Location
+{
+  local nm::Name =
+    case expr.tensorAssign of
+    | access(n, _) -> n
+    | _ -> name("error", location=loc)
+    end;
+
+  local out::String = nm.name;
+  
+  local lattice::MergeLattice = merge_lattice(expr, head(order), loc);
+  local optimized::MergeLattice = lattice_optimize(lattice, expr.tensorFormat);
+  local point::LatticePoints = head(optimized.points);
+  
+  local fmt::TensorFormatItem =
+    head(tm:lookup(nm, expr.tensorFormat));
+  
+  local acc::[String] =
+    case expr.tensorAssign of
+    | access(_, a) -> a
+    | _ -> []
+    end;
+  
+  local more::Boolean =
+    containsAny(
+      \ s1::String
+        s2::String
+      -> s1 == s2
+      ,
+      order,
+      acc
+    );
+  
+  local iv::String = head(order);
+  local l::Integer =
+    positionOf(
+      \ s1::String
+        s2::String
+      -> s1 == s2
+      ,
+      iv,
+      acc
+    );
+  local lc::String = toString(l);
+  
+  return
+    if null(order) || !more
+    then s"""
+      tensor_insertBuff_${fmt.proceduralName}(&(${out}->buffer), index, 0.0);
+      ${out}->bufferCnt += 1;
+    """
+    else s"""
+      ${implode("\n",
+          map(
+            \si::Pair<String Integer> ->
+            let Dj::String = s"${si.fst}${toString(si.snd)}"
+            in let Dj1::String = s"${si.fst}${toString(si.snd - 1)}"
+            in
+            s"unsigned long p${Dj} = ${Dj}_pos[p${Dj1}];"
+            end end
+            ,
+            sparse_assign(expr, iv) ++ sparse_dimensions(optimized, iv)
+          )
+      )}
+      unsigned long ${iv} = 0;
+      ${implode("\n",
+          map(
+            \ p::LatticePoints
+            -> let sparse::[Pair<String Integer>] =
+                 sparse_dimensions(builtLattice([p]), iv)
+               in let dense::[Pair<String Integer>] =
+                 dense_dimensions(builtLattice([p]), iv)
+               in
+               s"""
+                 while(${until_any_exhausted(merged_dimensions(p, expr.tensorFormat), expr, iv)}) {
+                   ${implode("\n",
+                       map(
+                         \si::Pair<String Integer> ->
+                           let Dj::String = s"${si.fst}${toString(si.snd)}"
+                           in
+                           s"unsigned long ${iv}${si.fst} = ${Dj}_idx[p${Dj}];"
+                           end
+                         ,
+                         sparse
+                       )
+                   )}
+                   
+                   ${if !null(sparse)
+                     then s"${iv} = ${generate_min(map(\si::Pair<String Integer> -> s"${iv}${si.fst}", sparse))};"
+                     else s""
+                   }
+                   ${if l != -1
+                     then s"index[${lc}] = ${iv};"
+                     else ""
+                   }
+                   
+                   ${implode("\n",
+                       map(
+                         \si::Pair<String Integer> ->
+                           let Dj::String = s"${si.fst}${toString(si.snd)}"
+                           in let Dj1::String = s"${si.fst}${toString(si.snd - 1)}"
+                           in
+                           s"unsigned long p${Dj} = (p${Dj1} * ${Dj}_size) + ${iv};"
+                           end end
+                         ,
+                         dense
+                       )
+                   )}
+                   
+                   if(0) {}
+                   
+                   ${let points::[LatticePoints] =
+                       p :: sub_points(p)
+                     in
+                     if listLength(points) == 0 || isAccessCond(head(points).conds) ||
+                        isNullCond(head(points).conds) || isAllCond(head(points).conds)
+                     then
+                       let pnt::LatticePoints =
+                         head(points)
+                       in
+                       s"""
+                         else {
+                           ${build_body(pnt.exprs, tail(order), loc)}
+                         }
+                       """
+                       end
+                     else
+                       implode("\n",
+                         map(
+                           \ pnt::LatticePoints
+                           -> let sd::[Pair<String Integer>] = sparse_dimensions(builtLattice([pnt]), iv)
+                              in
+                              s"""
+                                ${if null(sd)
+                                  then s""
+                                  else s"else if(${implode("&&", map(equals_iv(_, iv), sd))}) {"
+                                }
+                                
+                                ${build_body(pnt.exprs, tail(order), loc)}
+                                
+                                ${if null(sd)
+                                  then ""
+                                  else "}"
+                                }
+                              """
+                              end
+                           ,
+                           points
+                         )
+                        )
+                      end
+                   }
+                   
+                   ${if listLength(sparse) == 0
+                     then s"${iv}++;"
+                     else if listLength(sparse) == 1
+                     then let si::Pair<String Integer> =
+                            head(sparse)
+                       in let Dj::String = s"${si.fst}${toString(si.snd)}"
+                       in
+                       s"p${Dj}++;"
+                       end
+                       end
+                     else 
+                       implode("\n",
+                         map(
+                           \ si::Pair<String Integer>
+                           -> let Dj::String = s"${si.fst}${toString(si.snd)}"
+                              in s"if(${iv}${si.fst} == ${iv}) p${Dj}++;"
+                              end
+                           ,
+                           sparse
+                         )
+                       )
+                   }
+                 }
+               """
+               end
+               end
+               ,
+               flatMap(
+                 \ p::LatticePoints
+                 -> p :: sub_points(p)
+                 ,
+                 optimized.points
+               )
+         )
+     )}
+    """;
 }
 
 function pack_tensors
@@ -554,13 +811,6 @@ String ::= ex::TensorAssignExpr iv::String left::[String] sbs::[Pair<TensorExpr 
   return
     if layer
     then
---      implode("\n",
---        map(
---          \ p::Pair<TensorExpr String> ->
---          s"${out}->data[p${out}${toString(listLength(acc))}] += ${evalExpr(p.fst)};"
---          ,
---          subs
---      ))
       s"${out}->data[p${out}${toString(listLength(acc))}] += ${evalExpr(expr.tensorValue)};"
     else "";
 }

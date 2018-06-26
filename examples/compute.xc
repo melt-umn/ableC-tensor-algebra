@@ -21,11 +21,13 @@ int main() {
 
   value (y)(0) = 1.0;
   value (y)(7) = 1.0;
-  
+  value (y)(3) = 7.2;
+
   tensor y(i) = A(i, j) * x(j);
 
   printf("y(0) = %f (should be %f)\n", value (y)(0), 16.0);
   printf("y(7) = %f (should be %f)\n", value (y)(7), 18.0);
+  printf("y(3) = %f (should be %f)\n", value (y)(3), 0.0);
 
   return 0;
 }

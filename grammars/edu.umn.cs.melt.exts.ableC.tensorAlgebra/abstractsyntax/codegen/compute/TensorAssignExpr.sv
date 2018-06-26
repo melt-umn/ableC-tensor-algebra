@@ -77,7 +77,17 @@ Maybe<Pair<String Integer>> ::= expr::TensorExpr var::String fmt::tm:Map<Name Te
              | nothing() -> false
              | just(i) -> i == storeDense
              end
-          then just(pair(nm.name, i + 1))
+          then let j::Integer =
+                 positionOf(
+                   \ x::Integer
+                     y::Integer
+                   -> x == y
+                   ,
+                   i,
+                   ft.dimenOrder
+                 )
+               in just(pair(nm.name, j + 1))
+               end
           else nothing()
           end
         end
@@ -98,7 +108,16 @@ Maybe<Pair<String Integer>> ::= expr::TensorExpr var::String fmt::tm:Map<Name Te
 function findAccesses
 [Pair<String Integer>] ::= expr::TensorAssignExpr var::String
 {
-  return 
+  return
+    findAccessesAssign(expr, var) 
+    ++
+    findAccessesExpr(expr.tensorValue, var);
+}
+
+function findAccessesAssign
+[Pair<String Integer>] ::= expr::TensorAssignExpr var::String
+{
+  return
     case expr.tensorAssign of
     | access(nm, acc) ->
         let ind::Integer =
@@ -116,8 +135,7 @@ function findAccesses
         else [pair(nm.name, ind)]
         end
     | _ -> []
-    end ++
-    findAccessesExpr(expr.tensorValue, var);
+    end;
 }
 
 function findAccessesExpr
@@ -190,7 +208,17 @@ function sparse_assign
         | nothing() -> []
         | just(x) -> 
             if x == storeSparse
-            then [pair(nm.name, idx + 1)]
+            then let j::Integer =
+                   positionOf(
+                     \ x::Integer
+                       y::Integer
+                     -> x == y
+                     ,
+                     idx,
+                     ft.dimenOrder
+                   )
+              in [pair(nm.name, j + 1)]
+              end
             else []
         end
         end

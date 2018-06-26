@@ -49,7 +49,7 @@ String ::= order::[Integer] dimensions::Integer
       }
       if(!found) {
         struct tensor_tree_s* temp = GC_malloc(sizeof(struct tensor_tree_s) * (end + 1));
-        
+
         memcpy(temp, tree->children, sizeof(struct tensor_tree_s) * i);
         
         temp[i].isLeaf = 0;
