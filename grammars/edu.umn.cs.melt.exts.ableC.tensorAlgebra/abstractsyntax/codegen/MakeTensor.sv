@@ -41,6 +41,7 @@ String ::= fmt::TensorFormatItem
       res->buffer.children = 0;
       
       res->form = "";
+      res->dataLen = 0;
       return res;
     }
   """;

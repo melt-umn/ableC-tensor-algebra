@@ -37,54 +37,19 @@ function getFormats
 function findOrder
 [String] ::= start::[String] orders::[[String]]
 {
-  local index::[Integer] =
-    map(
-      positionOf(
-        \ a::String b::String 
-        -> a == b
-        ,
-        _,
-        start
-      ),
-      head(orders)
-    );
-  local newOrder::[String] =
-    formNewOrder(start, head(orders), index);
+  local vars::[IndexVariable] =
+    variableOrder(start) ::
+    map(variableOrder(_), orders);
 
-  return case orders of
-         | [] -> start
-         | h::tl ->
-             if checkIndexArr(index, -1)
-             then findOrder(
-                  newOrder,
-                  tl)
-             else []
-         end;
-}
-
-function formNewOrder
-[String] ::= order::[String] add::[String] found::[Integer]
-{
-  return reverse(formNewOrderFunc(reverse(order), reverse(add), reverse(found), listLength(add)));
-}
-
-function formNewOrderFunc
-[String] ::= order::[String] add::[String] found::[Integer] index::Integer
-{
-  return 
-    case found of
-    | [] -> order
-    | h::t -> 
-        if h == -1
-        then head(add) :: formNewOrderFunc(order, tail(add), tail(found), index)
-        else if null(order)
-             then formNewOrderFunc([], tail(add), tail(found), index)
-             else if h == index
-                  then head(order) :: 
-                       formNewOrderFunc(tail(order), tail(add), tail(found), index-1)
-                  else head(order) :: 
-                       formNewOrderFunc(tail(order), add, found, index-1)
-    end;
+  local merge::Maybe<IndexVariable> =
+    mergeIndex(vars);
+  
+  return
+    case merge of
+    | nothing() -> []
+    | just(errorVariable()) -> []
+    | just(m) -> variableList(m)
+    end;  
 }
 
 function checkIndexArr
@@ -131,5 +96,5 @@ function filterWithList
     then []
     else if head(bools)
          then head(lst) :: filterWithList(tail(lst), tail(bools))
-         else filerWithList(tail(lst), tail(bools));
+         else filterWithList(tail(lst), tail(bools));
 }

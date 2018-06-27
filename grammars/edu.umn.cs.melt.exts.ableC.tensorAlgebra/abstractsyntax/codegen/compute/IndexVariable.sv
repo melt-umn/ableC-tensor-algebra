@@ -2,18 +2,32 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:codegen:compute;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
-synthesized attribute before::[IndexVariable];
+synthesized attribute before::Maybe<IndexVariable>;
 nonterminal IndexVariable with before, proceduralName;
 
 abstract production errorVariable
 top::IndexVariable ::=
 {
-  top.before = [];
+  top.before = nothing();
   top.proceduralName = "error";
 }
 
+abstract production variableBottom
+top::IndexVariable ::= name::String
+{
+  top.before = nothing();
+  top.proceduralName = name;
+}
+
+abstract production variableBefore
+top::IndexVariable ::= name::String before::IndexVariable
+{
+  top.before = just(before);
+  top.proceduralName = name;
+}
+
 abstract production variable
-top::IndexVariable ::= name::String before::[IndexVariable]
+top::IndexVariable ::= name::String before::Maybe<IndexVariable>
 {
   top.before = before;
   top.proceduralName = name;
@@ -24,20 +38,23 @@ top::IndexVariable ::= order::[String]
 {
   top.before =
     case tail(order) of
-    | [] -> [errorVariable()]
-    | tl -> [variableOrder(tl)]
+    | [] -> nothing()
+    | tl -> just(variableOrder(tl))
     end;
   
   top.proceduralName = head(order);
 }
 
 function mergeIndex
-IndexVariable ::= lst::[IndexVariable]
+Maybe<IndexVariable> ::= lst::[IndexVariable]
 {
   local lowers::[IndexVariable] =
     flatMap(
       \ var::IndexVariable
-      -> var.before
+      -> case var.before of
+         | nothing() -> []
+         | just(v) -> [v]
+         end
       ,
       lst
     );
@@ -46,8 +63,8 @@ IndexVariable ::= lst::[IndexVariable]
     map(
       \ var::IndexVariable
       -> !containsBy(
-           \ a::TensorVariable
-             v::TensorVariable
+           \ a::IndexVariable
+             v::IndexVariable
            -> contains(a.proceduralName, v)
            ,
            var,
@@ -68,27 +85,35 @@ IndexVariable ::= lst::[IndexVariable]
         filterWithList(lst, top)
       )
     );
-  
+
+  local iv::String = head(topVars);  
+
   return
-    if null(topVars)
-    then errorVariable()
+    if null(lst)
+    then nothing()
+    else if null(topVars)
+    then just(errorVariable())
     else let nxt::[IndexVariable] =
            flatMap(
              \ v::IndexVariable
-             -> if v.procName == head(topVars)
-                then v.before
+             -> if v.proceduralName == iv
+                then case v.before of
+                     | nothing() -> []
+                     | just(x) -> [x]
+                     end
                 else [v]
              ,
              lst
            )
          in
-         if null(nxt)
-         then variable(head(topVars), [])
-         else
-           variable(
-             head(topVars),
-             [mergeIndex(nxt)]
-           )
+         let res::Maybe<IndexVariable> =
+           mergeIndex(nxt)
+         in
+         case res of
+         | just(errorVariable()) -> just(errorVariable())
+         | _ -> just(variable(iv, res))
+         end
+         end
          end;
 }
 
@@ -96,47 +121,19 @@ function contains
 Boolean ::= nm::String var::IndexVariable
 {
   return var.proceduralName == nm
-      || foldl(
-           \ b1::Boolean b2::Boolean
-           -> b1 || b2
-           ,
-           false,
-           map(contains(nm, _), var.before)
-         );
+      || case var.before of
+         | nothing() -> false
+         | just(x) -> contains(nm, x)
+         end;
 }
 
-function getAbove
-IndexVariable ::= nm::String var::IndexVariable
+function variableList
+[String] ::= var::IndexVariable
 {
   return
-    if var.proceduralName == nm
-    then variable(nm, [])
-    else variable(var.proceduralName, 
-           map(getAbove(nm, _), var.before));
-}
-
-function getBelow
-[IndexVariable] ::= nm::String var::IndexVariable
-{
-  return
-    if var.proceduralName == nm
-    then var.before
-    else foldl(
-           \ lst::[IndexVariable]
-             var::IndexVariable
-           -> lst ++ getBelow(nm, var)
-           ,
-           [],
-           var.before
-         );
-}
-
-function makeFrom
-IndexVariable ::= var::IndexVariable under::[IndexVariable]
-{
-  return
-    if null(var.before)
-    then variable(var.proceduralName, under)
-    else variable(var.proceduralName, 
-           map(makeFrom(_, under), var.before));
+    var.proceduralName ::
+    case var.before of
+    | nothing() -> []
+    | just(x) -> variableList(x)
+    end;
 }

@@ -169,6 +169,7 @@ String ::= fmt::TensorFormatItem
         for(unsigned long i = 0; i < numChildren; i++) {
           t->data[i] = trees[i]->val;
         }
+        t->dataLen = numChildren;
         t->bufferCnt = 0;
         t->buffer.numChildren = 0;
         t->buffer.children = 0;

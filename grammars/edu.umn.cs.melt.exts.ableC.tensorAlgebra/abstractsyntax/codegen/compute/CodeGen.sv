@@ -96,6 +96,8 @@ String ::= expr::TensorAssignExpr order::[String] tensors::[Name] loc::Location
       {
         ${build_pack(out, fmt)}
       }
+    } else {
+      memset(${out}->data, 0, sizeof(double) * ${out}->dataLen);
     }
   }
   """;
@@ -127,6 +129,7 @@ String ::= name::String fmt::TensorFormatItem
     for(unsigned long i = 0; i < numChildren; i++) {
       t->data[i] = trees[i]->val;
     }
+    t->dataLen = sizeof(double) * numChildren;
     t->bufferCnt = 0;
     t->buffer.numChildren = 0;
     t->buffer.children = 0;
