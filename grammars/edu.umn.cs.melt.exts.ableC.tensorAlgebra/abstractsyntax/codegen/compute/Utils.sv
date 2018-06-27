@@ -38,11 +38,16 @@ function findOrder
 [String] ::= start::[String] orders::[[String]]
 {
   local index::[Integer] =
-    map(indexOf(\a::String b::String -> a == b,
-                start,
-                _),
-                head(orders)
-       );
+    map(
+      positionOf(
+        \ a::String b::String 
+        -> a == b
+        ,
+        _,
+        start
+      ),
+      head(orders)
+    );
   local newOrder::[String] =
     formNewOrder(start, head(orders), index);
 
@@ -66,18 +71,20 @@ function formNewOrder
 function formNewOrderFunc
 [String] ::= order::[String] add::[String] found::[Integer] index::Integer
 {
-  return case found of
-         | [] -> order
-         | h::t -> if h == -1
-                   then head(add) :: formNewOrderFunc(order, tail(add), tail(found), index)
-                   else if null(order)
-                        then formNewOrderFunc([], tail(add), tail(found), index)
-                        else if h == index
-                             then head(order) :: 
-                                  formNewOrderFunc(tail(order), tail(add), tail(found), index-1)
-                             else head(order) :: 
-                                  formNewOrderFunc(tail(order), add, found, index-1)
-         end;
+  return 
+    case found of
+    | [] -> order
+    | h::t -> 
+        if h == -1
+        then head(add) :: formNewOrderFunc(order, tail(add), tail(found), index)
+        else if null(order)
+             then formNewOrderFunc([], tail(add), tail(found), index)
+             else if h == index
+                  then head(order) :: 
+                       formNewOrderFunc(tail(order), tail(add), tail(found), index-1)
+                  else head(order) :: 
+                       formNewOrderFunc(tail(order), add, found, index-1)
+    end;
 }
 
 function checkIndexArr
@@ -114,4 +121,15 @@ Boolean ::= eq::(Boolean ::= a a) items::[a] array::[a]
     else
       containsBy(eq, head(items), array)
       || containsAny(eq, tail(items), array);
+}
+
+function filterWithList
+[a] ::= lst::[a] bools::[Boolean]
+{
+  return
+    if null(lst)
+    then []
+    else if head(bools)
+         then head(lst) :: filterWithList(tail(lst), tail(bools))
+         else filerWithList(tail(lst), tail(bools));
 }

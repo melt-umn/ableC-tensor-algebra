@@ -146,6 +146,7 @@ String ::= fmt::TensorFormatItem
   return s"""
     static void tensor_pack_${fmtNm}(struct tensor_${fmtNm}* t) {
       if(t->bufferCnt > 0) {
+        t->form = "";
         unsigned long* dims = t->dims;
         unsigned long*** indices = t->indices;
         double* data = t->data;

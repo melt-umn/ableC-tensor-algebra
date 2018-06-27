@@ -37,17 +37,28 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
           ${check_dims(assign, acc)}
           ${pack_tensors(tail(tensors), tail(formats))}
           ${setup_gen(tensors, formats)}
-          ${build_output(assign, acc, loc)}
+          ${build_output(assign, acc, tensors, loc)}
           {
             ${setup_gen(head(tensors) :: [], head(formats) :: [])}
             ${code_gen(assign, acc, loc, [], env)}
           }
+          ${implode("\n",
+              map(
+                \ n::Name
+                -> s"""${n.name}->form = "${expr.proceduralName}";"""
+                ,
+                tensors
+              )
+          )}
         }
       """)
     );
 
+  local localErrors::[Message] =
+    [err(loc, s"Cannot generate code for this tensor calculation due to cyclical access pattern.")];
+
   return if null(acc)
-         then warnStmt([err(loc, s"Cannot generate code for this tensor calculation due to cyclical access pattern")])
+         then warnStmt(localErrors)
          else fwrd;
 }
 
@@ -62,7 +73,7 @@ function generateExprSubs
 }
 
 function build_output
-String ::= expr::TensorAssignExpr order::[String] loc::Location
+String ::= expr::TensorAssignExpr order::[String] tensors::[Name] loc::Location
 {
   local nm::Name =
     case expr.tensorAssign of
@@ -75,14 +86,16 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
 
   return s"""
   {
-    ${out}->bufferCnt = 0;
-    ${out}->buffer.numChildren = 0;
-    ${out}->buffer.children = 0;
-    
-    unsigned long* index = GC_malloc(sizeof(unsigned long) * ${toString(fmt.dimens)});
-    ${build_body(expr, order, loc)}
-    {
-      ${build_pack(out, fmt)}
+    if(${implode("||", map(\n::Name -> s"""strcmp(${n.name}->form, "${expr.tensorValue.proceduralName}") != 0""", tensors))} ) {    
+      ${out}->bufferCnt = 0;
+      ${out}->buffer.numChildren = 0;
+      ${out}->buffer.children = 0;
+      
+      unsigned long* index = GC_malloc(sizeof(unsigned long) * ${toString(fmt.dimens)});
+      ${build_body(expr, order, loc)}
+      {
+        ${build_pack(out, fmt)}
+      }
     }
   }
   """;

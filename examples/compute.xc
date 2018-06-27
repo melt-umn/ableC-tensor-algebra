@@ -24,6 +24,7 @@ int main() {
   value (y)(3) = 7.2;
 
   tensor y(i) = A(i, j) * x(j);
+  tensor y(i) = x(j) * A(i, j);
 
   printf("y(0) = %f (should be %f)\n", value (y)(0), 16.0);
   printf("y(7) = %f (should be %f)\n", value (y)(7), 18.0);

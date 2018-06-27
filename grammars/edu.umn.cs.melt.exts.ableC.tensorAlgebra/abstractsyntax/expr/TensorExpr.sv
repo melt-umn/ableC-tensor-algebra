@@ -35,10 +35,10 @@ top::TensorExpr ::= name::Name access::[String]
                  ) -> []
                | _ -> [err(top.location, s"Tensor access expected a tensor (got ${showType(b.typerep)}")]
                end
-    | _ -> [err(top.location, s"Tesnsor access expcted a tensor")]
+    | _ -> [err(top.location, s"Tensor access expcted a tensor")]
     end;
   
-  top.proceduralName = "";
+  top.proceduralName = s"${name.name}(${implode(",", access)})";
 }
 
 abstract production tExpr
@@ -75,12 +75,22 @@ top::TensorExpr ::= left::TensorExpr right::TensorExpr
   right.parenExpr = [top];
   
   top.proceduralName = 
-    if null(top.parenExpr) 
-    then s"${left.proceduralName} + ${right.proceduralName}"
+    let ls::String = left.proceduralName
+    in let rs::String = right.proceduralName
+    in let ps::Pair<String String> =
+       if ls <= rs
+       then pair(ls, rs)
+       else pair(rs, ls)
+    in
+    if null(top.parenExpr)
+    then s"${ps.fst}+${ps.snd}"
     else case head(top.parenExpr) of
-         | mul(_, _) -> s"(${left.proceduralName} + ${right.proceduralName})"
-         | _ -> s"${left.proceduralName} + ${right.proceduralName}"
-         end;
+         | mul(_, _) -> s"(${ps.fst}+${ps.snd})"
+         | _ -> s"${ps.fst}+${ps.snd}"
+         end
+    end
+    end
+    end;
 }
 
 abstract production mul
@@ -100,7 +110,17 @@ top::TensorExpr ::= left::TensorExpr right::TensorExpr
   right.parenExpr = [top];
   
   top.proceduralName =
-    s"${left.proceduralName} * ${right.proceduralName}";
+    let ls::String = left.proceduralName
+    in let rs::String = right.proceduralName
+    in let ps::Pair<String String> =
+       if ls <= rs
+       then pair(ls, rs)
+       else pair(rs, ls)
+    in
+    s"${ps.fst}*${ps.snd}"
+    end
+    end
+    end;
 }
 
 function tensorExprEqual
