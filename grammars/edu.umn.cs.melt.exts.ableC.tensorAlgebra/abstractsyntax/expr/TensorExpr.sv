@@ -31,8 +31,17 @@ top::TensorExpr ::= name::Name access::[String]
     case lookupValue(name.name, top.env) of
     | b::[] -> case b.typerep of
                | pointerType(_,
-                   tensorType(_, _, _)
-                 ) -> []
+                   tensorType(_, fmt, _)
+                 ) -> if !null(fmt.tensorFormatLookupCheck)
+                      then fmt.tensorFormatLookupCheck
+                      else
+                      let f::Decorated TensorFormatItem =
+                        fmt.tensorFormatItem
+                      in
+                      if listLength(access) != f.dimens
+                      then [err(top.location, s"Tensor ${name.name} has ${toString(f.dimens)} dimensions, but accessed using ${toString(listLength(access))} index variables.")]
+                      else []
+                      end
                | _ -> [err(top.location, s"Tensor access expected a tensor (got ${showType(b.typerep)}")]
                end
     | _ -> [err(top.location, s"Tensor access expcted a tensor")]
@@ -138,10 +147,7 @@ Boolean ::= a::TensorExpr b::TensorExpr
            ,
            true,
            zipWith(
-             \ a::String
-               b::String
-             -> a == b
-             ,
+             stringEq(_, _),
              ac,
              acc
            )

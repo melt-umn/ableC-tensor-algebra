@@ -365,10 +365,7 @@ function exp_sparse
     | access(nm, acc) -> 
         let i::Integer =
           positionOf(
-            \ s1::String
-              s2::String
-           -> s1 == s2
-            , 
+            stringEq(_, _), 
             var, 
             acc
           )
@@ -390,10 +387,9 @@ function exp_sparse
              then []
              else let j::Integer = 
                      positionOf(
-                       \ x::Integer
-                         y::Integer
-                      -> x == y
-                       ,
+                       \ i1::Integer
+                         i2::Integer
+                       -> i1 == i2,
                        i,
                        fm.dimenOrder
                      )

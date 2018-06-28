@@ -60,10 +60,7 @@ Maybe<Pair<String Integer>> ::= expr::TensorExpr var::String fmt::tm:Map<Name Te
     | access(nm, acc) ->
         let i::Integer =
           positionOf(
-            \a::String
-             b::String
-             -> a == b
-            ,
+            stringEq(_, _),
             var,
             acc
           )
@@ -122,10 +119,7 @@ function findAccessesAssign
     | access(nm, acc) ->
         let ind::Integer =
           positionOf(
-            \ a::String
-              b::String
-            -> a == b
-            ,
+            stringEq(_, _),
             var,
             acc
           )
@@ -147,10 +141,7 @@ function findAccessesExpr
     | access(nm, acc) ->
         let ind::Integer =
           positionOf(
-            \ a::String
-              b::String
-            -> a == b
-            ,
+            stringEq(_, _),
             var,
             acc
           )
@@ -191,10 +182,7 @@ function sparse_assign
     | access(nm, acc) -> 
         let idx::Integer = 
           positionOf(
-            \ a::String
-              b::String
-            -> a == b
-            ,
+            stringEq(_, _),
             var,
             acc
           )

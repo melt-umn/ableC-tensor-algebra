@@ -369,15 +369,15 @@ top::Stmt ::= tensor::Expr index::[Expr] op::AssignmentOp val::Expr
            ]);
 
   local errors::[Message] =
-    case tensor.typerep of
-    | pointerType(_,
-        tensorType(_, _, _)
-      ) -> []
-    | _ -> [err(tensor.location, s"Tensor value expected a tensor (got ${showType(tensor.typerep)})")]
-    end ++
     case tensor of
     | errorExpr(errs) -> errs
-    | _ -> []
+    | _ -> 
+      case tensor.typerep of
+      | pointerType(_,
+          tensorType(_, _, _)
+        ) -> []
+      | _ -> [err(tensor.location, s"Tensor value expected a tensor (got ${showType(tensor.typerep)})")]
+      end
     end;
 
   propagate substituted;
@@ -394,7 +394,11 @@ top::Stmt ::= tensor::Expr index::[Expr] op::AssignmentOp val::Expr
     | _ -> "error"
     end;
 
-  forwards to op.fwrd(fmtNm)(tensor, index, val);
+  forwards to 
+    if null(errors)
+    then op.fwrd(fmtNm)(tensor, index, val)
+    else warnStmt(errors);
+    
 }
 
 abstract production tensor_compute
@@ -422,8 +426,17 @@ top::Stmt ::= base::Name index::[String] expr::TensorExpr
     case baseValues of
     | b::[] -> case b.typerep of
                | pointerType(_,
-                   tensorType(_, _, _)
-                 ) -> []
+                   tensorType(_, fmt, _)
+                 ) -> if !null(fmt.tensorFormatLookupCheck)
+                      then fmt.tensorFormatLookupCheck
+                      else
+                      let f::Decorated TensorFormatItem =
+                        fmt.tensorFormatItem
+                      in
+                      if listLength(index) != f.dimens
+                      then [err(base.location, s"Tensor ${base.name} has ${toString(f.dimens)} dimensions, but accessed using ${toString(listLength(index))} index variables.")]
+                      else []
+                      end
                | _ -> [err(base.location, s"Tensor computation expected a tensor (got ${showType(b.typerep)})")]
                end
     | _ -> [err(base.location, s"Tensor computation expected a tensor")]

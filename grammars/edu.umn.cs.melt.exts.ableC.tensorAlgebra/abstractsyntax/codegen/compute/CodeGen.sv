@@ -5,8 +5,53 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 function codeGen
 Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Location
 {
-  local tensors::[Name] = nm :: getTensors(expr);
+  local tensors::[Name] = 
+    nm :: 
+    nubBy(
+      \ n1::Name n2::Name
+      -> n1.name == n2.name
+      ,
+      getTensors(expr)
+    );
   local formats::[TensorFormatItem] = getFormats(tensors, env);
+
+  local valueAccess::[String] =
+    nubBy(
+      stringEq(_, _)
+      ,
+      flatMap(
+        \ s::[String]
+        -> s
+        ,
+        parseOrder(expr, env)
+      )
+    );
+  
+  local invalidAccess::Boolean =
+    foldl(
+      \ b::Boolean
+        s::String
+      -> !containsBy(
+           stringEq(_, _),
+           s,
+           valueAccess
+         ) || b
+      ,
+      false,
+      access
+    );
+  
+  local errorVariable::[String] =
+    filter(
+      \ s::String 
+      -> !containsBy(
+           stringEq(_, _),
+           s,
+           valueAccess
+         )
+      ,
+      access
+    );
 
   local acc::[String] =
     findOrder(
@@ -29,6 +74,7 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
       exprs
     );
 
+  expr.parenExpr = [];
   local fwrd::Stmt =
     substStmt(
       generateExprSubs(exprs, exprN),
@@ -55,9 +101,15 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
     );
 
   local localErrors::[Message] =
-    [err(loc, s"Cannot generate code for this tensor calculation due to cyclical access pattern.")];
+    if null(acc)
+    then [err(loc, s"Cannot generate code for this tensor calculation due to cyclical access pattern.")]
+    else []
+    ++
+    if invalidAccess
+    then [err(loc, s"Cannot generate code for this calculation since the index variable(s) ${implode(", ", errorVariable)} only occurs on the left-hand side.")]
+    else [];
 
-  return if null(acc)
+  return if !null(localErrors)
          then warnStmt(localErrors)
          else fwrd;
 }
@@ -84,9 +136,12 @@ String ::= expr::TensorAssignExpr order::[String] tensors::[Name] loc::Location
   local fmt::TensorFormatItem =
     head(tm:lookup(nm, expr.tensorFormat));
 
+  local ex::TensorExpr = expr.tensorValue;
+  ex.parenExpr = [];
+
   return s"""
   {
-    if(${implode("||", map(\n::Name -> s"""strcmp(${n.name}->form, "${expr.tensorValue.proceduralName}") != 0""", tensors))} ) {    
+    if(${implode("||", map(\n::Name -> s"""strcmp(${n.name}->form, "${ex.proceduralName}") != 0""", tensors))} ) {    
       ${out}->bufferCnt = 0;
       ${out}->buffer.numChildren = 0;
       ${out}->buffer.children = 0;
@@ -162,10 +217,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
   
   local more::Boolean =
     containsAny(
-      \ s1::String
-        s2::String
-      -> s1 == s2
-      ,
+      stringEq(_, _),
       order,
       acc
     );
@@ -173,10 +225,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
   local iv::String = head(order);
   local l::Integer =
     positionOf(
-      \ s1::String
-        s2::String
-      -> s1 == s2
-      ,
+      stringEq(_, _),
       iv,
       acc
     );
@@ -452,11 +501,11 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
   local subExpr::TensorAssignExpr =
     makeSub(expr, nSubs ++ subs);
 
-  local nxtExpr::TensorAssignExpr =
-    case tail(order) of
-    | [] -> expr
-    | _ -> makeSub(expr, nSubs ++ subs)
-    end;
+--  local nxtExpr::TensorAssignExpr =
+--    case tail(order) of
+--    | [] -> expr
+--    | _ -> makeSub(expr, nSubs ++ subs)
+--    end;
 
   return 
     if null(order)
@@ -531,6 +580,12 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                 let pnt::LatticePoints =
                   head(points)
                 in
+                let nxtExpr::TensorAssignExpr =
+                  case tail(order) of
+                  | [] -> pnt.exprs
+                  | _ -> makeSub(pnt.exprs, nSubs ++ subs)
+                  end
+                in
                 s"""
                   else {
                     ${code_gen(pnt.exprs, tail(order), loc, nSubs ++ subs, env)}
@@ -542,11 +597,18 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                   }
                 """
                 end
+                end
               else 
                 implode("\n",
                   map(
                     \ pnt::LatticePoints
                     -> let sd::[Pair<String Integer>] = sparse_dimensions(builtLattice([pnt]), iv)
+                       in
+                       let nxtExpr::TensorAssignExpr =
+                         case tail(order) of
+                         | [] -> pnt.exprs
+                         | _ -> makeSub(pnt.exprs, nSubs ++ subs)
+                         end
                        in
                        s"""
                           ${if null(sd)
@@ -566,6 +628,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                             else "}"
                           }
                        """
+                       end
                        end
                     ,
                     points
@@ -690,29 +753,20 @@ String ::= ex::TensorAssignExpr iv::String left::[String] env::Decorated Env
   
   local super::Boolean =
     containsAny(
-      \ s1::String
-        s2::String
-      -> s1 == s2
-      ,
+      stringEq(_, _),
       left,
       acc
     );
   
   local even::Boolean =
     !containsAny(
-      \ s1::String
-        s2::String
-      -> s1 == s2
-      ,
+      stringEq(_, _),
       left,
       acc
     )
     &&
     containsBy(
-      \ s1::String
-        s2::String
-      -> s1 == s2
-      ,
+      stringEq(_, _),
       iv,
       acc
     );
@@ -753,19 +807,13 @@ String ::= ex::TensorAssignExpr iv::String left::[String] env::Decorated Env
   
   local sub::Boolean =
     !containsAny(
-       \ s1::String
-         s2::String
-       -> s1 == s2
-       ,
+       stringEq(_, _),
        left,
        acc
      )
      &&
      !containsBy(
-        \ s1::String
-          s2::String
-        -> s1 == s2
-        ,
+        stringEq(_, _),
         iv,
         acc
      );
@@ -786,6 +834,10 @@ String ::= ex::TensorAssignExpr iv::String left::[String] env::Decorated Env
 function emitCompute
 String ::= ex::TensorAssignExpr iv::String left::[String] sbs::[Pair<TensorExpr String>] env::Decorated Env
 {
+  local eAssign::TensorExpr =
+    ex.tensorAssign;
+  eAssign.env = env;
+
   local subs::[Pair<TensorExpr String>] =
     sbs
     ++ deeperSubs(ex.tensorValue, left);
@@ -794,40 +846,58 @@ String ::= ex::TensorAssignExpr iv::String left::[String] sbs::[Pair<TensorExpr 
     makeSub(ex, subs);  
 
   local acc::[String] =
-    case ex.tensorAssign of
+    case eAssign of
     | access(_, a) -> a
     | _ -> []
     end;
   
   local out::String =
-    case ex.tensorAssign of
+    case eAssign of
     | access(n, _) -> n.name
     | _ -> "error"
     end;
   
   local layer::Boolean =
     !containsAny(
-       \ s1::String
-         s2::String
-       -> s1 == s2
-       ,
+       stringEq(_, _),
        left,
        acc
     )
     &&
     containsBy(
-      \ s1::String
-        s2::String
-      -> s1 == s2
-      ,
+      stringEq(_, _),
       iv,
       acc
     );
-  
+
+  local sparse::Boolean =
+    case eAssign of
+    | access(n, _) ->
+        let f::TensorFormatItem =
+          getFormat(n, env)
+        in
+        let idx::Integer =
+          last(f.dimenOrder)
+        in
+        case getElem(f.specifiers, idx) of
+        | nothing() -> false
+        | just(x) -> x == storeSparse
+        end
+        end
+        end
+    | _ -> false
+    end;  
+
   return
     if layer
     then
-      s"${out}->data[p${out}${toString(listLength(acc))}] += ${evalExpr(expr.tensorValue, env)};"
+      s"""
+        ${out}->data[p${out}${toString(listLength(acc))}] += ${evalExpr(expr.tensorValue, env)};
+        ${if sparse
+          then s"p${out}${toString(listLength(acc))}++;"
+          else ""
+        }
+      """
     else "";
 }
 

@@ -76,10 +76,7 @@ Maybe<IndexVariable> ::= lst::[IndexVariable]
   
   local topVars::[String] =
     nubBy(
-      \ s1::String
-        s2::String
-      -> s1 == s2
-      ,
+      stringEq(_, _),
       map(
         (.proceduralName),
         filterWithList(lst, top)
