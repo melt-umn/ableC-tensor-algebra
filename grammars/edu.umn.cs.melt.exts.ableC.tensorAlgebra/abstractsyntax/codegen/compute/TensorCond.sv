@@ -51,37 +51,37 @@ abstract production andCond
 top::TensorCond ::= l::TensorCond r::TensorCond
 {
   top.setOp =
-    if isNullCond(l)
+    if isAllCond(l)
+    then r.setOp
+    else if isAllCond(r)
+    then l.setOp
+    else if isNullCond(l)
     then r.setOp
     else if isNullCond(r)
-         then l.setOp
-         else if isAllCond(l)
-              then r.setOp
-              else if isAllCond(r)
-                   then l.setOp
-                   else "and";
+    then l.setOp
+    else "and";
     
   top.tensorElems = 
-    if isNullCond(l)
+    if isAllCond(l)
+    then r.tensorElems
+    else if isAllCond(r)
+    then l.tensorElems
+    else if isNullCond(l)
     then r.tensorElems
     else if isNullCond(r)
-         then l.tensorElems
-         else if isAllCond(l)
-              then r.tensorElems
-              else if isAllCond(r)
-                   then l.tensorElems
-                   else right(l) :: right(r) :: [];
+    then l.tensorElems
+    else right(l) :: right(r) :: [];
   
   top.tensorDim =
-    if isNullCond(l)
+    if isAllCond(l)
+    then r.tensorDim
+    else if isAllCond(r)
+    then l.tensorDim
+    else if isNullCond(l)
     then r.tensorDim
     else if isNullCond(r)
-         then l.tensorDim
-         else if isAllCond(l)
-              then r.tensorDim
-              else if isAllCond(r)
-                   then l.tensorDim
-                   else -1;
+    then l.tensorDim
+    else -1;
 }
 
 function isAndCond
@@ -97,26 +97,26 @@ top::TensorCond ::= l::TensorCond r::TensorCond
     if isNullCond(l)
     then r.setOp
     else if isNullCond(r)
-         then l.setOp
-         else if isAllCond(l) || isAllCond(r)
-              then "all"
-              else "and";
+    then l.setOp
+    else if isAllCond(l) || isAllCond(r)
+    then "all"
+    else "and";
 
   top.tensorElems =
     if isNullCond(l)
     then r.tensorElems
     else if isNullCond(r)
-         then r.tensorElems
-         else if isAllCond(l) || isAllCond(r)
-              then []
-              else right(l) :: right(r) :: [];
+    then l.tensorElems
+    else if isAllCond(l) || isAllCond(r)
+    then []
+    else right(l) :: right(r) :: [];
   
   top.tensorDim =
     if isNullCond(l)
     then r.tensorDim
     else if isNullCond(r)
-         then l.tensorDim
-         else -1;
+    then l.tensorDim
+    else -1;
 }
 
 function isOrCond

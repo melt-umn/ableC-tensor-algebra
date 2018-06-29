@@ -184,7 +184,7 @@ String ::= name::String fmt::TensorFormatItem
     for(unsigned long i = 0; i < numChildren; i++) {
       t->data[i] = trees[i]->val;
     }
-    t->dataLen = sizeof(double) * numChildren;
+    t->dataLen = numChildren;
     t->bufferCnt = 0;
     t->buffer.numChildren = 0;
     t->buffer.children = 0;
@@ -501,12 +501,6 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
   local subExpr::TensorAssignExpr =
     makeSub(expr, nSubs ++ subs);
 
---  local nxtExpr::TensorAssignExpr =
---    case tail(order) of
---    | [] -> expr
---    | _ -> makeSub(expr, nSubs ++ subs)
---    end;
-
   return 
     if null(order)
     then ""
@@ -782,6 +776,7 @@ String ::= ex::TensorAssignExpr iv::String left::[String] env::Decorated Env
           subs
       ))
     else if even
+    ++ if even
     then
       implode("\n",
         map(

@@ -22,15 +22,15 @@ int main() {
   value(B)(1, 2) = 1.0;
   value(B)(2, 3) = 1.5;
   
-  value(B)(0, 2) = 0.5;
-  value(B)(0, 4) = 1.0;
-  value(B)(1, 2) = 1.5;
-  value(B)(2, 1) = 2.0;
+  value(C)(0, 2) = 0.5;
+  value(C)(0, 4) = 1.0;
+  value(C)(1, 2) = 1.5;
+  value(C)(2, 1) = 2.0;
   
-  value(B)(1, 3) = 0.5;
-  value(B)(2, 0) = 1.0;
-  value(B)(2, 2) = 1.5;
-  value(B)(4, 2) = 2.0;
+  value(D)(1, 3) = 0.5;
+  value(D)(2, 0) = 1.0;
+  value(D)(2, 2) = 1.5;
+  value(D)(4, 2) = 2.0;
   
   tensor A(i,j) = B(i,j) * ( C(i,k) * D(k,j) );
   

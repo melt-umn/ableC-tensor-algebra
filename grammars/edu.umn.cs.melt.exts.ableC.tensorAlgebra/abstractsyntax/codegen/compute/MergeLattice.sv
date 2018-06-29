@@ -70,7 +70,13 @@ LatticePoints ::= expr::TensorAssignExpr var::String loc::Location
                             assignExpr(b, acc, r, ts, fs, location=loc), 
                             var, 
                             loc)
-                   in builtPoint(
+                   in 
+                   if isNullCond(lP.conds)
+                   then rP
+                   else if isNullCond(rP.conds)
+                   then lP
+                   else
+                      builtPoint(
                         map(pointAdd(_, r, 0, var, loc),
                           lP.points)
                         ++
@@ -78,6 +84,34 @@ LatticePoints ::= expr::TensorAssignExpr var::String loc::Location
                           rP.points)
                         ++ (lP :: rP :: [])
                         , 
+                        expr, orCond(lP.conds, rP.conds))
+                   end
+                   end
+               | assignExprExpr(assign, _, fs) ->
+                   let lP::LatticePoints =
+                     lattice_points(
+                       assignExprExpr(assign, l, fs, location=loc),
+                       var,
+                       loc)
+                   in let rP::LatticePoints =
+                     lattice_points(
+                       assignExprExpr(assign, r, fs, location=loc),
+                       var,
+                       loc)
+                   in 
+                   if isNullCond(lP.conds)
+                   then rP
+                   else if isNullCond(rP.conds)
+                   then lP
+                   else
+                     builtPoint(
+                        map(pointAdd(_, r, 0, var, loc),
+                          lP.points)
+                        ++
+                        map(pointAdd(_, l, 1, var, loc),
+                          rP.points)
+                        ++ (lP :: rP :: [])
+                        ,
                         expr, orCond(lP.conds, rP.conds))
                    end
                    end
@@ -100,6 +134,27 @@ LatticePoints ::= expr::TensorAssignExpr var::String loc::Location
                         map(pointMult(_, r, 0, var, loc),
                           lP.points)
                         ++ 
+                        map(pointMult(_, l, 1, var, loc),
+                          rP.points)
+                        ,
+                        expr, andCond(lP.conds, rP.conds))
+                   end
+                   end
+               | assignExprExpr(assign, _, fs) ->
+                   let lP::LatticePoints =
+                     lattice_points(
+                       assignExprExpr(assign, l, fs, location=loc),
+                       var,
+                       loc)
+                   in let rP::LatticePoints =
+                     lattice_points(
+                       assignExprExpr(assign, r, fs, location=loc),
+                       var,
+                       loc)
+                   in builtPoint(
+                        map(pointMult(_, r, 0, var, loc),
+                          lP.points)
+                        ++
                         map(pointMult(_, l, 1, var, loc),
                           rP.points)
                         ,
@@ -249,6 +304,8 @@ LatticePoints ::= p::LatticePoints formats :: tm:Map<Name TensorFormatItem>
     filter(
       \pn::LatticePoints ->
         !condEqual(pn.conds, cond)
+        &&
+        !isNullCond(pn.conds)
       , 
       pnts);
   

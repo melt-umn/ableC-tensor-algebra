@@ -46,7 +46,7 @@ int main() {
   assert_f(value(a)(4), 0.0);
   assert_f(value(a)(5), 0.0);
   assert_f(value(a)(6), 0.0);
-  assert_f(value(a)(7), 16.875);
+  assert_f(value(a)(7), 13.125);
 
   return 0;
 }

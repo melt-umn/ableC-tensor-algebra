@@ -27,18 +27,18 @@ int main() {
   
   tensor A(i,j,k) = B(i,j,k) + C(i,j,k);
 
-  assert_f(valid(A)(0,0,0), 0.0);
-  assert_f(valid(A)(0,0,1), 0.0);
-  assert_f(valid(A)(0,1,0), 0.0);
-  assert_f(valid(A)(0,1,1), 0.5);
-  assert_f(valid(A)(0,2,0), 3.0);
-  assert_f(valid(A)(0,2,1), 0.0);
-  assert_f(valid(A)(1,0,0), 0.0);
-  assert_f(valid(A)(1,0,1), 0.0);
-  assert_f(valid(A)(1,1,0), 0.0);
-  assert_f(valid(A)(1,1,1), 0.5);
-  assert_f(valid(A)(1,2,0), 2.0);
-  assert_f(valid(A)(1,2,1), 0.0);
+  assert_f(value(A)(0,0,0), 0.0);
+  assert_f(value(A)(0,0,1), 0.0);
+  assert_f(value(A)(0,1,0), 0.0);
+  assert_f(value(A)(0,1,1), 0.5);
+  assert_f(value(A)(0,2,0), 3.0);
+  assert_f(value(A)(0,2,1), 0.0);
+  assert_f(value(A)(1,0,0), 0.0);
+  assert_f(value(A)(1,0,1), 0.0);
+  assert_f(value(A)(1,1,0), 0.0);
+  assert_f(value(A)(1,1,1), 0.5);
+  assert_f(value(A)(1,2,0), 2.0);
+  assert_f(value(A)(1,2,1), 0.0);
 
   return 0;
 }
