@@ -529,7 +529,6 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
             dense_dimensions(builtLattice([p]), iv)
           in
           s"""
-          printf("${implode(", ", map(\si::Pair<String Integer>->si.fst ++ toString(si.snd), dense))}");
           while(${until_any_exhausted(merged_dimensions(p, expr.tensorFormat), expr, iv)}) {
             ${implode("\n",
               map(
@@ -564,7 +563,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
             // section 6.2, emit-available-expressions
             ${emitAvailExprs(expr, iv, tail(order), env)}
             
-            if(0) {printf("${pointToString(p, 0)}");}
+            if(0) {}
             
             ${let points::[LatticePoints] =
                 p :: sub_points(p)
