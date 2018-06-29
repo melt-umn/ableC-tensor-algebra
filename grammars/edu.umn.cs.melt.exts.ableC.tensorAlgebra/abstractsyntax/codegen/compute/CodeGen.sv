@@ -529,6 +529,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
             dense_dimensions(builtLattice([p]), iv)
           in
           s"""
+          printf("${implode(", ", map(\si::Pair<String Integer>->si.fst ++ toString(si.snd), dense))}");
           while(${until_any_exhausted(merged_dimensions(p, expr.tensorFormat), expr, iv)}) {
             ${implode("\n",
               map(
@@ -563,13 +564,13 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
             // section 6.2, emit-available-expressions
             ${emitAvailExprs(expr, iv, tail(order), env)}
             
-            if(0) {}
+            if(0) {printf("${pointToString(p, 0)}");}
             
             ${let points::[LatticePoints] =
                 p :: sub_points(p)
               in
-              if listLength(points) == 0 || isAccessCond(head(points).conds) ||
-                 isNullCond(head(points).conds) || isAllCond(head(points).conds)
+              if listLength(points) == 0 || isNullCond(head(points).conds) ||
+                 isAllCond(head(points).conds) || isAccessCond(head(points).conds)
               then 
                 let pnt::LatticePoints =
                   head(points)
@@ -587,7 +588,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                     // section 6.2, emit-reduction-compute
                     ${emitReduceCompute(nxtExpr, iv, tail(order), env)}
                     // section 6.2, emit-compute
-                    ${emitCompute(nxtExpr, iv, tail(order), subs, env)}
+                    ${emitCompute(pnt.exprs, iv, tail(order), subs, env)}
                   }
                 """
                 end
@@ -615,7 +616,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                           // #7, emit-reduction-compute
                           ${emitReduceCompute(nxtExpr, iv, tail(order), env)}
                           // #7, emit-compute()
-                          ${emitCompute(nxtExpr, iv, tail(order), subs, env)}
+                          ${emitCompute(pnt.exprs, iv, tail(order), subs, env)}
                           
                           ${if null(sd)
                             then ""
@@ -776,7 +777,6 @@ String ::= ex::TensorAssignExpr iv::String left::[String] env::Decorated Env
           subs
       ))
     else if even
-    ++ if even
     then
       implode("\n",
         map(
@@ -1062,19 +1062,13 @@ Pair<[Pair<TensorExpr String>] Integer> ::= ex::TensorExpr iv::String left::[Str
     | nullTensorExpr() -> pair([], c)
     | access(_, acc) ->
         if !containsAny(
-             \ a::String
-               b::String
-             -> a == b
-             , 
+             stringEq(_, _),
              left,
              acc
            )
            &&
            containsBy(
-             \ a::String
-               b::String
-             -> a == b
-             ,
+             stringEq(_, _),
              iv,
              acc
            )
@@ -1082,7 +1076,7 @@ Pair<[Pair<TensorExpr String>] Integer> ::= ex::TensorExpr iv::String left::[Str
         else pair([], c)
     | tExpr(_) -> pair([], c)
     | add(l, r) ->
-        if isAvail(ex, left)
+        if isAvail(ex, left, iv)
         then 
           pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
         else
@@ -1096,7 +1090,7 @@ Pair<[Pair<TensorExpr String>] Integer> ::= ex::TensorExpr iv::String left::[Str
           end
           end
     | mul(l, r) ->
-        if isAvail(ex, left)
+        if isAvail(ex, left, iv)
         then
           pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
         else
@@ -1113,23 +1107,26 @@ Pair<[Pair<TensorExpr String>] Integer> ::= ex::TensorExpr iv::String left::[Str
 }
 
 function isAvail
-Boolean ::= ex::TensorExpr left::[String]
+Boolean ::= ex::TensorExpr left::[String] iv::String
 {
   return
     case ex of
     | nullTensorExpr() -> true
     | access(_, acc) ->
         !containsAny(
-          \ a::String
-            b::String
-          -> a == b
-          ,
+          stringEq(_, _),
           left,
           acc
+         ) 
+         &&
+         containsBy(
+           stringEq(_, _),
+           iv,
+           acc
          )
     | tExpr(_) -> true
-    | add(l, r) -> isAvail(l, left) && isAvail(r, left)
-    | mul(l, r) -> isAvail(l, left) && isAvail(r, left)
+    | add(l, r) -> isAvail(l, left, iv) && isAvail(r, left, iv)
+    | mul(l, r) -> isAvail(l, left, iv) && isAvail(r, left, iv)
     end;
 }
 
