@@ -381,7 +381,7 @@ TensorCond ::= c::TensorCond fmt:: tm:Map<Name TensorFormatItem>
              let oL::TensorCond = cond_optimize(l, fmt)
              in let oR::TensorCond = cond_optimize(r, fmt)
              in 
-             orCondOpt(oL, oR)
+             orCond(oL, oR)
              end
              end
          | _, _ -> nullCond()
