@@ -100,37 +100,8 @@ top::TensorCond ::= l::TensorCond r::TensorCond
     then l.setOp
     else if isAllCond(l) || isAllCond(r)
     then "all"
-    else "or";
-
-  top.tensorElems =
-    if isNullCond(l)
-    then r.tensorElems
-    else if isNullCond(r)
-    then l.tensorElems
-    else if isAllCond(l) || isAllCond(r)
-    then []
-    else right(l) :: right(r) :: [];
-  
-  top.tensorDim =
-    if isNullCond(l)
-    then r.tensorDim
-    else if isNullCond(r)
-    then l.tensorDim
-    else -1;
-}
-
-abstract production orCondOpt
-top::TensorCond ::= l::TensorCond r::TensorCond
-{
-  top.setOp =
-    if isNullCond(l)
-    then r.setOp
-    else if isNullCond(r)
-    then l.setOp
-    else if isAllCond(l) || isAllCond(r)
-    then "all"
     else "and";
-  
+
   top.tensorElems =
     if isNullCond(l)
     then r.tensorElems
