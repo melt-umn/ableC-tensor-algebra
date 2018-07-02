@@ -98,3 +98,13 @@ function filterWithList
          then head(lst) :: filterWithList(tail(lst), tail(bools))
          else filterWithList(tail(lst), tail(bools));
 }
+
+function containsFunc
+Boolean ::= f::(Boolean ::= a) lst::[a]
+{
+  return
+    if null(lst)
+    then false
+    else f(head(lst))
+      || containsFunc(f, tail(lst));
+}

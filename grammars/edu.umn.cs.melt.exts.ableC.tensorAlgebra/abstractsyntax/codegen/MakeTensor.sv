@@ -69,6 +69,8 @@ String ::= order::[Integer] types::[Integer]
          else s"""
            res->indices[${dimen}] = GC_malloc(sizeof(unsigned long*) * 2);
            res->indices[${dimen}][0] = GC_malloc(sizeof(unsigned long) * (count + 1));
+           count = 1;
+           ${generateMakeBody(tail(order), types)}
          """ 
          end end end
     else s"res->data = GC_malloc(sizeof(double) * count);";

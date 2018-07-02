@@ -37,7 +37,7 @@ int main() {
   double beta = 0.5;
 
   tensor a(i) = ((alpha)) * B(i,j) * c(j) + ((beta)) * d(i);
-  
+
   assert_f(value(a)(0), 0.0);
   assert_f(value(a)(1), 1.25);
   assert_f(value(a)(2), 0.5);

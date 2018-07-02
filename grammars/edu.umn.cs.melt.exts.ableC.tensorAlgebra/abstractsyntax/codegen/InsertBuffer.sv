@@ -44,8 +44,9 @@ String ::= order::[Integer] dimensions::Integer
         if(currIdx == idx) {
           tree = &(tree->children[i]);
           found = 1;
+        } else if(currIdx < idx) {
+          i++;
         }
-        i++;
       }
       if(!found) {
         struct tensor_tree_s* temp = GC_malloc(sizeof(struct tensor_tree_s) * (end + 1));

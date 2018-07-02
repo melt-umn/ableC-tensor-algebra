@@ -75,17 +75,16 @@ $(ABLEC_JAR): $(GRAMMAR_SOURCES)
 
 translate_error/%.test: translate_error/%.xc $(XC_INCLUDE_SOURCES) $(ABLEC_JAR)
 	@echo "java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)"
-	@if java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS); then echo "Failed to error"; exit 1; fi
-	touch $@
+	@if java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS); then echo "\E[1;31mFailed to error\E[0m"; exit 1; fi
+	@touch $@
 
 runtime_error/%.test: runtime_error/%.out
 	@echo "./$<"
-	@if ./$<; then echo "Failed to error"; exit 2; else echo "(exit $$?)"; fi
-	touch $@
+	@if ./$<; then echo -e "\E[1;31mFailed to error\E[0m"; else echo -e "\E[1;32m(exit $$?)\E[0m"; touch $@; fi
 
 %.test: %.out
-	./$<
-	touch $@
+	@echo -e "\n\E[0;36m./$<\E[0;31m"
+	@if ./$<; then echo -e "\E[0;32mPassed\E[0m"; touch $@; else echo -e "\E[0m"; fi
 
 clean:
 	rm -f *~ */*~ */*.i */*.c */*.o */*.out */*.test *.jar *.copperdump.html build.xml

@@ -258,6 +258,13 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                  sparse_dimensions(builtLattice([p]), iv)
                in let dense::[Pair<String Integer>] =
                  dense_dimensions(builtLattice([p]), iv)
+               in let allBelow::Boolean =
+                 containsFunc(
+                   \ lp::LatticePoints
+                   -> isAllCond(lp.conds)
+                   ,
+                   p.points
+                 )
                in
                s"""
                  while(${until_any_exhausted(merged_dimensions(p, expr.tensorFormat), expr, iv)}) {
@@ -273,7 +280,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                        )
                    )}
                    
-                   ${if !null(sparse)
+                   ${if !null(sparse) && !allBelow
                      then s"${iv} = ${generate_min(map(\si::Pair<String Integer> -> s"${iv}${si.fst}", sparse))};"
                      else s""
                    }
@@ -301,7 +308,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                        p :: sub_points(p)
                      in
                      if listLength(points) == 0 || isAccessCond(head(points).conds) ||
-                        isNullCond(head(points).conds) || isAllCond(head(points).conds)
+                        isNullCond(head(points).conds)
                      then
                        let pnt::LatticePoints =
                          head(points)
@@ -320,15 +327,12 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                               in
                               s"""
                                 ${if null(sd)
-                                  then s""
+                                  then s"else {"
                                   else s"else if(${implode("&&", map(equals_iv(_, iv), sd))}) {"
                                 }
                                 
                                 ${build_body(pnt.exprs, tail(order), loc)}
                                 
-                                ${if null(sd)
-                                  then ""
-                                  else "}"
                                 }
                               """
                               end
@@ -341,7 +345,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                    
                    ${if listLength(sparse) == 0
                      then s"${iv}++;"
-                     else if listLength(sparse) == 1
+                     else if listLength(sparse) == 1 && !allBelow
                      then let si::Pair<String Integer> =
                             head(sparse)
                        in let Dj::String = s"${si.fst}${toString(si.snd)}"
@@ -361,8 +365,13 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                          )
                        )
                    }
+                   ${if allBelow
+                     then s"${iv}++;"
+                     else ""
+                   }
                  }
                """
+               end
                end
                end
                ,
@@ -501,6 +510,29 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
   local subExpr::TensorAssignExpr =
     makeSub(expr, nSubs ++ subs);
 
+  local out::String =
+    case expr.tensorAssign of
+    | access(n, _) -> n.name
+    | _ -> ""
+    end;
+  local outLen::Integer =
+    case expr.tensorAssign of
+    | access(_, l) -> listLength(l)
+    | _ -> -1
+    end;
+  local lastSparse::Boolean =
+    case tm:lookup(name(out, location=loc), expr.tensorFormat) of
+    | f::[] -> 
+        let idx::Integer = last(f.dimenOrder)
+        in
+        case getElem(f.specifiers, idx) of
+        | nothing() -> false
+        | just(t) -> t == storeSparse
+        end
+        end
+    | _ -> false
+    end;
+
   return 
     if null(order)
     then ""
@@ -517,7 +549,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
           ,
           sparse_assign(expr, iv) ++ sparse_dimensions(optimized, iv)
         )
-      )}
+    )}
     unsigned long ${iv} = 0;
     ${implode("\n",
       map(
@@ -527,6 +559,13 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
             sparse_dimensions(builtLattice([p]), iv)
           in let dense::[Pair<String Integer>] =
             dense_dimensions(builtLattice([p]), iv)
+          in let allBelow::Boolean =
+            containsFunc(
+              \ lp::LatticePoints
+              -> isAllCond(lp.conds)
+              ,
+              p.points
+            )
           in
           s"""
           while(${until_any_exhausted(merged_dimensions(p, expr.tensorFormat), expr, iv)}) {
@@ -542,7 +581,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
               )
             )}
             
-            ${if !null(sparse)
+            ${if !null(sparse) && !allBelow
               then s"${iv} = ${generate_min(map(\si::Pair<String Integer> -> s"${iv}${si.fst}", sparse))};"
               else s""
             }
@@ -552,9 +591,12 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                 \si::Pair<String Integer> ->
                   let Dj::String = s"${si.fst}${toString(si.snd)}"
                   in let Dj1::String = s"${si.fst}${toString(si.snd - 1)}"
+                  in let Djp1::String = s"${si.fst}${toString(si.snd + 1)}"
                   in
-                  s"unsigned long p${Dj} = (p${Dj1} * ${Dj}_size) + ${iv};"
-                  end end
+                  s"""
+                    unsigned long p${Dj} = (p${Dj1} * ${Dj}_size) + ${iv};
+                  """
+                  end end end
                 ,
                 dense
               )
@@ -569,7 +611,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                 p :: sub_points(p)
               in
               if listLength(points) == 0 || isNullCond(head(points).conds) ||
-                 isAllCond(head(points).conds) || isAccessCond(head(points).conds)
+                 isAllCond(head(points).conds)
               then 
                 let pnt::LatticePoints =
                   head(points)
@@ -584,6 +626,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                   else {
                     ${code_gen(pnt.exprs, tail(order), loc, nSubs ++ subs, env)}
 
+                    
                     // section 6.2, emit-reduction-compute
                     ${emitReduceCompute(nxtExpr, iv, tail(order), env)}
                     // section 6.2, emit-compute
@@ -606,7 +649,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                        in
                        s"""
                           ${if null(sd)
-                            then s""
+                            then s"else {"
                             else s"else if(${implode("&&", map(equals_iv(_, iv), sd))}){"
                           }
                      
@@ -616,10 +659,6 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                           ${emitReduceCompute(nxtExpr, iv, tail(order), env)}
                           // #7, emit-compute()
                           ${emitCompute(pnt.exprs, iv, tail(order), subs, env)}
-                          
-                          ${if null(sd)
-                            then ""
-                            else "}"
                           }
                        """
                        end
@@ -631,9 +670,47 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
               end
             }
             
+            ${let points::[LatticePoints] =
+                p :: sub_points(p)
+              in
+              if listLength(points) == 0
+              || isNullCond(head(points).conds)
+              || isAllCond(head(points).conds)
+              || foldl(
+                   \ b::Boolean
+                     pnt::LatticePoints
+                   -> b 
+                   || null(sparse_dimensions(builtLattice([pnt]), iv))
+                   || emitCompute(pnt.exprs, iv, tail(order), subs, env) == ""  
+                   ,
+                   false,
+                   points
+                 )
+              then ""
+              else if lastSparse
+              then 
+                let var::String = 
+                  s"${out}${toString(outLen)}"
+                in
+                let v1::String =
+                  s"${out}${toString(outLen - 1)}"
+                in
+                s"""
+                  else if(${var}_idx[p${var}] <= ${iv} && p${var} < ${var}_pos[p${v1}]){
+                    while(${var}_idx[p${var}] <= ${iv} && p${var} < ${var}_pos[p${v1}]) {
+                      p${var}++;
+                    }
+                  }
+                """
+                end
+                end
+              else ""
+              end
+            }
+            
             ${if listLength(sparse) == 0
               then s"${iv}++;"
-              else if listLength(sparse) == 1
+              else if listLength(sparse) == 1 && !allBelow
               then let si::Pair<String Integer> =
                      head(sparse)
                    in let Dj::String = s"${si.fst}${toString(si.snd)}"
@@ -652,8 +729,13 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                   sparse
                 )
             )}
-          }
+            ${if allBelow
+              then s"${iv}++;"
+              else ""
+            }
+          }          
         """
+        end
         end
         end
         , 
@@ -666,6 +748,68 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
       )
     )}
   """;
+}
+
+function isSparseNext
+Boolean ::= tensor::String dim::Integer fmts::tm:Map<Name TensorFormatItem> loc::Location
+{
+  local fmt::TensorFormatItem =
+    head(tm:lookup(name(tensor, location=loc), fmts));
+  
+  local idx::Integer =
+    positionOf(
+      \ i1::Integer
+        i2::Integer
+      -> i1 == i2
+      ,
+      dim - 1,
+      fmt.dimenOrder
+    );
+  
+  local dN::Integer =
+    case getElem(fmt.dimenOrder, idx+1) of
+    | nothing() -> -1
+    | just(x) -> x
+    end;
+  
+  local form::Integer =
+    case getElem(fmt.specifiers, dN) of
+    | nothing() -> storeDense
+    | just(x) -> x
+    end;
+  
+  return dN != -1 && form == storeSparse;
+}
+
+function previousDense
+Boolean ::= tensor::String dim::Integer fmts::tm:Map<Name TensorFormatItem> loc::Location
+{
+  local fmt::TensorFormatItem =
+    head(tm:lookup(name(tensor, location=loc), fmts));
+  
+  local idx::Integer =
+    positionOf(
+      \ i1::Integer
+        i2::Integer
+      -> i1 == i2
+      ,
+      dim - 1,
+      fmt.dimenOrder
+    );
+  
+  local dP::Integer =
+    case getElem(fmt.dimenOrder, idx-1) of
+    | nothing() -> -1
+    | just(x) -> x
+    end;
+  
+  local form::Integer =
+    case getElem(fmt.specifiers, dP) of
+    | nothing() -> storeSparse
+    | just(x) -> x
+    end;
+  
+  return dP != -1 && form == storeDense;
 }
 
 function equals_iv

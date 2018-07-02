@@ -20,6 +20,7 @@ int main() {
   value(B)(0, 0) = 1.0;
   value(B)(0, 1) = 3.0;
   value(B)(1, 2) = 1.0;
+
   value(C)(0, 0) = 1.0;
   value(C)(1, 0) = 2.0;
   value(C)(1, 1) = 1.0;

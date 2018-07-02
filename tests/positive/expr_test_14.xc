@@ -33,7 +33,7 @@ int main() {
   assert_f(value(A)(0,0,1), 0.0);
   assert_f(value(A)(0,0,2), 0.75);
   assert_f(value(A)(0,1,0), 0.0);
-  assert_f(value(A)(0,1,1), 0.0);
+  assert_f(value(A)(0,1,1), 0.5);
   assert_f(value(A)(0,1,2), 0.0);
   assert_f(value(A)(1,0,0), 0.0);
   assert_f(value(A)(1,0,1), 0.0);
