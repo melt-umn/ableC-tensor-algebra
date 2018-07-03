@@ -201,7 +201,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
     end;
 
   local out::String = nm.name;
-  
+
   local lattice::MergeLattice = merge_lattice(expr, head(order), loc);
   local optimized::MergeLattice = lattice_optimize(lattice, expr.tensorFormat);
   local point::LatticePoints = head(optimized.points);
@@ -532,6 +532,22 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
         end
     | _ -> false
     end;
+  local out_sparse::Boolean =
+    case sparse_assign(expr, iv) of
+    | si::[] ->
+        let f::TensorFormatItem =
+          head(tm:lookup(name(si.fst, location=loc), expr.tensorFormat))
+        in
+        si.snd != f.dimens
+        end
+    | _ -> false
+    end;
+  local out_acc::Integer =
+    case sparse_assign(expr, iv) of
+    | si::[] -> si.snd
+    | _ -> -1
+    end;
+    
 
   return 
     if null(order)
@@ -591,12 +607,11 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                 \si::Pair<String Integer> ->
                   let Dj::String = s"${si.fst}${toString(si.snd)}"
                   in let Dj1::String = s"${si.fst}${toString(si.snd - 1)}"
-                  in let Djp1::String = s"${si.fst}${toString(si.snd + 1)}"
                   in
                   s"""
                     unsigned long p${Dj} = (p${Dj1} * ${Dj}_size) + ${iv};
                   """
-                  end end end
+                  end end
                 ,
                 dense
               )
@@ -696,8 +711,8 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                   s"${out}${toString(outLen - 1)}"
                 in
                 s"""
-                  else if(${var}_idx[p${var}] <= ${iv} && p${var} < ${var}_pos[p${v1}]){
-                    while(${var}_idx[p${var}] <= ${iv} && p${var} < ${var}_pos[p${v1}]) {
+                  else if(${var}_idx[p${var}] <= ${iv} && p${var} < ${var}_pos[p${v1} + 1]){
+                    while(${var}_idx[p${var}] <= ${iv} && p${var} < ${var}_pos[p${v1} + 1]) {
                       p${var}++;
                     }
                   }
@@ -731,6 +746,10 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
             )}
             ${if allBelow
               then s"${iv}++;"
+              else ""
+            }
+            ${if out_sparse
+              then s"p${out}${toString(out_acc)}++;"
               else ""
             }
           }          
