@@ -117,6 +117,66 @@ LatticePoints ::= expr::TensorAssignExpr var::String loc::Location
                    end
                | _ -> nullPoint(loc)
                end
+           | sub(l, r) ->
+               case expr of
+               | assignExpr(b, acc, _, ts, fs) ->
+                   let lP::LatticePoints =
+                     lattice_points(
+                       assignExpr(b, acc, l, ts, fs, location=loc),
+                       var,
+                       loc)
+                   in let rP::LatticePoints =
+                     lattice_points(
+                       assignExpr(b, acc, r, ts, fs, location=loc),
+                       var,
+                       loc)
+                   in
+                   if isNullCond(lP.conds)
+                   then rP
+                   else if isNullCond(rP.conds)
+                   then lP
+                   else
+                     builtPoint(
+                       map(pointSub(_, r, 0, var, loc),
+                         lP.points)
+                       ++
+                       map(pointSub(_, l, 1, var, loc),
+                         rP.points)
+                       ++ (lP :: rP :: [])
+                       ,
+                       expr, orCond(lP.conds, rP.conds))
+                   end
+                   end
+               | assignExprExpr(assign, _, fs) ->
+                   let lP::LatticePoints =
+                     lattice_points(
+                       assignExprExpr(assign, l, fs, location=loc),
+                       var,
+                       loc)
+                   in let rP::LatticePoints =
+                     lattice_points(
+                       assignExprExpr(assign, r, fs, location=loc),
+                       var,
+                       loc)
+                   in
+                   if isNullCond(lP.conds)
+                   then rP
+                   else if isNullCond(rP.conds)
+                   then lP
+                   else
+                     builtPoint(
+                       map(pointSub(_, r, 0, var, loc),
+                         lP.points)
+                       ++
+                       map(pointSub(_, l, 1, var, loc),
+                         rP.points)
+                       ++ (lP :: rP :: [])
+                       ,
+                       expr, orCond(lP.conds, rP.conds))
+                   end
+                   end
+               | _ -> nullPoint(loc)
+               end
            | mul(l, r) -> 
                case expr of
                | assignExpr(b, acc, _, ts, fs) ->
@@ -163,6 +223,52 @@ LatticePoints ::= expr::TensorAssignExpr var::String loc::Location
                    end
                | _ -> nullPoint(loc)
                end
+           | div(l, r) ->
+               case expr of
+               | assignExpr(b, acc, _, ts, fs) ->
+                   let lP::LatticePoints = 
+                     lattice_points(
+                       assignExpr(b, acc, l, ts, fs, location=loc),
+                       var,
+                       loc)
+                   in let rP::LatticePoints =
+                     lattice_points(
+                       assignExpr(b, acc, r, ts, fs, location=loc),
+                       var,
+                       loc)
+                   in builtPoint(
+                        map(pointDiv(_, r, 0, var, loc),
+                          lP.points)
+                        ++
+                        map(pointDiv(_, l, 1, var, loc),
+                          rP.points)
+                        ,
+                        expr, andCond(lP.conds, rP.conds))
+                   end
+                   end
+               | assignExprExpr(assign, _, fs) ->
+                   let lP::LatticePoints =
+                     lattice_points(
+                       assignExprExpr(assign, l, fs, location=loc),
+                       var,
+                       loc)
+                   in let rP::LatticePoints =
+                     lattice_points(
+                       assignExprExpr(assign, r, fs, location=loc),
+                       var,
+                       loc)
+                   in builtPoint(
+                        map(pointDiv(_, r, 0, var, loc),
+                          lP.points)
+                        ++
+                        map(pointDiv(_, l, 1, var, loc),
+                          rP.points)
+                        ,
+                        expr, andCond(lP.conds, rP.conds))
+                   end
+                   end
+               | _ -> nullPoint(loc)
+               end
            end;
 }
 
@@ -191,6 +297,37 @@ LatticePoints ::= pnt::LatticePoints expr::TensorExpr lc::Integer var::String lo
             pnt.exprs.tensorFormat,
             location = loc
           ), 
+          andCond(generateCond(expr, var, loc), pnt.conds)
+        )
+    | _ -> nullPoint(loc)
+    end;
+}
+
+function pointDiv
+LatticePoints ::= pnt::LatticePoints expr::TensorExpr lc::Integer var::String loc::Location
+{
+  return
+    case lc of
+    | 0 -> -- expr is on the right
+        builtPoint(
+          map(pointDiv(_, expr, lc, var, loc), pnt.points),
+          assignExprExpr(
+            pnt.exprs.tensorAssign,
+            div(pnt.exprs.tensorValue, expr, location=loc),
+            pnt.exprs.tensorFormat,
+            location=loc
+          ),
+          andCond(pnt.conds, generateCond(expr, var, loc))
+        )
+    | 1 -> -- expr is on the left
+        builtPoint(
+          map(pointDiv(_, expr, lc, var, loc), pnt.points),
+          assignExprExpr(
+            pnt.exprs.tensorAssign,
+            div(expr, pnt.exprs.tensorValue, location=loc),
+            pnt.exprs.tensorFormat,
+            location = loc
+          ),
           andCond(generateCond(expr, var, loc), pnt.conds)
         )
     | _ -> nullPoint(loc)
@@ -252,6 +389,61 @@ LatticePoints ::= pnt::LatticePoints expr::TensorExpr lc::Integer var::String lo
     end;
 }
 
+function pointSub
+LatticePoints ::= pnt::LatticePoints expr::TensorExpr lc::Integer var::String loc::Location
+{
+  return
+    case lc of
+    | 0 -> -- expr is on the right
+        builtPoint(
+          pnt ::
+          lattice_points(
+            assignExprExpr(
+              pnt.exprs.tensorAssign,
+              expr,
+              pnt.exprs.tensorFormat,
+              location = loc
+            ),
+            var,
+            loc
+          ) ::
+          map(pointSub(_, expr, lc, var, loc), pnt.points)
+          ,
+          assignExprExpr(
+            pnt.exprs.tensorAssign,
+            sub(pnt.exprs.tensorValue, expr, location=loc),
+            pnt.exprs.tensorFormat,
+            location=loc
+          ),
+          orCond(pnt.conds, generateCond(expr, var, loc))
+        )
+    | 1 -> -- expr is on the left
+        builtPoint(
+          pnt ::
+          lattice_points(
+            assignExprExpr(
+              pnt.exprs.tensorAssign,
+              expr,
+              pnt.exprs.tensorFormat,
+              location=loc
+            ),
+            var,
+            loc
+          ) ::
+          map(pointSub(_, expr, lc, var, loc), pnt.points)
+          ,
+          assignExprExpr(
+            pnt.exprs.tensorAssign,
+            sub(expr, pnt.exprs.tensorValue, location=loc),
+            pnt.exprs.tensorFormat,
+            location = loc
+          ),
+          orCond(generateCond(expr, var, loc), pnt.conds)
+        )
+    | _ -> nullPoint(loc)
+    end;
+}
+
 function generateCond
 TensorCond ::= expr::TensorExpr var::String loc::Location
 {
@@ -275,7 +467,23 @@ TensorCond ::= expr::TensorExpr var::String loc::Location
              in orCond(lC, rC)
              end
              end
+         | sub(l, r) ->
+             let lC::TensorCond =
+               generateCond(l, var, loc)
+             in let rC::TensorCond =
+               generateCond(r, var, loc)
+             in orCond(lC, rC)
+             end
+             end
          | mul(l, r) ->
+             let lC :: TensorCond =
+               generateCond(l, var, loc)
+             in let rC :: TensorCond =
+               generateCond(r, var, loc)
+             in andCond(lC, rC)
+             end
+             end
+         | div(l, r) ->
              let lC :: TensorCond =
                generateCond(l, var, loc)
              in let rC :: TensorCond =
@@ -458,7 +666,11 @@ function exp_sparse
         end
     | add(l, r) ->
         exp_sparse(l, fmt, var) ++ exp_sparse(r, fmt, var)
+    | sub(l, r) ->
+        exp_sparse(l, fmt, var) ++ exp_sparse(r, fmt, var)
     | mul(l, r) ->
+        exp_sparse(l, fmt, var) ++ exp_sparse(r, fmt, var)
+    | div(l, r) ->
         exp_sparse(l, fmt, var) ++ exp_sparse(r, fmt, var)
     | _ -> []
     end;
@@ -538,7 +750,11 @@ function exp_dense
         end
     | add(l, r) ->
         exp_dense(l, fmt, var) ++ exp_dense(r, fmt, var)
+    | sub(l, r) ->
+        exp_dense(l, fmt, var) ++ exp_dense(r, fmt, var)
     | mul(l, r) ->
+        exp_dense(l, fmt, var) ++ exp_dense(r, fmt, var)
+    | div(l, r) ->
         exp_dense(l, fmt, var) ++ exp_dense(r, fmt, var)
     | _ -> []
     end;

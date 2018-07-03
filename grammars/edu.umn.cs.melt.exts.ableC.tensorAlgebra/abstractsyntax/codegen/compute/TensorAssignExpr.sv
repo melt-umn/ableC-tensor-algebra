@@ -93,7 +93,17 @@ Maybe<Pair<String Integer>> ::= expr::TensorExpr var::String fmt::tm:Map<Name Te
         | nothing() -> findDenseDimensionExpr(r, var, fmt)
         | x -> x
         end
+    | sub(l, r) ->
+        case findDenseDimensionExpr(l, var, fmt) of
+        | nothing() -> findDenseDimensionExpr(r, var, fmt)
+        | x -> x
+        end
     | mul(l, r) -> 
+        case findDenseDimensionExpr(l, var, fmt) of
+        | nothing() -> findDenseDimensionExpr(r, var, fmt)
+        | x -> x
+        end
+    | div(l, r) ->
         case findDenseDimensionExpr(l, var, fmt) of
         | nothing() -> findDenseDimensionExpr(r, var, fmt)
         | x -> x
@@ -154,7 +164,13 @@ function findAccessesExpr
     | add(l, r) -> 
         findAccessesExpr(l, var) ++
         findAccessesExpr(r, var)
+    | sub(l, r) ->
+        findAccessesExpr(l, var) ++
+        findAccessesExpr(r, var)
     | mul(l, r) ->
+        findAccessesExpr(l, var) ++
+        findAccessesExpr(r, var)
+    | div(l, r) ->
         findAccessesExpr(l, var) ++
         findAccessesExpr(r, var)
     | _ -> []
@@ -170,7 +186,9 @@ function getExprs
     | access(_, _) -> []
     | tExpr(ex) -> [ex]
     | add(l, r) -> getExprs(l) ++ getExprs(r)
+    | sub(l, r) -> getExprs(l) ++ getExprs(r)
     | mul(l, r) -> getExprs(l) ++ getExprs(r)
+    | div(l, r) -> getExprs(l) ++ getExprs(r)
     end;
 }
 

@@ -31,7 +31,7 @@ EXTS_BASE?=../../extensions
 
 MAKEOVERRIDES=ABLEC_BASE=$(abspath $(ABLEC_BASE)) EXTS_BASE=$(abspath $(EXTS_BASE))
 
-all: examples analyses test
+all: examples analyses tests
 
 build:
 	$(MAKE) -C examples ableC.jar
@@ -47,7 +47,7 @@ mda:
 mwda:
 	$(MAKE) -C modular_analyses mwda
 
-test:
+tests:
 	$(MAKE) -C tests -k
 
 clean:
@@ -56,5 +56,5 @@ clean:
 	$(MAKE) -C modular_analyses clean
 	$(MAKE) -C tests clean
 
-.PHONY: all build examples analyses mda mwda test clean
+.PHONY: all build examples analyses mda mwda tests clean
 .NOTPARALLEL: # Avoid running multiple Silver builds in parallel

@@ -8,6 +8,9 @@ marking terminal Format_t 'format' lexer classes {Ckeyword};
 marking terminal Value_t 'value' lexer classes {Ckeyword};
 marking terminal TensorFormat_t /tensor[\ \t\n\r]+format/ lexer classes {Ckeyword};
 
+marking terminal OrderOf_t 'orderof' lexer classes {Ckeyword};
+marking terminal DimensOf_t 'dimenof' lexer classes {Ckeyword};
+
 concrete productions top::ExternalDeclaration_c
 | t::TensorFormat_t nm::Identifier_t '=' '(' '{' specs::SpecifierList_c '}' ')' ';'
   {
@@ -36,6 +39,19 @@ concrete productions top::AssignExpr_c
     top.ast = tensor_get(tensor.ast, idx.indxs, location=top.location);
   }
 
+concrete productions top::UnaryExpr_c
+| 'orderof' '(' tp::TypeName_c ')'
+  {
+    top.ast = orderof_type(tp.ast, location=top.location);
+  }
+| 'orderof' '(' tn::Expr_c ')'
+  {
+    top.ast = orderof_expr(tn.ast, location=top.location);
+  }
+| 'dimenof' '(' tn::Expr_c ')'
+  {
+    top.ast = dimenof(tn.ast, location=top.location);
+  }
 
 concrete productions top::Stmt_c
 | 'value' '(' tensor::Expr_c ')' '(' idx::IndexList_c ')' op::AssignmentOp_c val::Expr_c ';'
@@ -94,9 +110,17 @@ concrete productions top::TensorElemExpr_c
   {
     top.tExpr = add(left.tExpr, right.tExpr, location=top.location);
   }
+| left::TensorElemExpr_c '-' right::TensorElemExpr_c
+  {
+    top.tExpr = sub(left.tExpr, right.tExpr, location=top.location);
+  }
 | left::TensorElemExpr_c '*' right::TensorElemExpr_c
   {
     top.tExpr = mul(left.tExpr, right.tExpr, location=top.location);
+  }
+| left::TensorElemExpr_c '/' right::TensorElemExpr_c
+  {
+    top.tExpr = div(left.tExpr, right.tExpr, location=top.location);
   }
 | '(' inner::TensorElemExpr_c ')'
   {

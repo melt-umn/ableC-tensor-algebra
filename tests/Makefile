@@ -75,12 +75,12 @@ $(ABLEC_JAR): $(GRAMMAR_SOURCES)
 
 translate_error/%.test: translate_error/%.xc $(XC_INCLUDE_SOURCES) $(ABLEC_JAR)
 	@echo "java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)"
-	@if java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS); then echo "\E[1;31mFailed to error\E[0m"; exit 1; fi
+	@if java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS); then echo "\E[0;31mFailed to error\E[0m"; exit 1; fi
 	@touch $@
 
 runtime_error/%.test: runtime_error/%.out
 	@echo "./$<"
-	@if ./$<; then echo -e "\E[1;31mFailed to error\E[0m"; else echo -e "\E[1;32m(exit $$?)\E[0m"; touch $@; fi
+	@if ./$<; then echo -e "\E[1;31mFailed to error\E[0m"; else echo -e "\E[0;32m(exit $$?)\E[0m"; touch $@; fi
 
 %.test: %.out
 	@echo -e "\n\E[0;36m./$<\E[0;31m"

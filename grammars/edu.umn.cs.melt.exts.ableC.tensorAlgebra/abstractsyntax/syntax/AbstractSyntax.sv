@@ -448,3 +448,91 @@ top::Stmt ::= base::Name index::[String] expr::TensorExpr
   then warnStmt(errors)
   else codeGen(base, index, expr, top.env, expr.location);
 }
+
+abstract production orderof_type
+top::Expr ::= tp::TypeName
+{
+  local format::Name =
+    case tp.typerep of
+    | pointerType(_,
+        tensorType(_, fmt, _)) -> fmt
+    | _ -> name("error", location=top.location)
+    end;
+
+  local errors::[Message] =
+    case tp.typerep of
+    | pointerType(_,
+        tensorType(_, _, _)) -> format.tensorFormatLookupCheck
+    | _ -> [err(top.location, "orderof expected a tensor type (got ${showType(tp.typerep)})")]
+    end;
+  
+  forwards to
+  if !null(errors)
+  then errorExpr(errors, location=top.location)
+  else mkIntConst(format.tensorFormatItem.dimens, top.location);
+}
+
+abstract production orderof_expr
+top::Expr ::= tn::Expr
+{
+  local format::Name =
+    case tn.typerep of
+    | pointerType(_,
+        tensorType(_, fmt, _)) -> fmt
+    | _ -> name("error", location=top.location)
+    end;
+
+  local errors::[Message] =
+    case tn.typerep of
+    | pointerType(_,
+        tensorType(_, _, _)) -> format.tensorFormatLookupCheck
+    | _ -> [err(top.location, "orderof expected a tensor type (got ${showType(tn.typerep)})")]
+    end;
+  
+  forwards to
+  if !null(errors)
+  then errorExpr(errors, location=top.location)
+  else mkIntConst(format.tensorFormatItem.dimens, top.location);
+}
+
+abstract production dimenof
+top::Expr ::= tn::Expr
+{
+  local errors::[Message] =
+    case tn.typerep of
+    | pointerType(_,
+        tensorType(_, fmt, _)) -> fmt.tensorFormatLookupCheck
+    | _ -> [err(top.location, "orderof expected a tensor type (got ${showType(tn.typerep)})")]
+    end;
+  
+  local format::Name =
+    case tn.typerep of
+    | pointerType(_,
+        tensorType(_, fmt, _)) -> fmt
+    | _ -> name("error", location=top.location)
+    end;
+  
+  local fmt::Decorated TensorFormatItem = format.tensorFormatItem;
+  local fmtNm::String = fmt.proceduralName;
+  local dimens::String = toString(fmt.dimens);
+  
+  local fwrd::Expr =
+    substExpr(
+      [declRefSubstitution("__tensor", tn)],
+      parseExpr(s"""
+      ({
+        struct tensor_${fmtNm}* _tensor = __tensor;
+        unsigned long* dims = GC_malloc(sizeof(unsigned long) * ${dimens});
+        for(unsigned long i = 0; i < ${dimens}; i++) {
+          dims[i] = _tensor->dims[i];
+        }
+        dims;
+      })
+      """)
+    );
+  
+  forwards to
+  if !null(errors)
+  then errorExpr(errors, location=top.location)
+  else fwrd;
+}

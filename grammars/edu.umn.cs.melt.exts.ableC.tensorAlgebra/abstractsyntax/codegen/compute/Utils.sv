@@ -23,7 +23,9 @@ function getTensors
          | access(n, _) -> [n]
          | tExpr(_) -> []
          | add(l, r) -> getTensors(l) ++ getTensors(r)
+         | sub(l, r) -> getTensors(l) ++ getTensors(r)
          | mul(l, r) -> getTensors(l) ++ getTensors(r)
+         | div(l, r) -> getTensors(l) ++ getTensors(r)
          end;
 }
 
@@ -73,7 +75,9 @@ function parseOrder
              orderList(idx, getFormat(n, env).dimenOrder) :: []
          | tExpr(_) -> []
          | add(l, r) -> parseOrder(l, env) ++ parseOrder(r, env)
+         | sub(l, r) -> parseOrder(l, env) ++ parseOrder(r, env)
          | mul(l, r) -> parseOrder(l, env) ++ parseOrder(r, env)
+         | div(l, r) -> parseOrder(l, env) ++ parseOrder(r, env)
          end;
 }
 

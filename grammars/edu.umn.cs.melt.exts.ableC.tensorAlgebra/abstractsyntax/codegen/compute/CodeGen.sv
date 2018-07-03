@@ -1172,6 +1172,41 @@ TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>]
           end
           end
         end
+    | sub(l, r) ->
+        let idx::Integer =
+          positionOf(
+            tensorExprEqual(_, _),
+            ex,
+            map(
+              \ p::Pair<TensorExpr String>
+              -> p.fst
+              ,
+              subs
+            )
+          )
+        in
+        if idx == -1
+        then sub(exprSub(l, subs), exprSub(r, subs), location=ex.location)
+        else
+          let res::Maybe<Pair<TensorExpr String>>
+            = getElem(subs, idx)
+          in
+          let str::String =
+            case res of
+            | nothing() -> "error"
+            | just(p) -> p.snd
+            end
+          in
+          tExpr(
+            declRefExpr(
+              name(str, location=ex.location),
+              location=ex.location
+            ),
+            location=ex.location
+          )
+          end
+          end
+        end
     | mul(l, r) ->
         let idx::Integer =
           positionOf(
@@ -1203,6 +1238,41 @@ TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>]
               location=ex.location
             ), 
             location=ex.location
+          )
+          end
+          end
+        end
+    | div(l, r) -> 
+        let idx::Integer =
+          positionOf(
+            tensorExprEqual(_, _),
+            ex,
+            map(
+              \ p::Pair<TensorExpr String>
+              -> p.fst
+              ,
+              subs
+            )
+          )
+        in
+        if idx == -1
+        then div(exprSub(l, subs), exprSub(r, subs), location=ex.location)
+        else
+          let res::Maybe<Pair<TensorExpr String>>
+            = getElem(subs, idx)
+          in
+          let str::String =
+            case res of
+            | nothing() -> "error"
+            | just(p) -> p.snd
+            end
+          in
+          tExpr(
+            declRefExpr(
+              name(str, location=ex.location),
+              location=ex.location
+            ),
+            location = ex.location
           )
           end
           end
@@ -1251,7 +1321,35 @@ Pair<[Pair<TensorExpr String>] Integer> ::= ex::TensorExpr iv::String left::[Str
           pair(pl.fst ++ pr.fst, pr.snd)
           end
           end
+    | sub(l, r) ->
+        if isAvail(ex, left, iv)
+        then
+          pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
+        else
+          let pl::Pair<[Pair<TensorExpr String>] Integer> =
+            findSubs_helper(l, iv, left, c)
+          in
+          let pr::Pair<[Pair<TensorExpr String>] Integer> =
+            findSubs_helper(r, iv, left, pl.snd)
+          in
+          pair(pl.fst ++ pr.fst, pr.snd)
+          end
+          end
     | mul(l, r) ->
+        if isAvail(ex, left, iv)
+        then
+          pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
+        else
+          let pl::Pair<[Pair<TensorExpr String>] Integer> =
+            findSubs_helper(l, iv, left, c)
+          in
+          let pr::Pair<[Pair<TensorExpr String>] Integer> =
+            findSubs_helper(r, iv, left, pl.snd)
+          in
+          pair(pl.fst ++ pr.fst, pr.snd)
+          end
+          end
+    | div(l, r) ->
         if isAvail(ex, left, iv)
         then
           pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
@@ -1288,7 +1386,9 @@ Boolean ::= ex::TensorExpr left::[String] iv::String
          )
     | tExpr(_) -> true
     | add(l, r) -> isAvail(l, left, iv) && isAvail(r, left, iv)
+    | sub(l, r) -> isAvail(l, left, iv) && isAvail(r, left, iv)
     | mul(l, r) -> isAvail(l, left, iv) && isAvail(r, left, iv)
+    | div(l, r) -> isAvail(l, left, iv) && isAvail(r, left, iv)
     end;
 }
 
@@ -1342,6 +1442,8 @@ String ::= e::TensorExpr env::Decorated Env
     | tExpr(expr) -> 
         s"_expr_${toString(expr.location.line)}_${toString(expr.location.column)}"
     | add(l, r) -> s"(${evalExpr(l, env)} + ${evalExpr(r, env)})"
+    | sub(l, r) -> s"(${evalExpr(l, env)} - ${evalExpr(r, env)})"
     | mul(l, r) -> s"(${evalExpr(l, env)} * ${evalExpr(r, env)})"
+    | div(l, r) -> s"(${evalExpr(l, env)} / ${evalExpr(r, env)})"
     end;
 }
