@@ -74,8 +74,8 @@ $(ABLEC_JAR): $(GRAMMAR_SOURCES)
 	$(CC) $(LDFLAGS) $< $(LOADLIBES) $(LDLIBS) -o $@
 
 translate_error/%.test: translate_error/%.xc $(XC_INCLUDE_SOURCES) $(ABLEC_JAR)
-	@echo "java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)"
-	@if java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS); then echo "\E[0;31mFailed to error\E[0m"; exit 1; fi
+	@echo -e "java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)\E[0;31m"
+	@if java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS); then echo -e "\E[0;31mFailed to error\E[0m"; exit 1; else echo -e "\E[0m"; fi
 	@touch $@
 
 runtime_error/%.test: runtime_error/%.out

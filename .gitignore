@@ -20,3 +20,4 @@ build.xml
 *.save
 *.test
 *.copperdump.html
+tests/positive/expr_gen_*.xc

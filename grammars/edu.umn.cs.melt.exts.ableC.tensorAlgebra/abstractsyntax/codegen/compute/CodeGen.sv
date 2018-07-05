@@ -230,6 +230,17 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
       acc
     );
   local lc::String = toString(l);
+  local oC::String =
+    toString(
+      positionOf(
+        \ i1::Integer
+          i2::Integer
+        -> i1 == i2
+        ,
+        l,
+        fmt.dimenOrder
+      )
+    );
   
   return
     if null(order) || !more
@@ -285,7 +296,10 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                      else s""
                    }
                    ${if l != -1
-                     then s"index[${lc}] = ${iv};"
+                     then s"""
+                            index[${lc}] = ${iv};
+                            tensor_insertBuff_mid_${fmt.proceduralName}(&(${out}->buffer), index, ${oC});
+                          """
                      else ""
                    }
                    
