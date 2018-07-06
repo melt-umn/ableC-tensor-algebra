@@ -7,7 +7,8 @@ int asserts = 0;
 void assert_i(unsigned long v, unsigned long e) {
   asserts++;
   if(v != e) {
-    fprintf(stderr, "Assert %d failed. Got %lu, expected %lu.\n", asserts, v, e);
+    fprintf(stderr, "Assert %d failed. Got %lu, expected %lu.
+", asserts, v, e);
     exit(1);
   }
 }
@@ -15,7 +16,8 @@ void assert_i(unsigned long v, unsigned long e) {
 void assert_f(double v, double e) {
   asserts++;
   if(v != e) {
-    fprintf(stderr, "Assert %d failed. Got %lf, expected %lf.\n", asserts, v, e);
+    fprintf(stderr, "Assert %d failed. Got %lf, expected %lf.
+", asserts, v, e);
     exit(1);
   }
 }

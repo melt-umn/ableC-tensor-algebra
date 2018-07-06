@@ -75,3 +75,26 @@ function errorCheckTypes
          else [];
 }
 
+function countBy
+Integer ::= eq::(Boolean ::= a a) elem::a lst::[a]
+{
+  return
+    if null(lst)
+    then 0
+    else
+      if eq(elem, head(lst))
+      then 1 + countBy(eq, elem, tail(lst))
+      else countBy(eq, elem, tail(lst));
+}
+
+function getBy
+Maybe<a> ::= eq::(Boolean ::= a) lst::[a]
+{
+  return
+    if null(lst)
+    then nothing()
+    else
+      if eq(head(lst))
+      then just(head(lst))
+      else getBy(eq, tail(lst));
+}

@@ -235,3 +235,163 @@ Boolean ::= a::TensorExpr b::TensorExpr
     | _, _ -> false
     end;
 }
+
+function tensorDuplicates
+[Pair<Name String>] ::= e::TensorExpr
+{
+  local res::[Name] = getTensors(e);
+
+  return findDuplicates(res);
+}
+
+function replaceDuplicates
+TensorExpr ::= e::TensorExpr
+{
+  local res::[Pair<Name String>] =
+    tensorDuplicates(e);
+  local nms::[Name] =
+    map(
+      \ p::Pair<Name String>
+      -> p.fst
+      ,
+      nubBy(
+         \ p1::Pair<Name String>
+           p2::Pair<Name String>
+         -> p1.fst.name == p2.fst.name
+         ,
+         res
+      )
+    );
+  local pr::[Pair<Name Integer>] =
+    map(pair(_, 0), nms);
+  
+  return replaceDuplicates_helper(e, pr).fst;
+}
+
+function replaceDuplicates_helper
+Pair<TensorExpr [Pair<Name Integer>]> ::= e::TensorExpr sbs::[Pair<Name Integer>]
+{
+  return
+    case e of
+    | nullTensorExpr() -> pair(e, sbs)
+    | access(t, acc) -> 
+        let elem::Maybe<Pair<Name Integer>> =
+          getBy(
+            \ p::Pair<Name Integer>
+            -> p.fst.name == t.name
+            ,
+            sbs
+          )
+        in
+        case elem of
+        | nothing() -> pair(e, sbs)
+        | just(p) ->
+            pair(
+              access(
+                name(t.name ++ "_" ++ toString(p.snd) ++ "_", location=t.location),
+                acc,
+                location=e.location
+              ),
+              incCnt(sbs, t)
+            )
+        end
+        end
+    | tExpr(_) -> pair(e, sbs)
+    | add(l, r) ->
+        let lres::Pair<TensorExpr [Pair<Name Integer>]>
+          = replaceDuplicates_helper(l, sbs)
+        in
+        let rres::Pair<TensorExpr [Pair<Name Integer>]>
+          = replaceDuplicates_helper(r, lres.snd)
+        in
+        pair(add(lres.fst, rres.fst, location=e.location), rres.snd)
+        end
+        end
+    | sub(l, r) ->
+        let lres::Pair<TensorExpr [Pair<Name Integer>]>
+          = replaceDuplicates_helper(l, sbs)
+        in
+        let rres::Pair<TensorExpr [Pair<Name Integer>]>
+          = replaceDuplicates_helper(r, lres.snd)
+        in
+        pair(sub(lres.fst, rres.fst, location=e.location), rres.snd)
+        end
+        end
+    | mul(l, r) ->
+        let lres::Pair<TensorExpr [Pair<Name Integer>]>
+          = replaceDuplicates_helper(l, sbs)
+        in
+        let rres::Pair<TensorExpr [Pair<Name Integer>]>
+          = replaceDuplicates_helper(r, lres.snd)
+        in
+        pair(mul(lres.fst, rres.fst, location=e.location), rres.snd)
+        end
+        end
+    | div(l, r) ->
+        let lres::Pair<TensorExpr [Pair<Name Integer>]>
+          = replaceDuplicates_helper(l, sbs)
+        in
+        let rres::Pair<TensorExpr [Pair<Name Integer>]>
+          = replaceDuplicates_helper(r, lres.snd)
+        in
+        pair(div(lres.fst, rres.fst, location=e.location), rres.snd)
+        end
+        end
+    end;
+}
+
+function incCnt
+[Pair<Name Integer>] ::= lst::[Pair<Name Integer>] nm::Name
+{
+  return
+    case lst of
+    | [] -> []
+    | h::tl ->
+        if h.fst.name == nm.name
+        then pair(h.fst, h.snd+1) :: tl
+        else h :: incCnt(tl, nm)
+    end;
+}
+
+function findDuplicates
+[Pair<Name String>] ::= lst::[Name]
+{
+  return
+    if null(lst)
+    then []
+    else
+    let count::Integer =
+      countBy(
+        \ n1::Name n2::Name
+        -> stringEq(n1.name, n2.name)
+        ,
+        head(lst),
+        tail(lst)
+      )
+    in
+    (if count > 0
+    then generateNameSubs(head(lst), count)
+    else [])
+    ++
+    findDuplicates(
+      removeBy(
+        \ n1::Name n2::Name
+        -> stringEq(n1.name, n2.name)
+        ,
+        head(lst),
+        tail(lst)
+      )
+    )
+    end;
+}
+
+function generateNameSubs
+[Pair<Name String>] ::= nm::Name cnt::Integer
+{
+  return
+    if cnt < 0
+    then []
+    else 
+      pair(nm, nm.name ++ "_" ++ toString(cnt) ++ "_")
+      :: generateNameSubs(nm, cnt - 1);
+}

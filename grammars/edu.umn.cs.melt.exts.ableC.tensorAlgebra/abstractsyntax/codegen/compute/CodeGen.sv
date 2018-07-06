@@ -5,6 +5,11 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 function codeGen
 Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Location
 {
+  local duplicates::[Pair<Name String>] =
+    tensorDuplicates(expr);
+  local e::TensorExpr =
+    replaceDuplicates(expr);
+
   local tensors::[Name] = 
     nm :: 
     nubBy(
@@ -15,6 +20,25 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
     );
   local formats::[TensorFormatItem] = getFormats(tensors, env);
 
+{-  local tensors::[Name] =
+    tensors_o
+    ++
+    map(
+      \ p::Pair<Name String>
+      -> name(p.snd, location=p.fst.location)
+      ,
+      duplicates
+    );
+  local formats::[TensorFormatItem] =
+    formats_o
+    ++
+    map(
+      \ p::Pair<Name String>
+      -> getFormat(p.fst, env)
+      ,
+      duplicates
+    );
+-}
   local valueAccess::[String] =
     nubBy(
       stringEq(_, _)
@@ -75,27 +99,43 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
     );
 
   expr.parenExpr = [];
+  e.parenExpr = [];
+  
   local fwrd::Stmt =
     substStmt(
       generateExprSubs(exprs, exprN),
       parseStmt(s"""
         {
-          ${check_dims(assign, acc)}
-          ${pack_tensors(tail(tensors), tail(formats))}
-          ${setup_gen(tensors, formats)}
-          ${build_output(assign, acc, tensors, loc)}
-          {
-            ${setup_gen(head(tensors) :: [], head(formats) :: [])}
-            ${code_gen(assign, acc, loc, [], env)}
-          }
           ${implode("\n",
-              map(
-                \ n::Name
-                -> s"""${n.name}->form = "${expr.proceduralName}";"""
-                ,
-                tensors
-              )
+             map(
+               \ p::Pair<Name String>
+               -> let f::TensorFormatItem =
+                    getFormat(p.fst, env)
+                  in
+                  s"struct tensor_${f.proceduralName}* ${p.snd} = ${p.fst.name};"
+                  end
+               ,
+               duplicates
+             )  
           )}
+          {
+            ${check_dims(assign, acc)}
+            ${pack_tensors(tail(tensors), tail(formats))}
+            ${setup_gen(tensors, formats)}
+            ${build_output(assign, acc, tensors, loc)}
+            {
+              ${setup_gen(head(tensors) :: [], head(formats) :: [])}
+              ${code_gen(assign, acc, loc, [], env)}
+            }
+            ${implode("\n",
+                map(
+                  \ n::Name
+                  -> s"""${n.name}->form = "${expr.proceduralName}";"""
+                  ,
+                  tensors
+                )
+            )}
+          }
         }
       """)
     );
@@ -556,6 +596,11 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
         end
     | _ -> false
     end;
+  local out_is_sparse::Boolean =
+    case sparse_assign(expr, iv) of
+    | si::[] -> true
+    | _ -> false
+    end;
   local out_acc::Integer =
     case sparse_assign(expr, iv) of
     | si::[] -> si.snd
@@ -631,6 +676,19 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
               )
             )}
             
+            ${if out_is_sparse
+              then 
+                let a::String = toString(out_acc)
+                in
+                s"""
+                  while(${out}${a}_idx[p${out}${a}] < ${iv}) {
+                    p${out}${a}++;
+                  }
+                """
+                end
+              else ""
+            }
+                        
             // section 6.2, emit-available-expressions
             ${emitAvailExprs(expr, iv, tail(order), env)}
             
