@@ -12,7 +12,24 @@ TensorFormatItem ::= n::Name env::Decorated Env
                           new (fmt.tensorFormatItem)
                     | _ -> errorTensorFormatItem()
                     end
-         | _ -> errorTensorFormatItem()
+         | _ ->
+           let prts::[String] = explode("_", n.name) in
+           if listLength(prts) > 2
+           then 
+             let name::String = implode("_", reverse(tail(tail(reverse(prts))))) 
+             in
+             case lookupValue(name, env) of
+             | c::[] -> case c.typerep of
+                        | pointerType(_,
+                            tensorType(_, fmt, _)) ->
+                              new (fmt.tensorFormatItem)
+                        | _ -> errorTensorFormatItem()
+                        end
+             | _ -> errorTensorFormatItem()
+             end
+             end
+           else errorTensorFormatItem()
+           end
          end;
 }
 

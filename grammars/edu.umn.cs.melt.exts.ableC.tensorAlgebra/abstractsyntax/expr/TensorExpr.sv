@@ -288,7 +288,7 @@ Pair<TensorExpr [Pair<Name Integer>]> ::= e::TensorExpr sbs::[Pair<Name Integer>
         | just(p) ->
             pair(
               access(
-                name(t.name ++ "_" ++ toString(p.snd) ++ "_", location=t.location),
+                name(t.name ++ "_" ++ toString(p.snd) ++ "_t", location=t.location),
                 acc,
                 location=e.location
               ),
@@ -392,6 +392,6 @@ function generateNameSubs
     if cnt < 0
     then []
     else 
-      pair(nm, nm.name ++ "_" ++ toString(cnt) ++ "_")
+      pair(nm, nm.name ++ "_" ++ toString(cnt) ++ "_t")
       :: generateNameSubs(nm, cnt - 1);
 }

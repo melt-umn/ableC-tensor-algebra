@@ -443,10 +443,29 @@ top::Stmt ::= base::Name index::[String] expr::TensorExpr
     end ++
     expr.errors;
 
+  local duplicates::[Pair<Name String>] =
+    tensorDuplicates(expr);
+  local e::TensorExpr =
+    replaceDuplicates(expr);
+
   forwards to 
   if !null(errors)
   then warnStmt(errors)
-  else codeGen(base, index, expr, top.env, expr.location);
+  else 
+    seqStmt(
+      foldl(
+        \ stmt::Stmt p::Pair<Name String>
+        -> let fmt::String =
+             getFormat(p.fst, top.env).proceduralName
+           in
+           seqStmt(stmt, parseStmt(s"struct tensor_${fmt}* ${p.snd} = ${p.fst.name};"))
+           end
+        ,
+        nullStmt(),
+        duplicates
+      ),
+      codeGen(base, index, e, top.env, expr.location)
+    );
 }
 
 abstract production orderof_type

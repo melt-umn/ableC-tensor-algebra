@@ -37,12 +37,17 @@ abstract production variableOrder
 top::IndexVariable ::= order::[String]
 {
   top.before =
-    case tail(order) of
+    case order of
     | [] -> nothing()
-    | tl -> just(variableOrder(tl))
+    | h::[] -> nothing()
+    | h::tl -> just(variableOrder(tl))
     end;
   
-  top.proceduralName = head(order);
+  top.proceduralName = 
+    case order of
+    | [] -> "error"
+    | h::tl -> h
+    end;
 }
 
 function mergeIndex
