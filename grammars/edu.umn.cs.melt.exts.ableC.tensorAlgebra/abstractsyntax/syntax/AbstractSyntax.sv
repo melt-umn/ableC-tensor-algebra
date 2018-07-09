@@ -471,12 +471,21 @@ top::Stmt ::= base::Name index::[String] expr::TensorExpr
 abstract production orderof_type
 top::Expr ::= tp::TypeName
 {
+  propagate substituted;
+  top.pp =
+    ppConcat([
+      text("orderof("),
+      tp.pp,
+      text(")")
+    ]);
+
   local format::Name =
     case tp.typerep of
     | pointerType(_,
         tensorType(_, fmt, _)) -> fmt
     | _ -> name("error", location=top.location)
     end;
+  format.env = top.env;
 
   local errors::[Message] =
     case tp.typerep of
@@ -494,12 +503,21 @@ top::Expr ::= tp::TypeName
 abstract production orderof_expr
 top::Expr ::= tn::Expr
 {
+  top.pp = 
+    ppConcat([
+      text("orderof("),
+      tn.pp,
+      text(")")
+    ]);
+  propagate substituted;
+
   local format::Name =
     case tn.typerep of
     | pointerType(_,
         tensorType(_, fmt, _)) -> fmt
     | _ -> name("error", location=top.location)
     end;
+  format.env = top.env;
 
   local errors::[Message] =
     case tn.typerep of
@@ -517,6 +535,14 @@ top::Expr ::= tn::Expr
 abstract production dimenof
 top::Expr ::= tn::Expr
 {
+  top.pp =
+    ppConcat([
+      text("dimenof("),
+      tn.pp,
+      text(")")
+    ]);
+  propagate substituted;
+
   local errors::[Message] =
     case tn.typerep of
     | pointerType(_,
@@ -530,6 +556,7 @@ top::Expr ::= tn::Expr
         tensorType(_, fmt, _)) -> fmt
     | _ -> name("error", location=top.location)
     end;
+  format.env = top.env;
   
   local fmt::Decorated TensorFormatItem = format.tensorFormatItem;
   local fmtNm::String = fmt.proceduralName;

@@ -679,7 +679,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                     // pnt.exprs was nxtExpr
                     ${emitReduceCompute(pnt.exprs, iv, tail(order), env)}
                     // section 6.2, emit-compute
-                    ${emitCompute(pnt.exprs, iv, tail(order), nSubs ++ subs, env)}
+                    ${emitCompute(pnt.exprs, iv, tail(order), subs, env)}
                   }
                 """
                 end
@@ -708,7 +708,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                           // pnt.exprs was nxtExpr
                           ${emitReduceCompute(pnt.exprs, iv, tail(order), env)}
                           // #7, emit-compute()
-                          ${emitCompute(pnt.exprs, iv, tail(order), sNubs ++ subs, env)}
+                          ${emitCompute(pnt.exprs, iv, tail(order), subs, env)}
                           }
                        """
                        end
@@ -731,7 +731,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                      pnt::LatticePoints
                    -> b 
                    || null(sparse_dimensions(builtLattice([pnt]), iv))
-                   || emitCompute(pnt.exprs, iv, tail(order), nSubs ++ subs, env) == ""  
+                   || emitCompute(pnt.exprs, iv, tail(order), subs, env) == ""  
                    ,
                    false,
                    points
@@ -1024,13 +1024,14 @@ String ::= ex::TensorAssignExpr iv::String left::[String] sbs::[Pair<TensorExpr 
     ex.tensorAssign;
   eAssign.env = env;
 
-  local subs::[Pair<TensorExpr String>] =
-    deeperSubs(ex.tensorValue, left)
-    ++ 
-    sbs;
-
   local expr::TensorAssignExpr =
-    makeSub(ex, subs);
+    makeSub(ex, deeperSubs(ex.tensorValue, left) ++ sbs);
+
+  local subs::[Pair<TensorExpr String>] =
+    findSubs(expr.tensorValue, if null(left) then iv else head(left), []);
+
+  local exp::TensorAssignExpr =
+    makeSub(expr, subs);
 
   local acc::[String] =
     case eAssign of
@@ -1079,7 +1080,9 @@ String ::= ex::TensorAssignExpr iv::String left::[String] sbs::[Pair<TensorExpr 
     if layer
     then
       s"""
-        ${out}->data[p${out}${toString(listLength(acc))}] += ${evalExpr(expr.tensorValue, env)};
+        printf("${implode(", ", map(\p::Pair<TensorExpr String> -> s"${evalExpr(p.fst, env)} -> ${p.snd}", subs))}");
+        printf("${evalExpr(exp.tensorValue, env)}");
+        ${out}->data[p${out}${toString(listLength(acc))}] += ${evalExpr(exp.tensorValue, env)};
         ${if sparse
           then s"p${out}${toString(listLength(acc))}++;"
           else ""
@@ -1092,10 +1095,24 @@ function deeperSubs
 [Pair<TensorExpr String>] ::= ex::TensorExpr left::[String]
 {
   return
-    if null(left)
+    deeperSubs_helper(ex, reverse(left), []);
+}
+
+function deeperSubs_helper
+[Pair<TensorExpr String>] ::= ex::TensorExpr vars::[String] before::[String]
+{
+  return
+    if null(vars)
     then []
-    else deeperSubs(ex, tail(left))
-      ++ findSubs(ex, head(left), tail(left));
+    else 
+      let subs::[Pair<TensorExpr String>] =
+        findSubs(ex, head(vars), before)
+      in
+      deeperSubs_helper(exprSub(ex, subs), tail(vars), head(vars) :: before)
+      ++ 
+      subs
+      end;
+
 }
 
 function findDeeperSubs
