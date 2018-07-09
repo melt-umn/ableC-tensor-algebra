@@ -676,9 +676,10 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
 
                     
                     // section 6.2, emit-reduction-compute
-                    ${emitReduceCompute(nxtExpr, iv, tail(order), env)}
+                    // pnt.exprs was nxtExpr
+                    ${emitReduceCompute(pnt.exprs, iv, tail(order), env)}
                     // section 6.2, emit-compute
-                    ${emitCompute(pnt.exprs, iv, tail(order), subs, env)}
+                    ${emitCompute(pnt.exprs, iv, tail(order), nSubs ++ subs, env)}
                   }
                 """
                 end
@@ -704,9 +705,10 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                           ${code_gen(pnt.exprs, tail(order), loc, nSubs ++ subs, env)}
                           
                           // #7, emit-reduction-compute
-                          ${emitReduceCompute(nxtExpr, iv, tail(order), env)}
+                          // pnt.exprs was nxtExpr
+                          ${emitReduceCompute(pnt.exprs, iv, tail(order), env)}
                           // #7, emit-compute()
-                          ${emitCompute(pnt.exprs, iv, tail(order), subs, env)}
+                          ${emitCompute(pnt.exprs, iv, tail(order), sNubs ++ subs, env)}
                           }
                        """
                        end
@@ -729,7 +731,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                      pnt::LatticePoints
                    -> b 
                    || null(sparse_dimensions(builtLattice([pnt]), iv))
-                   || emitCompute(pnt.exprs, iv, tail(order), subs, env) == ""  
+                   || emitCompute(pnt.exprs, iv, tail(order), nSubs ++ subs, env) == ""  
                    ,
                    false,
                    points
@@ -971,24 +973,24 @@ String ::= ex::TensorAssignExpr iv::String left::[String] env::Decorated Env
           ,
           subs
       ))
-    else if even
-    then
+    else
       implode("\n",
         map(
           \ s::String ->
           s"double ${s} = 0.0;"
           ,
           later
-      ))
-    else "";
+      ));
 }
 
 function emitReduceCompute
 String ::= ex::TensorAssignExpr iv::String left::[String] env::Decorated Env
 {
+  local expr::TensorAssignExpr =
+    makeSub(ex, deeperSubs(ex.tensorValue, left));
   local subs::[Pair<TensorExpr String>] =
-    findSubs(ex.tensorValue, iv, left);
-  
+    findSubs(expr.tensorValue, iv, left);
+
   local acc::[String] =
     case ex.tensorAssign of
     | access(_, a) -> a
@@ -998,14 +1000,8 @@ String ::= ex::TensorAssignExpr iv::String left::[String] env::Decorated Env
   local sub::Boolean =
     !containsAny(
        stringEq(_, _),
-       left,
+       iv :: left,
        acc
-     )
-     &&
-     !containsBy(
-        stringEq(_, _),
-        iv,
-        acc
      );
   
   return
@@ -1029,11 +1025,12 @@ String ::= ex::TensorAssignExpr iv::String left::[String] sbs::[Pair<TensorExpr 
   eAssign.env = env;
 
   local subs::[Pair<TensorExpr String>] =
-    sbs
-    ++ deeperSubs(ex.tensorValue, left);
+    deeperSubs(ex.tensorValue, left)
+    ++ 
+    sbs;
 
   local expr::TensorAssignExpr =
-    makeSub(ex, subs);  
+    makeSub(ex, subs);
 
   local acc::[String] =
     case eAssign of
@@ -1097,8 +1094,8 @@ function deeperSubs
   return
     if null(left)
     then []
-    else findSubs(ex, head(left), tail(left))
-      ++ deeperSubs(ex, tail(left));
+    else deeperSubs(ex, tail(left))
+      ++ findSubs(ex, head(left), tail(left));
 }
 
 function findDeeperSubs

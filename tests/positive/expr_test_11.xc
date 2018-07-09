@@ -7,8 +7,7 @@ int asserts = 0;
 void assert_f(double v, double e) {
   asserts++;
   if(v != e) {
-    fprintf(stderr, "Assert %d failed. Got %lf, expected %lf
-", asserts, v, e);
+    fprintf(stderr, "Assert %d failed. Got %lf, expected %lf\n", asserts, v, e);
     exit(1);
   }
 }
