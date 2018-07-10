@@ -74,12 +74,6 @@ function orderList
     end;
 }
 
-function indexOf
-Integer ::= eq::(Boolean ::= a a) lst::[a] elem::a
-{
-  return findIndexOf(eq, lst, elem, 0);
-}
-
 function findIndexOf
 Integer ::= eq::(Boolean ::= a a) lst::[a] elem::a idx::Integer
 {
