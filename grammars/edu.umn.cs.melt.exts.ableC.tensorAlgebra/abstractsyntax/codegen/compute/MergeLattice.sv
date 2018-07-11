@@ -56,7 +56,11 @@ LatticePoints ::= expr::TensorAssignExpr var::String loc::Location
                then nullPoint(loc)
                else builtPoint([], expr, accessCond(nm, index))
                end
-           | tExpr(exp) -> builtPoint([], expr, allCond())
+           | tExpr(declRefExpr(name(s))) ->
+               if length(parseVar(substring(1, length(s), s))) > 0
+               then builtPoint([], expr, nullCond())
+               else builtPoint([], expr, allCond())
+           | tExpr(_) -> builtPoint([], expr, allCond())
            | add(l, r) -> 
                case expr of
                | assignExpr(b, acc, _, ts, fs) ->
@@ -532,8 +536,21 @@ LatticePoints ::= p::LatticePoints formats :: tm:Map<Name TensorFormatItem>
       ),
       ps
     );
-  
-  return builtPoint(chs, expr, cond);
+
+  local rmvAllBelow::[LatticePoints] =
+    filter(
+      \ pn::LatticePoints
+      -> isAllCond(pn.conds)
+      ,
+      chs
+    );
+  local allBelow::Boolean =
+    !null(rmvAllBelow);
+
+  return 
+    if allBelow
+    then builtPoint(builtPoint([], expr, cond) :: rmvAllBelow, expr, allCond())
+    else builtPoint(chs, expr, cond);
 }
 
 function child_points

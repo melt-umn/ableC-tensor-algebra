@@ -76,6 +76,9 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
 
   expr.parenExpr = [];
   
+  local exprSub::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] =
+    exprSubs(assign, acc);
+  
   local fwrd::Stmt =
     substStmt(
       generateExprSubs(exprs, exprN),
@@ -87,7 +90,7 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
           ${build_output(assign, acc, tensors, loc)}
           {
             ${setup_gen(head(tensors) :: [], head(formats) :: [])}
-            ${code_gen(assign, acc, loc, [], env)}
+            ${code_gen(exprSub, acc, loc, env)}
           }
           ${implode("\n",
               map(
@@ -511,19 +514,38 @@ String ::= tensor::Name format::TensorFormatItem
 }
 
 function code_gen
-String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<TensorExpr String>] env::Decorated Env
+String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] order::[String] loc::Location env::Decorated Env
 {
+  local expr::TensorAssignExpr =
+    head(exprs).fst.fst;
+  local subs::[Pair<TensorExpr String>] =
+    head(exprs).fst.snd;
+  local endExpr::TensorAssignExpr =
+    head(exprs).snd.fst;
+  
+  local decl::[String] = 
+    if null(exprs) || null(tail(exprs))
+    then []
+    else 
+      map(
+        \ p::Pair<TensorExpr String> 
+        -> p.snd
+        ,
+        head(tail(exprs)).fst.snd
+      )
+      ++
+      map(
+        \ p::Pair<TensorExpr String>
+        -> p.snd
+        ,
+        head(tail(exprs)).snd.snd
+      );
+
   local lattice::MergeLattice = merge_lattice(expr, head(order), loc);
   local optimized::MergeLattice = lattice_optimize(lattice, expr.tensorFormat);
   local point::LatticePoints = head(optimized.points);
 
   local iv::String = head(order);
-
-  local nSubs::[Pair<TensorExpr String>] =
-    findSubs(exprSub(expr.tensorValue, subs), iv, tail(order));
-
-  local subExpr::TensorAssignExpr =
-    makeSub(expr, nSubs ++ subs);
 
   local out::String =
     case expr.tensorAssign of
@@ -567,7 +589,32 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
     | si::[] -> si.snd
     | _ -> -1
     end;
-    
+  local is_out_last::Boolean =
+    case expr.tensorAssign of
+    | access(_, acc) ->
+        !containsAny(
+          stringEq(_, _),
+          tail(order),
+          acc
+        )
+        &&
+        containsBy(
+          stringEq(_, _),
+          iv,
+          acc
+        )
+    | _ -> false
+    end;
+  local is_inside::Boolean =
+    case expr.tensorAssign of
+    | access(_, acc) ->
+        !containsAny(
+          stringEq(_, _),
+          order,
+          acc
+        )
+    | _ -> false
+    end;
 
   return 
     if null(order)
@@ -604,7 +651,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
             )
           in
           s"""
-          while(${until_any_exhausted(merged_dimensions(p, expr.tensorFormat), expr, iv)}) {
+          while(${until_any_exhausted(merged_dimensions(p, expr.tensorFormat), expr, iv)}${if isAllCond(p.conds) && !null(sparse) then s" && ${implode("&&", map(\p::Pair<String Integer> -> s"p${p.fst}${toString(p.snd)} < ${p.fst}${toString(p.snd)}_pos[p${p.fst}${toString(p.snd-1)}+1]", sparse))}" else ""}) {
             ${implode("\n",
               map(
                 \si::Pair<String Integer> ->
@@ -617,7 +664,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
               )
             )}
             
-            ${if !null(sparse) && !allBelow
+            ${if !null(sparse) && !isAllCond(p.conds)
               then s"${iv} = ${generate_min(map(\si::Pair<String Integer> -> s"${iv}${si.fst}", sparse))};"
               else s""
             }
@@ -651,41 +698,36 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
             }
                         
             // section 6.2, emit-available-expressions
-            ${emitAvailExprs(expr, iv, tail(order), env)}
+            /*${emitAvailExprs(expr, subs, decl, iv, is_inside, is_out_last, null(tail(order)), env)}*/
+            //
             
             if(0) {}
             
             ${let points::[LatticePoints] =
-                p :: sub_points(p)
+--                (if isAllCond(p.conds) then [] else [p]) ++ sub_points(p)
+                (if isAllCond(p.conds) && !null(sub_points(p)) then [] else [p]) ++ sub_points(p)
               in
-              if listLength(points) == 0 || isNullCond(head(points).conds) ||
-                 isAllCond(head(points).conds)
+              if listLength(points) == 0 || isNullCond(head(points).conds)
               then 
                 let pnt::LatticePoints =
                   head(points)
                 in
-                let nxtExpr::TensorAssignExpr =
-                  makeSub(pnt.exprs, subs)
-                in
-                let nExpr::TensorAssignExpr =
-                  case tail(order) of
-                  | [] -> nxtExpr
-                  | _ -> makeSub(nxtExpr, nSubs)
-                  end
+                let ex::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] =
+                  exprSubs(pnt.exprs, order)
                 in
                 s"""
                   else {
-                    ${code_gen(pnt.exprs, tail(order), loc, nSubs ++ subs, env)}
-
+                    ${emitAvailExprs(head(ex).fst.fst, head(ex).fst.snd, decl, iv, is_inside, is_out_last, null(tail(order)), env)}
+                    //
+                    
+                    ${code_gen(tail(ex), tail(order), loc, env)}
                     
                     // section 6.2, emit-reduction-compute
-                    // pnt.exprs was nxtExpr
-                    ${emitReduceCompute(nxtExpr, iv, tail(order), nSubs ++ subs, env)}
+                    ${emitReduceCompute(head(ex).snd.fst, head(ex).snd.snd, iv, is_inside, env)}
                     // section 6.2, emit-compute
-                    ${emitCompute(nExpr, iv, tail(order), subs, env)}
+                    ${emitCompute(head(ex).snd.fst, head(ex).snd.snd, iv, is_out_last, env)}
                   }
                 """
-                end
                 end
                 end
               else 
@@ -694,14 +736,8 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                     \ pnt::LatticePoints
                     -> let sd::[Pair<String Integer>] = sparse_dimensions(builtLattice([pnt]), iv)
                        in
-                       let nxtExpr::TensorAssignExpr =
-                         makeSub(pnt.exprs, subs)
-                       in
-                       let nExpr::TensorAssignExpr =
-                         case tail(order) of
-                         | [] -> nxtExpr
-                         | _ -> makeSub(nxtExpr, nSubs)
-                         end
+                       let ex::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] =
+                         exprSubs(pnt.exprs, order)
                        in
                        s"""
                           ${if null(sd)
@@ -709,16 +745,17 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                             else s"else if(${implode("&&", map(equals_iv(_, iv), sd))}){"
                           }
                      
-                          ${code_gen(pnt.exprs, tail(order), loc, nSubs ++ subs, env)}
+                          ${emitAvailExprs(head(ex).fst.fst, head(ex).fst.snd, decl, iv, is_inside, is_out_last, null(tail(order)), env)}
+                          //
+                     
+                          ${code_gen(tail(ex), tail(order), loc, env)}
                           
                           // #7, emit-reduction-compute
-                          // pnt.exprs was nxtExpr
-                          ${emitReduceCompute(nxtExpr, iv, tail(order), subs, env)}
+                          ${emitReduceCompute(head(ex).snd.fst, head(ex).snd.snd, iv, is_inside, env)}
                           // #7, emit-compute()
-                          ${emitCompute(nExpr, iv, tail(order), subs, env)}
+                          ${emitCompute(head(ex).snd.fst, head(ex).snd.snd, iv, is_out_last, env)}
                           }
                        """
-                       end
                        end
                        end
                     ,
@@ -739,7 +776,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                      pnt::LatticePoints
                    -> b 
                    || null(sparse_dimensions(builtLattice([pnt]), iv))
-                   || emitCompute(pnt.exprs, iv, tail(order), subs, env) == ""  
+                   || !is_out_last
                    ,
                    false,
                    points
@@ -766,8 +803,19 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
               end
             }
             
-            ${if listLength(sparse) == 0
-              then s"${iv}++;"
+            ${if listLength(sparse) == 0 || isAllCond(p.conds)
+              then
+                implode("\n",
+                  map(
+                    \ si::Pair<String Integer>
+                    -> let Dj::String = s"${si.fst}${toString(si.snd)}"
+                       in s"if(${iv}${si.fst} == ${iv}) p${Dj}++;"
+                       end
+                    ,
+                    sparse
+                  )
+                )
+                ++ s"${iv}++;"
               else if listLength(sparse) == 1 && !allBelow
               then let si::Pair<String Integer> =
                      head(sparse)
@@ -787,10 +835,6 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location subs::[Pair<Tens
                   sparse
                 )
             )}
-            ${if allBelow
-              then s"${iv}++;"
-              else ""
-            }
             ${if out_sparse
               then s"p${out}${toString(out_acc)}++;"
               else ""
@@ -937,213 +981,128 @@ String ::= p::Pair<TensorExpr String>
 }
 
 function emitAvailExprs
-String ::= ex::TensorAssignExpr iv::String left::[String] env::Decorated Env
+String ::= ex::TensorAssignExpr subs::[Pair<TensorExpr String>] decl::[String] iv::String inside::Boolean layer::Boolean last::Boolean env::Decorated Env
 {
-  local subs::[Pair<TensorExpr String>] =
-    findSubs(ex.tensorValue, iv, left);
-  
-  local later::[String] =
-    map(
-      \p::Pair<TensorExpr String> -> p.snd
-      , 
-      findSubs(
-        ex.tensorValue, 
-        head(left), 
-        tail(left)
-      )
-    );
-  
-  local last::Boolean = null(left);
-  
   return
-    if !last
+    (if !last
     then
       implode("\n",
         map(
-          \ p::Pair<TensorExpr String> ->
-          s"double ${p.snd} = ${evalExpr(p.fst, env)};"
+          \ p::Pair<TensorExpr String>
+          -> s"double ${p.snd} = ${evalExpr(p.fst, env)};"
           ,
           subs
         )
       )
-      ++
+    else 
       implode("\n",
         map(
-          \ s::String ->
-          s"double ${s} = 0.0;"
+          \ p::Pair<TensorExpr String>
+          -> s"${p.snd} += ${evalExpr(p.fst, env)};"
           ,
-          later
+          subs
+        )
+      )
+    )
+    ++
+    if inside || layer
+    then
+      implode("\n",
+        map(
+          \ s::String
+          -> s"double ${s} = 0.0;"
+          ,
+          decl
         )
       )
     else "";
 }
 
 function emitReduceCompute
-String ::= ex::TensorAssignExpr iv::String left::[String] sbs::[Pair<TensorExpr String>] env::Decorated Env
+String ::= ex::TensorAssignExpr sbs::[Pair<TensorExpr String>] iv::String inside::Boolean env::Decorated Env
 {
-  local exs::TensorAssignExpr =
-    makeSub(ex, sbs);
-  local expr::TensorAssignExpr =
-    makeSub(exs, deeperSubs(exs.tensorValue, left));
-  local subs::[Pair<TensorExpr String>] =
-    findSubs(expr.tensorValue, iv, left);
-
-  local acc::[String] =
-    case ex.tensorAssign of
-    | access(_, a) -> a
-    | _ -> []
-    end;
-  
-  local sub::Boolean =
-    !containsAny(
-       stringEq(_, _),
-       iv :: left,
-       acc
-     );
-  
   return
-    (if sub
+    if inside
     then
-      implode("\n",
-        map(
-          \ p::Pair<TensorExpr String> ->
-          s"${p.snd} += ${evalExpr(p.fst, env)};"
-          ,
-          subs
-      ))
-    else "")
-    ++
-    (if null(subs) && sub
-    then s"""
-      t${iv}${toString(getNumber(sbs, iv) + 1)} += ${evalExpr(expr.tensorValue, env)};
-    """
-    else "");
-}
-
-function getNumber
-Integer ::= sbs::[Pair<TensorExpr String>] iv::String
-{
-  return
-    if null(sbs)
-    then -1
-    else 
-      let this::Integer =
-        indexOf(iv, substring(1, length(head(sbs).snd), head(sbs).snd))
-      in
-      max(
-        this,
-        getNumber(tail(sbs), iv)
+    implode("\n",
+      map(
+        \ p::Pair<TensorExpr String> 
+        -> s"${p.snd} += ${evalExpr(p.fst, env)};"
+        ,
+        sbs
       )
-      end;
-}
-
-function emitCompute
-String ::= ex::TensorAssignExpr iv::String left::[String] sbs::[Pair<TensorExpr String>] env::Decorated Env
-{
-  local eAssign::TensorExpr =
-    ex.tensorAssign;
-  eAssign.env = env;
-
-  local expr::TensorAssignExpr =
-    makeSub(ex, deeperSubs(ex.tensorValue, left) ++ sbs);
-
-  local subs::[Pair<TensorExpr String>] =
-    findSubs(expr.tensorValue, if null(left) then "" else head(left), []);
-
-  local exp::TensorAssignExpr =
-    makeSub(expr, subs);
-
-  local acc::[String] =
-    case eAssign of
-    | access(_, a) -> a
-    | _ -> []
-    end;
-  
-  local out::String =
-    case eAssign of
-    | access(n, _) -> n.name
-    | _ -> "error"
-    end;
-  
-  local layer::Boolean =
-    !containsAny(
-       stringEq(_, _),
-       left,
-       acc
     )
-    &&
-    containsBy(
-      stringEq(_, _),
-      iv,
-      acc
-    );
-
-  local sparse::Boolean =
-    case eAssign of
-    | access(n, _) ->
-        let f::TensorFormatItem =
-          getFormat(n, env)
-        in
-        let idx::Integer =
-          last(f.dimenOrder)
-        in
-        case getElem(f.specifiers, idx) of
-        | nothing() -> false
-        | just(x) -> x == storeSparse
-        end
-        end
-        end
-    | _ -> false
-    end;  
-
-  return
-    if layer
-    then
-      s"""
-        ${out}->data[p${out}${toString(listLength(acc))}] += ${evalExpr(exp.tensorValue, env)};
-        ${if sparse
-          then s"p${out}${toString(listLength(acc))}++;"
-          else ""
-        }
-      """
     else "";
 }
 
-function deeperSubs
-[Pair<TensorExpr String>] ::= ex::TensorExpr left::[String]
+function emitCompute
+String ::= ex::TensorAssignExpr subs::[Pair<TensorExpr String>] iv::String layer::Boolean env::Decorated Env
 {
+  local out::String =
+    case ex.tensorAssign of
+    | access(o, _) -> o.name
+    | _ -> "error"
+    end;
+  
+  local outAccess::String =
+    case ex.tensorAssign of
+    | access(o, acc) -> s"p${o.name}${toString(listLength(acc))}"
+    | _ -> "error"
+    end;
+
+  local error::Boolean =
+    layer
+    &&
+    listLength(subs) != 1;
+
   return
-    deeperSubs_helper(ex, reverse(left), []);
+    if listLength(subs) > 1
+    then s"""fprintf(stderr, "Parsing error...");"""
+    else
+    if listLength(subs) == 0
+    then s"${out}->data[${outAccess}] += ${evalExpr(ex.tensorValue, env)};"
+    else
+    if layer
+    then
+    s"${out}->data[${outAccess}] += ${evalExpr(head(subs).fst, env)};"
+    else "";
 }
 
-function deeperSubs_helper
-[Pair<TensorExpr String>] ::= ex::TensorExpr vars::[String] before::[String]
-{
-  return
-    if null(vars)
-    then []
-    else 
-      let subs::[Pair<TensorExpr String>] =
-        findSubs(ex, head(vars), before)
-      in
-      deeperSubs_helper(exprSub(ex, subs), tail(vars), head(vars) :: before)
-      ++ 
-      subs
-      end;
+--function deeperSubs
+--[Pair<TensorExpr String>] ::= ex::TensorExpr left::[String]
+--{
+--  return
+--    deeperSubs_helper(ex, reverse(left), []);
+--}
 
-}
+--function deeperSubs_helper
+--[Pair<TensorExpr String>] ::= ex::TensorExpr vars::[String] before::[String]
+--{
+--  return
+--    if null(vars)
+--    then []
+--    else 
+--      let subs::[Pair<TensorExpr String>] =
+--        findSubs(ex, head(vars), before)
+--      in
+--      deeperSubs_helper(exprSub(ex, subs), tail(vars), head(vars) :: before)
+--      ++ 
+--      subs
+--      end;
+--
+--}
 
-function findDeeperSubs
-[String] ::= ex::TensorExpr left::[String]
-{
-  return
-    map(
-      \ p::Pair<TensorExpr String>
-      -> p.snd
-      ,
-      deeperSubs(ex, left)
-    );
-}
+--function findDeeperSubs
+--[String] ::= ex::TensorExpr left::[String]
+--{
+--  return
+--    map(
+--      \ p::Pair<TensorExpr String>
+--      -> p.snd
+--      ,
+--      deeperSubs(ex, left)
+--    );
+--}
 
 function makeSub
 TensorAssignExpr ::= ex::TensorAssignExpr sub::[Pair<TensorExpr String>]
@@ -1182,6 +1141,48 @@ TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>]
         if idx == -1
         then ex
         else 
+          let res::Maybe<Pair<TensorExpr String>>
+            = getElem(subs, idx)
+          in
+          let str::String =
+            case res of
+            | nothing() -> "error"
+            | just(p) -> p.snd
+            end
+          in
+          tExpr(
+            declRefExpr(
+              name(str, location=ex.location),
+              location=ex.location
+            ),
+            location=ex.location
+          )
+          end
+          end
+        end
+    | tExpr(declRefExpr(name(s))) ->
+        let idx::Integer =
+          positionOf(
+            \ e1::TensorExpr
+              e2::TensorExpr
+            -> case e2 of
+               | tExpr(declRefExpr(name(str))) ->
+                   s == str
+               | _ -> false
+               end
+            ,
+            ex,
+            map(
+              \ p::Pair<TensorExpr String>
+              -> p.fst
+              ,
+              subs
+            )
+          )
+        in 
+        if idx == -1
+        then ex
+        else
           let res::Maybe<Pair<TensorExpr String>>
             = getElem(subs, idx)
           in
@@ -1345,94 +1346,94 @@ TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>]
     end;
 }
 
-function findSubs
-[Pair<TensorExpr String>] ::= ex::TensorExpr iv::String left::[String]
-{
-  return findSubs_helper(ex, iv, left, 0).fst;
-}
+--function findSubs
+--[Pair<TensorExpr String>] ::= ex::TensorExpr iv::String left::[String]
+--{
+--  return findSubs_helper(ex, iv, left, 0).fst;
+--}
 
-function findSubs_helper
-Pair<[Pair<TensorExpr String>] Integer> ::= ex::TensorExpr iv::String left::[String] c::Integer
-{
-  return
-    case ex of
-    | nullTensorExpr() -> pair([], c)
-    | access(_, acc) ->
-        if !containsAny(
-             stringEq(_, _),
-             left,
-             acc
-           )
-           &&
-           containsBy(
-             stringEq(_, _),
-             iv,
-             acc
-           )
-        then pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
-        else pair([], c)
-    | tExpr(_) -> pair([], c)
-    | add(l, r) ->
-        if isAvail(ex, left, iv)
-        then 
-          pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
-        else
-          let pl::Pair<[Pair<TensorExpr String>] Integer> =
-            findSubs_helper(l, iv, left, c)
-          in
-          let pr::Pair<[Pair<TensorExpr String>] Integer> =
-            findSubs_helper(r, iv, left, pl.snd)
-          in
-          pair(pl.fst ++ pr.fst, pr.snd)
-          end
-          end
-    | sub(l, r) ->
-        if isAvail(ex, left, iv)
-        then
-          pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
-        else
-          let pl::Pair<[Pair<TensorExpr String>] Integer> =
-            findSubs_helper(l, iv, left, c)
-          in
-          let pr::Pair<[Pair<TensorExpr String>] Integer> =
-            findSubs_helper(r, iv, left, pl.snd)
-          in
-          pair(pl.fst ++ pr.fst, pr.snd)
-          end
-          end
-    | mul(l, r) ->
-        if isAvail(ex, left, iv)
-        then
-          pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
-        else
-          let pl::Pair<[Pair<TensorExpr String>] Integer> =
-            findSubs_helper(l, iv, left, c)
-          in
-          let pr::Pair<[Pair<TensorExpr String>] Integer> =
-            findSubs_helper(r, iv, left, pl.snd)
-          in
-          pair(pl.fst ++ pr.fst, pr.snd)
-          end
-          end
-    | div(l, r) ->
-        if isAvail(ex, left, iv)
-        then
-          pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
-        else
-          let pl::Pair<[Pair<TensorExpr String>] Integer> =
-            findSubs_helper(l, iv, left, c)
-          in
-          let pr::Pair<[Pair<TensorExpr String>] Integer> =
-            findSubs_helper(r, iv, left, pl.snd)
-          in
-          pair(pl.fst ++ pr.fst, pr.snd)
-          end
-          end
-    end;
-}
+--function findSubs_helper
+--Pair<[Pair<TensorExpr String>] Integer> ::= ex::TensorExpr iv::String left::[String] c::Integer
+--{
+--  return
+--    case ex of
+--    | nullTensorExpr() -> pair([], c)
+--    | access(_, acc) ->
+--        if !containsAny(
+--             stringEq(_, _),
+--             left,
+--             acc
+--           )
+--           &&
+--           containsBy(
+--             stringEq(_, _),
+--             iv,
+--             acc
+--           )
+--        then pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
+--        else pair([], c)
+--    | tExpr(_) -> pair([], c)
+--    | add(l, r) ->
+--        if isAvail(ex, left, iv)
+--        then 
+--          pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
+--        else
+--          let pl::Pair<[Pair<TensorExpr String>] Integer> =
+--            findSubs_helper(l, iv, left, c)
+--          in
+--          let pr::Pair<[Pair<TensorExpr String>] Integer> =
+--            findSubs_helper(r, iv, left, pl.snd)
+--          in
+--          pair(pl.fst ++ pr.fst, pr.snd)
+--          end
+--          end
+--    | sub(l, r) ->
+--        if isAvail(ex, left, iv)
+--        then
+--          pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
+--        else
+--          let pl::Pair<[Pair<TensorExpr String>] Integer> =
+--            findSubs_helper(l, iv, left, c)
+--          in
+--          let pr::Pair<[Pair<TensorExpr String>] Integer> =
+--            findSubs_helper(r, iv, left, pl.snd)
+--          in
+--          pair(pl.fst ++ pr.fst, pr.snd)
+--          end
+--          end
+--    | mul(l, r) ->
+--        if isAvail(ex, left, iv)
+--        then
+--          pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
+--        else
+--          let pl::Pair<[Pair<TensorExpr String>] Integer> =
+--            findSubs_helper(l, iv, left, c)
+--          in
+--          let pr::Pair<[Pair<TensorExpr String>] Integer> =
+--            findSubs_helper(r, iv, left, pl.snd)
+--          in
+--          pair(pl.fst ++ pr.fst, pr.snd)
+--          end
+--          end
+--    | div(l, r) ->
+--        if isAvail(ex, left, iv)
+--        then
+--          pair([pair(ex, s"t${iv}${toString(c)}")], c+1)
+--        else
+--          let pl::Pair<[Pair<TensorExpr String>] Integer> =
+--            findSubs_helper(l, iv, left, c)
+--          in
+--          let pr::Pair<[Pair<TensorExpr String>] Integer> =
+--            findSubs_helper(r, iv, left, pl.snd)
+--          in
+--          pair(pl.fst ++ pr.fst, pr.snd)
+--          end
+--          end
+--    end;
+--}
 
 function isAvail
-Boolean ::= ex::TensorExpr left::[String] iv::String
+Boolean ::= ex::TensorExpr left::[String] iv::String isOr::Boolean isOut::Boolean
 {
   return
     case ex of
@@ -1449,11 +1450,22 @@ Boolean ::= ex::TensorExpr left::[String] iv::String
            iv,
            acc
          )
+    | tExpr(declRefExpr(name(s))) ->
+        let v::String =
+          parseVar(s)
+        in
+          isOut || !isOr || length(v) == 0 ||
+          containsBy(
+            stringEq(_, _),
+            v,
+            iv::left
+          )
+        end
     | tExpr(_) -> true
-    | add(l, r) -> isAvail(l, left, iv) && isAvail(r, left, iv)
-    | sub(l, r) -> isAvail(l, left, iv) && isAvail(r, left, iv)
-    | mul(l, r) -> isAvail(l, left, iv) && isAvail(r, left, iv)
-    | div(l, r) -> isAvail(l, left, iv) && isAvail(r, left, iv)
+    | add(l, r) -> isAvail(l, left, iv, true, isOut) && isAvail(r, left, iv, true, isOut)
+    | sub(l, r) -> isAvail(l, left, iv, true, isOut) && isAvail(r, left, iv, true, isOut)
+    | mul(l, r) -> isAvail(l, left, iv, false, isOut) && isAvail(r, left, iv, false, isOut)
+    | div(l, r) -> isAvail(l, left, iv, false, isOut) && isAvail(r, left, iv, false, isOut)
     end;
 }
 
@@ -1515,7 +1527,7 @@ String ::= e::TensorExpr env::Decorated Env
 
 
 function exprSubs
-[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> TensorAssignExpr>] 
+[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] 
   ::= expr::TensorAssignExpr access::[String]
 {
   local tmap::tm:Map<String Integer> =
@@ -1529,29 +1541,48 @@ function exprSubs
   
   local res::[Pair<TensorAssignExpr [Pair<TensorExpr String>]>] =
     exprSubs_helper(expr, access, tmap);
-  
-  return
+
+  local pres::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] =
     zipWith(
       pair(_, _),
       take(listLength(access), res),
-      map(
-        \p::Pair<TensorAssignExpr [Pair<TensorExpr String>]> 
-        -> p.fst
-        , 
-        reverse(drop(listLength(access), res))
-      )
+      reverse(drop(listLength(access), res))
     );
+  
+  return
+    if listLength(pres) == 1
+    then [pair(pair(expr, []), pair(expr, [head(head(pres).fst.snd)]))]
+    else pres;
 }
 
 function exprSubs_helper
 [Pair<TensorAssignExpr [Pair<TensorExpr String>]>] ::= expr::TensorAssignExpr left::[String] tmap::tm:Map<String Integer>
 {
+  local acc::[String] =
+    case expr.tensorAssign of
+    | access(_, a) -> a
+    | _ -> []
+    end;
+
+  local isOut::Boolean =
+    !containsAny(
+      stringEq(_, _),
+      tail(left),
+      acc
+    )
+    &&
+    containsBy(
+      stringEq(_, _),
+      head(left),
+      acc
+    );
+
   return
     if null(left)
     then pair(expr, []) :: pair(expr, []) :: []
     else
       let subs::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-        findSubs_new(expr.tensorValue, head(left), tail(left), tmap)
+        findSubs_new(expr.tensorValue, head(left), tail(left), false, isOut, tmap)
       in
       let inner::[Pair<TensorAssignExpr [Pair<TensorExpr String>]>] =
         exprSubs_helper(
@@ -1561,7 +1592,7 @@ function exprSubs_helper
         )
       in
       let nSubs::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-        findSubs_new(expr.tensorValue, head(left), [], tmap)
+        findSubs_new(last(inner).fst.tensorValue, head(left), left, false, isOut, subs.snd)
       in
       let newExpr::TensorAssignExpr =
         makeSub(last(inner).fst, nSubs.fst)
@@ -1574,11 +1605,31 @@ function exprSubs_helper
 }
 
 function findSubs_new
-Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::String left::[String] map::tm:Map<String Integer>
+Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::String left::[String] isOr::Boolean isOut::Boolean map::tm:Map<String Integer>
 {
   return
     case expr of
     | nullTensorExpr() -> pair([], map)
+    | tExpr(declRefExpr(name(str)))
+      -> if !startsWith("t", str)
+         then pair([], map)
+         else
+         let i::String =
+           parseVar(substring(1, length(str), str))
+         in
+         if (!isOr || isOut) && i != iv && length(i) > 0
+         then 
+           let num::Integer =
+             head(tm:lookup(iv, map))
+           in
+           let nMap::tm:Map<String Integer> =
+             tm:update(iv, [num+1], map)
+           in
+             pair([pair(expr, s"t${iv}${toString(num)}")], nMap)
+           end
+           end
+         else pair([], map)
+         end
     | tExpr(_) -> pair([], map)
     | access(nm, acc) -> 
         if !containsAny(
@@ -1603,7 +1654,7 @@ Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::
           end
         else pair([], map)
     | add(l, r) -> 
-        if isAvail(expr, left, iv)
+        if isAvail(expr, left, iv, isOr, isOut)
         then
           let num::Integer =
            head(tm:lookup(iv, map))
@@ -1616,16 +1667,16 @@ Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::
           end
         else 
           let lres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(l, iv, left, map)
+            findSubs_new(l, iv, left, true, isOut, map)
           in
           let rres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(r, iv, left, lres.snd)
+            findSubs_new(r, iv, left, true, isOut, lres.snd)
           in
           pair(rres.fst ++ lres.fst, rres.snd)
           end
           end
     | sub(l, r) -> 
-        if isAvail(expr, left, iv)
+        if isAvail(expr, left, iv, isOr, isOut)
         then
           let num::Integer =
             head(tm:lookup(iv, map))
@@ -1638,16 +1689,16 @@ Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::
           end
         else
           let lres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(l, iv, left, map)
+            findSubs_new(l, iv, left, true, isOut, map)
           in
           let rres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(r, iv, left, lres.snd)
+            findSubs_new(r, iv, left, true, isOut, lres.snd)
           in
           pair(rres.fst ++ lres.fst, rres.snd)
           end
           end
     | mul(l, r) -> 
-        if isAvail(expr, left, iv)
+        if isAvail(expr, left, iv, isOr, isOut)
         then
           let num::Integer =
             head(tm:lookup(iv, map))
@@ -1660,16 +1711,16 @@ Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::
           end
         else
           let lres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(l, iv, left, map)
+            findSubs_new(l, iv, left, false, isOut, map)
           in
           let rres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(r, iv, left, lres.snd)
+            findSubs_new(r, iv, left, false, isOut, lres.snd)
           in
           pair(rres.fst ++ lres.fst, rres.snd)
           end
           end        
     | div(l, r) -> 
-        if isAvail(expr, left, iv)
+        if isAvail(expr, left, iv, isOr, isOut)
         then
           let num::Integer =
             head(tm:lookup(iv, map))
@@ -1682,13 +1733,42 @@ Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::
           end
         else
           let lres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(l, iv, left, map)
+            findSubs_new(l, iv, left, false, isOut, map)
           in
           let rres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(r, iv, left, lres.snd)
+            findSubs_new(r, iv, left, false, isOut, lres.snd)
           in
           pair(rres.fst ++ lres.fst, rres.snd)
           end
           end        
     end;
+}
+
+function parseVar
+String ::= var::String
+{
+  return parseVar_helper(var, "");
+}
+
+function parseVar_helper
+String ::= nm::String var::String
+{
+  return
+    if length(nm) == 0
+    then ""
+    else 
+      if isAlpha(substring(0, 1, nm))
+      then parseVar_helper(substring(1, length(nm), nm), var ++ substring(0, 1, nm))
+      else 
+        case toIntSafe(nm) of
+        | nothing() -> ""
+        | just(_) -> var
+        end;
+}
+
+function writeExprSub
+String ::= pr::Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>> env::Decorated Env
+{
+  return
+    s"""${evalExpr(pr.fst.fst.tensorValue, env)} (${implode(", ", map(\p::Pair<TensorExpr String> -> s"${evalExpr(p.fst, env)} -> ${p.snd}", pr.fst.snd))}) -- ${evalExpr(pr.snd.fst.tensorValue, env)} (${implode(", ", map(\p::Pair<TensorExpr String> -> s"${evalExpr(p.fst, env)} -> ${p.snd}", pr.snd.snd))})""";
 }
