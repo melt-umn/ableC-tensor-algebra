@@ -1,16 +1,5 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:syntax;
 
-imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
-imports edu:umn:cs:melt:ableC:abstractsyntax:construction:parsing;
-imports edu:umn:cs:melt:ableC:abstractsyntax:env;
-imports edu:umn:cs:melt:ableC:abstractsyntax:host;
-imports edu:umn:cs:melt:ableC:abstractsyntax:substitution;
-
-imports edu:umn:cs:melt:ableC:concretesyntax;
-
-imports silver:langutil;
-imports silver:langutil:pp;
-
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 abstract production format_without
@@ -115,7 +104,7 @@ top::Expr ::= type::TypeName dims::[Expr]
   format.env = top.env;
 
   top.pp = ppConcat([
-             text("build tensor<${format.name}> ({"),
+             text("build (tensor<${format.name}>) ({"),
              ppImplode(text(", "), map((.pp), dims)),
              text("})")
            ]);
@@ -173,7 +162,7 @@ top::Expr ::= type::TypeName data::Tensor
   format.env = top.env;
 
   top.pp = ppConcat([
-             text("build tensor<${format.name}> ("),
+             text("build (tensor<${format.name}>) ("),
              data.pp,
              text(")")
            ]);
@@ -236,7 +225,7 @@ top::Expr ::= type::TypeName dims::Expr
   format.env = top.env;
 
   top.pp = ppConcat([
-             text("build tensor<${format.name}> ("),
+             text("build (tensor<${format.name}>) ("),
              dims.pp,
              text(")")
            ]);
@@ -363,6 +352,7 @@ top::Stmt ::= tensor::Expr index::[Expr] op::AssignmentOp val::Expr
              tensor.pp,
              text(")("),
              ppImplode(text(", "), map((.pp), index)),
+             text(")"),
              text(op.rep),
              val.pp,
              text(";")

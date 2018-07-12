@@ -12,6 +12,10 @@ marking terminal OrderOf_t 'orderof' lexer classes {Ckeyword};
 marking terminal DimensOf_t 'dimenof' lexer classes {Ckeyword};
 
 concrete productions top::ExternalDeclaration_c
+| t::TensorFormat_t nm::Identifier_t '=' '(' '{' '}' ')' ';'
+  {
+    top.ast = format_scalar(fromId(nm));
+  }
 | t::TensorFormat_t nm::Identifier_t '=' '(' '{' specs::SpecifierList_c '}' ')' ';'
   {
     top.ast = format_without(fromId(nm), specs.specs);
@@ -22,6 +26,10 @@ concrete productions top::ExternalDeclaration_c
   }
 
 concrete productions top::AssignExpr_c
+| b::Build_t '(' type::TypeName_c ')' '(' ')'
+  {
+    top.ast = scalar_new(type.ast, location=top.location);
+  } -- should there be some way to initialize a scalar
 | b::Build_t '(' type::TypeName_c ')' '(' '{' dims::IndexList_c '}' ')'
   {
     top.ast = tensor_empty(type.ast, dims.indxs, location=top.location);
@@ -33,6 +41,10 @@ concrete productions top::AssignExpr_c
 | b::Build_t '(' type::TypeName_c ')' '(' dims::Expr_c ')'
   {
     top.ast = tensor_array(type.ast, dims.ast, location=top.location);
+  }
+| 'value' '(' tensor::Expr_c ')' '(' ')'
+  {
+    top.ast = scalar_get(tensor.ast, location=top.location);
   }
 | 'value' '(' tensor::Expr_c ')' '(' idx::IndexList_c ')'
   {
@@ -54,6 +66,10 @@ concrete productions top::UnaryExpr_c
   }
 
 concrete productions top::Stmt_c
+| 'value' '(' tensor::Expr_c ')' '(' ')' op::AssignmentOp_c val::Expr_c ';'
+  {
+    top.ast = scalar_assign(tensor.ast, op.assignOp, val.ast);
+  }
 | 'value' '(' tensor::Expr_c ')' '(' idx::IndexList_c ')' op::AssignmentOp_c val::Expr_c ';'
   {
     top.ast = tensor_assign(tensor.ast, idx.indxs, op.assignOp, val.ast);
@@ -79,6 +95,11 @@ concrete productions top::TensorElem_c
   {
     top.base = fromId(base);
     top.index = index.index;
+  }
+| base::Identifier_t '(' ')'
+  {
+    top.base = fromId(base);
+    top.index = [];
   }
 
 nonterminal TensorIndexList_c with index;

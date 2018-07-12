@@ -9,6 +9,16 @@ synthesized attribute dimens::Integer;
 
 nonterminal TensorFormatItem with specifiers, dimenOrder, proceduralName, dimens, sourceLocation;
 
+abstract production tensorScalar
+top::TensorFormatItem ::= source::Location
+{
+  top.specifiers = [];
+  top.dimenOrder = [];
+  top.dimens = 0;
+  top.proceduralName = "scalar";
+  top.sourceLocation = source;
+}
+
 abstract production tensorFormatItem
 top::TensorFormatItem ::= specifiers::[Integer] dimenOrder::[Integer] source::Location
 {

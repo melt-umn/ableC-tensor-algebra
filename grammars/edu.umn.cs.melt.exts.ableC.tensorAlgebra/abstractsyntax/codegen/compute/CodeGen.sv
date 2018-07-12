@@ -53,10 +53,19 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
       access
     );
 
+  local subOrder::[[String]] =
+    parseOrder(expr, env);
+  local topOrder::[String] =
+    orderList(access, head(formats).dimenOrder);
   local acc::[String] =
     findOrder(
-      orderList(access, head(formats).dimenOrder),  
-      parseOrder(expr, env)
+      if null(access)
+      then head(subOrder)
+      else topOrder
+      ,
+      if null(access)
+      then tail(subOrder)
+      else subOrder
     );
 
   local assign :: TensorAssignExpr =
@@ -90,7 +99,7 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
           ${build_output(exprSub, acc, tensors, loc, env)}
           {
             ${setup_gen(head(tensors) :: [], head(formats) :: [])}
-            ${code_gen(exprSub, acc, loc, env)}
+            ${code_gen(exprSub, acc, loc, env, 0)}
           }
           ${implode("\n",
               map(
@@ -152,23 +161,28 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
   local ex::TensorExpr = expr.tensorValue;
   ex.parenExpr = [];
 
-  return s"""
-  {
-    if(${implode("||", map(\n::Name -> s"""strcmp(${n.name}->form, "${ex.proceduralName}") != 0""", tensors))} ) {
-      ${out}->bufferCnt = 0;
-      ${out}->buffer.numChildren = 0;
-      ${out}->buffer.children = 0;
+  return
+    if listLength(acc) == 0
+    then s"""
+      ${out}->data[0] = 0.0;
+    """
+    else s"""
+    {
+      if(${implode("||", map(\n::Name -> s"""strcmp(${n.name}->form, "${ex.proceduralName}") != 0""", tensors))} ) {
+        ${out}->bufferCnt = 0;
+        ${out}->buffer.numChildren = 0;
+        ${out}->buffer.children = 0;
       
-      unsigned long* index = GC_malloc(sizeof(unsigned long) * ${toString(fmt.dimens)});
-      ${build_body(exprs, order, nm, fmt, acc, loc, env)}
-      {
-        ${build_pack(out, fmt)}
+        unsigned long* index = GC_malloc(sizeof(unsigned long) * ${toString(fmt.dimens)});
+        ${build_body(exprs, order, nm, fmt, acc, loc, env)}
+        {
+          ${build_pack(out, fmt)}
+        }
+      } else {
+        memset(${out}->data, 0, sizeof(double) * ${out}->dataLen);
       }
-    } else {
-      memset(${out}->data, 0, sizeof(double) * ${out}->dataLen);
     }
-  }
-  """;
+    """;
 }
 
 function build_pack
@@ -525,7 +539,7 @@ String ::= tensor::Name format::TensorFormatItem
 }
 
 function code_gen
-String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] order::[String] loc::Location env::Decorated Env
+String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] order::[String] loc::Location env::Decorated Env cnt::Integer
 {
   local expr::TensorAssignExpr =
     head(exprs).fst.fst;
@@ -598,6 +612,10 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
   local is_out_last::Boolean =
     case expr.tensorAssign of
     | access(_, acc) ->
+        (listLength(acc) == 0
+         && cnt == 0)
+        ||
+        (
         !containsAny(
           stringEq(_, _),
           tail(order),
@@ -609,11 +627,14 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
           iv,
           acc
         )
+        )
     | _ -> false
     end;
   local is_inside::Boolean =
     case expr.tensorAssign of
     | access(_, acc) ->
+        !(listLength(acc) == 0 && cnt == 0)
+        &&
         !containsAny(
           stringEq(_, _),
           order,
@@ -720,7 +741,7 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
                   else {
                     ${emitAvailExprs(head(ex).fst.fst, head(ex).fst.snd, decl, iv, is_inside, is_out_last, null(tail(order)), env)}
                     
-                    ${code_gen(tail(ex), tail(order), loc, env)}
+                    ${code_gen(tail(ex), tail(order), loc, env, cnt+1)}
                     
                     ${emitReduceCompute(head(ex).snd.fst, head(ex).snd.snd, iv, is_inside, env)}
 
@@ -746,7 +767,7 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
                      
                           ${emitAvailExprs(head(ex).fst.fst, head(ex).fst.snd, decl, iv, is_inside, is_out_last, null(tail(order)), env)}
                      
-                          ${code_gen(tail(ex), tail(order), loc, env)}
+                          ${code_gen(tail(ex), tail(order), loc, env, cnt+1)}
                           
                           ${emitReduceCompute(head(ex).snd.fst, head(ex).snd.snd, iv, is_inside, env)}
 
