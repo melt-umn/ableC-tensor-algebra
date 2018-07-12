@@ -87,7 +87,7 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
           ${check_dims(assign, acc)}
           ${pack_tensors(tail(tensors), tail(formats))}
           ${setup_gen(tensors, formats)}
-          ${build_output(assign, acc, tensors, loc)}
+          ${build_output(exprSub, acc, tensors, loc)}
           {
             ${setup_gen(head(tensors) :: [], head(formats) :: [])}
             ${code_gen(exprSub, acc, loc, env)}
@@ -129,8 +129,11 @@ function generateExprSubs
 }
 
 function build_output
-String ::= expr::TensorAssignExpr order::[String] tensors::[Name] loc::Location
+String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] order::[String] tensors::[Name] loc::Location
 {
+  local expr::TensorAssignExpr =
+    head(exprs).fst.fst;
+  
   local nm::Name =
     case expr.tensorAssign of
     | access(n, _) -> n
@@ -139,6 +142,12 @@ String ::= expr::TensorAssignExpr order::[String] tensors::[Name] loc::Location
   local out::String = nm.name;
   local fmt::TensorFormatItem =
     head(tm:lookup(nm, expr.tensorFormat));
+
+  local acc::[String] =
+    case expr.tensorAssign of
+    | access(_, a) -> a
+    | _ -> []
+    end;
 
   local ex::TensorExpr = expr.tensorValue;
   ex.parenExpr = [];
@@ -151,7 +160,7 @@ String ::= expr::TensorAssignExpr order::[String] tensors::[Name] loc::Location
       ${out}->buffer.children = 0;
       
       unsigned long* index = GC_malloc(sizeof(unsigned long) * ${toString(fmt.dimens)});
-      ${build_body(expr, order, loc)}
+      ${build_body(exprs, order, nm, fmt, acc, loc)}
       {
         ${build_pack(out, fmt)}
       }
@@ -196,28 +205,16 @@ String ::= name::String fmt::TensorFormatItem
 }
 
 function build_body
-String ::= expr::TensorAssignExpr order::[String] loc::Location
+String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] order::[String] nm::Name fmt::TensorFormatItem acc::[String] loc::Location
 {
-  local nm::Name =
-    case expr.tensorAssign of
-    | access(n, _) -> n
-    | _ -> name("error", location=loc)
-    end;
-
+  local expr::TensorAssignExpr =
+    head(exprs).fst.fst;
+  
   local out::String = nm.name;
 
   local lattice::MergeLattice = merge_lattice(expr, head(order), loc);
   local optimized::MergeLattice = lattice_optimize(lattice, expr.tensorFormat);
   local point::LatticePoints = head(optimized.points);
-  
-  local fmt::TensorFormatItem =
-    head(tm:lookup(nm, expr.tensorFormat));
-  
-  local acc::[String] =
-    case expr.tensorAssign of
-    | access(_, a) -> a
-    | _ -> []
-    end;
   
   local more::Boolean =
     containsAny(
@@ -245,6 +242,17 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
         fmt.dimenOrder
       )
     );
+
+  local out_is_sparse::Boolean =
+    case sparse_assign(expr, iv) of
+    | si::[] -> true
+    | _ -> false
+    end;
+  local out_acc::Integer =
+    case sparse_assign(expr, iv) of
+    | si::[] -> si.snd
+    | _ -> -1
+    end;
   
   return
     if null(order) || !more
@@ -282,7 +290,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                  )
                in
                s"""
-                 while(${until_any_exhausted(merged_dimensions(p, expr.tensorFormat), expr, iv)}) {
+                 while(${until_any_exhausted(merged_dimensions(p, expr.tensorFormat), expr, iv)}${if isAllCond(p.conds) && !null(sparse) then s" && ${implode("&&", map(\p::Pair<String Integer> -> s"p${p.fst}${toString(p.snd)} < ${p.fst}${toString(p.snd)}_pos[p${p.fst}${toString(p.snd-1)}+1]", sparse))}" else ""}) {
                    ${implode("\n",
                        map(
                          \si::Pair<String Integer> ->
@@ -295,7 +303,7 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                        )
                    )}
                    
-                   ${if !null(sparse) && !allBelow
+                   ${if !null(sparse) && !isAllCond(p.conds)
                      then s"${iv} = ${generate_min(map(\si::Pair<String Integer> -> s"${iv}${si.fst}", sparse))};"
                      else s""
                    }
@@ -320,22 +328,26 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                        )
                    )}
                    
+                   
                    if(0) {}
                    
-                   ${let points::[LatticePoints] =
-                       p :: sub_points(p)
+                   ${let points::[LatticePoints] = 
+                       (if isAllCond(p.conds) && !null(sub_points(p)) then [] else [p]) ++ sub_points(p)
                      in
-                     if listLength(points) == 0 || isAccessCond(head(points).conds) ||
-                        isNullCond(head(points).conds)
+                     if listLength(points) == 0 || isNullCond(head(points).conds)
                      then
                        let pnt::LatticePoints =
                          head(points)
                        in
+                       let ex::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] =
+                         exprSubs(pnt.exprs, order)
+                       in
                        s"""
                          else {
-                           ${build_body(pnt.exprs, tail(order), loc)}
+                           ${build_body(tail(ex), tail(order), nm, fmt, acc, loc)}
                          }
                        """
+                       end
                        end
                      else
                        implode("\n",
@@ -343,16 +355,20 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                            \ pnt::LatticePoints
                            -> let sd::[Pair<String Integer>] = sparse_dimensions(builtLattice([pnt]), iv)
                               in
+                              let ex::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] =
+                                exprSubs(pnt.exprs, order)
+                              in
                               s"""
                                 ${if null(sd)
                                   then s"else {"
                                   else s"else if(${implode("&&", map(equals_iv(_, iv), sd))}) {"
                                 }
                                 
-                                ${build_body(pnt.exprs, tail(order), loc)}
+                                ${build_body(tail(ex), tail(order), nm, fmt, acc, loc)}
                                 
                                 }
                               """
+                              end
                               end
                            ,
                            points
@@ -361,8 +377,19 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                       end
                    }
                    
-                   ${if listLength(sparse) == 0
-                     then s"${iv}++;"
+                   ${if listLength(sparse) == 0 || isAllCond(p.conds)
+                     then 
+                       implode("\n",
+                         map(
+                           \ si::Pair<String Integer>
+                           -> let Dj::String = s"${si.fst}${toString(si.snd)}"
+                           in s"if(${iv}${si.fst} == ${iv}) p${Dj}++;"
+                           end
+                           ,
+                           sparse
+                         )
+                       )
+                       ++ s"${iv}++;"
                      else if listLength(sparse) == 1 && !allBelow
                      then let si::Pair<String Integer> =
                             head(sparse)
@@ -382,10 +409,6 @@ String ::= expr::TensorAssignExpr order::[String] loc::Location
                            sparse
                          )
                        )
-                   }
-                   ${if allBelow
-                     then s"${iv}++;"
-                     else ""
                    }
                  }
                """
@@ -704,7 +727,6 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
             if(0) {}
             
             ${let points::[LatticePoints] =
---                (if isAllCond(p.conds) then [] else [p]) ++ sub_points(p)
                 (if isAllCond(p.conds) && !null(sub_points(p)) then [] else [p]) ++ sub_points(p)
               in
               if listLength(points) == 0 || isNullCond(head(points).conds)
