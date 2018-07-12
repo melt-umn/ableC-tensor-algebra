@@ -172,19 +172,12 @@ Decl ::=
 function declScalarStruct
 Decl ::=
 {
-  -- Can dims, indices, bufferCnt, buffer, dataLen be removed?
   return maybeTagDecl(
          s"tensor_scalar",
          parseDecl(s"""
            struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_scalar"))) tensor_scalar {
-             unsigned long* dims;
-             unsigned long*** indices;
              double* data;
-             
-             unsigned long bufferCnt;
-             struct tensor_tree_s buffer;
              char* form;
-             unsigned long dataLen;
            };
          """)
          );

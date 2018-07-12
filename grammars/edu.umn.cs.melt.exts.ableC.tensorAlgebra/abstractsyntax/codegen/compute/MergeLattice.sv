@@ -61,6 +61,21 @@ LatticePoints ::= expr::TensorAssignExpr var::String loc::Location env::Decorate
                then builtPoint([], expr, nullCond())
                else builtPoint([], expr, allCond())
            | tExpr(_) -> builtPoint([], expr, allCond())
+           | funcExpr(_, arg) -> 
+               case expr of
+               | assignExpr(b, acc, _, ts, fs) ->
+                   lattice_points(
+                     assignExpr(b, acc, arg, ts, fs, location=loc),
+                     var,
+                     loc,
+                     env)
+               | assignExprExpr(assign, _, fs) ->
+                   lattice_points(
+                     assignExprExpr(assign, arg, fs, location=loc),
+                     var,
+                     loc,
+                     env)
+               end
            | add(l, r) -> 
                case expr of
                | assignExpr(b, acc, _, ts, fs) ->
@@ -483,6 +498,7 @@ TensorCond ::= expr::TensorExpr var::String loc::Location
              else accessCond(nm, index)
              end
          | tExpr(expr) -> allCond()
+         | funcExpr(_, arg) -> generateCond(arg, var, loc)
          | add(l, r) ->
              let lC::TensorCond =
                generateCond(l, var, loc)
@@ -701,6 +717,7 @@ function exp_sparse
              end
              end
         end
+    | funcExpr(_, arg) -> exp_sparse(arg, fmt, var)
     | add(l, r) ->
         exp_sparse(l, fmt, var) ++ exp_sparse(r, fmt, var)
     | sub(l, r) ->
@@ -785,6 +802,8 @@ function exp_dense
              end
              end
         end
+    | funcExpr(_, arg) ->
+        exp_dense(arg, fmt, var)
     | add(l, r) ->
         exp_dense(l, fmt, var) ++ exp_dense(r, fmt, var)
     | sub(l, r) ->

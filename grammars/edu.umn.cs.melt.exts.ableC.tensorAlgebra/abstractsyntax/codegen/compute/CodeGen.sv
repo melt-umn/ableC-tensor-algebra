@@ -1040,6 +1040,7 @@ TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>] env::Decorated Env
           end
         end
     | tExpr(_) -> ex
+    | funcExpr(nm, arg) -> funcExpr(nm, undoSub(arg, subs, env), location=ex.location)
     | add(l, r) -> add(undoSub(l, subs, env), undoSub(r, subs, env), location=ex.location)
     | sub(l, r) -> sub(undoSub(l, subs, env), undoSub(r, subs, env), location=ex.location)
     | mul(l, r) -> mul(undoSub(l, subs, env), undoSub(r, subs, env), location=ex.location)
@@ -1147,6 +1148,41 @@ TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>] env::Decorated Env
           end
         end
     | tExpr(_) -> ex
+    | funcExpr(fnc, arg) ->
+        let idx::Integer =
+          positionOf(
+            tensorExprEqual(_, _),
+            ex,
+            map(
+              \ p::Pair<TensorExpr String>
+              -> p.fst
+              ,
+              subs
+            )
+          )
+        in
+        if idx == -1
+        then funcExpr(fnc, exprSub(arg, subs, env), location=ex.location)
+        else
+          let res::Maybe<Pair<TensorExpr String>>
+            = getElem(subs, idx)
+          in
+          let str::String =
+            case res of
+            | nothing() -> "error"
+            | just(p) -> p.snd
+            end
+          in
+          tExpr(
+            declRefExpr(
+              name(str, location=ex.location),
+              location=ex.location
+            ),
+            location=ex.location
+          )
+          end
+          end
+        end
     | add(l, r) -> 
         let idx::Integer =
           positionOf(
@@ -1324,6 +1360,7 @@ Boolean ::= ex::TensorExpr left::[String] iv::String isOr::Boolean isOut::Boolea
           )
         end
     | tExpr(_) -> true
+    | funcExpr(_, arg) -> isAvail(arg, left, iv, false, isOut, env)
     | add(l, r) -> isAvail(l, left, iv, true, isOut, env) && isAvail(r, left, iv, true, isOut, env)
     | sub(l, r) -> isAvail(l, left, iv, true, isOut, env) && isAvail(r, left, iv, true, isOut, env)
     | mul(l, r) -> isAvail(l, left, iv, false, isOut, env) && isAvail(r, left, iv, false, isOut, env)
@@ -1343,6 +1380,7 @@ String ::= e::TensorExpr env::Decorated Env
     | tExpr(declRefExpr(name(s))) -> s
     | tExpr(expr) -> 
         s"_expr_${toString(expr.location.line)}_${toString(expr.location.column)}"
+    | funcExpr(nm, arg) -> s"(${nm.name}(${evalExpr(arg, env)}))"
     | add(l, r) -> s"(${evalExpr(l, env)} + ${evalExpr(r, env)})"
     | sub(l, r) -> s"(${evalExpr(l, env)} - ${evalExpr(r, env)})"
     | mul(l, r) -> s"(${evalExpr(l, env)} * ${evalExpr(r, env)})"
@@ -1481,6 +1519,20 @@ Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::
           end
           end
         else pair([], map)
+    | funcExpr(_, arg) ->
+        if isAvail(expr, left, iv, isOr, isOut, env)
+        then
+          let num::Integer = 
+            head(tm:lookup(iv, map))
+          in
+          let nMap::tm:Map<String Integer> =
+            tm:update(iv, [num+1], map)
+          in
+            pair([pair(expr, s"t${iv}${toString(num)}")], nMap)
+          end
+          end
+        else
+          findSubs_new(arg, iv, left, false, isOut, map, env)
     | add(l, r) -> 
         if isAvail(expr, left, iv, isOr, isOut, env)
         then

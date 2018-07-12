@@ -39,6 +39,7 @@ function getTensors
   return case expr of
          | access(n, _) -> [n]
          | tExpr(_) -> []
+         | funcExpr(_, arg) -> getTensors(arg)
          | add(l, r) -> getTensors(l) ++ getTensors(r)
          | sub(l, r) -> getTensors(l) ++ getTensors(r)
          | mul(l, r) -> getTensors(l) ++ getTensors(r)
@@ -91,6 +92,7 @@ function parseOrder
          | access(n, idx) ->
              orderList(idx, getFormat(n, env).dimenOrder) :: []
          | tExpr(_) -> []
+         | funcExpr(_, arg) -> parseOrder(arg, env)
          | add(l, r) -> parseOrder(l, env) ++ parseOrder(r, env)
          | sub(l, r) -> parseOrder(l, env) ++ parseOrder(r, env)
          | mul(l, r) -> parseOrder(l, env) ++ parseOrder(r, env)

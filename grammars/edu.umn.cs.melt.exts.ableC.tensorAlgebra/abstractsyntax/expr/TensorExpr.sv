@@ -67,6 +67,36 @@ top::TensorExpr ::= expr::Expr
   top.proceduralName = s"(${show(1000, top.pp)})";
 }
 
+abstract production funcExpr
+top::TensorExpr ::= fnct::Name arg::TensorExpr
+{
+  arg.env = top.env;
+  arg.parenExpr = [];
+  top.pp = ppConcat([
+             text(fnct.name),
+             text("("),
+             arg.pp,
+             text(")")
+           ]);
+  
+  top.errors =
+    case lookupValue(fnct.name, top.env) of
+    | b::[] ->
+        case b.typerep of
+        | functionType(t, _, _) ->
+            if t.isArithmeticType
+            then []
+            else [err(top.location, s"Expected a function returning a numeric expression (got ${showType(t)})")]
+        | _ -> [err(top.location, s"Expected a function (got ${showType(b.typerep)})")]
+        end
+    | _ -> [err(top.location, "Cannot find symbol ${fnct.name}")]
+    end
+    ++
+    arg.errors;
+  
+  top.proceduralName = s"(${fnct.name}(${arg.proceduralName}))";
+}
+
 abstract production add
 top::TensorExpr ::= left::TensorExpr right::TensorExpr
 {
@@ -220,6 +250,9 @@ Boolean ::= a::TensorExpr b::TensorExpr
          )
     | tExpr(e1), tExpr(e2) ->
         show(1000, e1.pp) == show(1000, e2.pp)
+    | funcExpr(n1, a1), funcExpr(n2, a2) ->
+        n1.name == n2.name
+        && tensorExprEqual(a1, a2)
     | add(l1, r1), add(l2, r2) ->
         tensorExprEqual(l1, l2)
         && tensorExprEqual(r1, r2)
@@ -297,6 +330,8 @@ Pair<TensorExpr [Pair<Name Integer>]> ::= e::TensorExpr sbs::[Pair<Name Integer>
         end
         end
     | tExpr(_) -> pair(e, sbs)
+    | funcExpr(_, arg) ->
+        replaceDuplicates_helper(arg, sbs)
     | add(l, r) ->
         let lres::Pair<TensorExpr [Pair<Name Integer>]>
           = replaceDuplicates_helper(l, sbs)

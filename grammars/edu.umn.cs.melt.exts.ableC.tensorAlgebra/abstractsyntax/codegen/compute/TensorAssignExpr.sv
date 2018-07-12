@@ -88,6 +88,8 @@ Maybe<Pair<String Integer>> ::= expr::TensorExpr var::String fmt::tm:Map<Name Te
           else nothing()
           end
         end
+    | funcExpr(_, arg) ->
+        findDenseDimensionExpr(arg, var, fmt)
     | add(l, r) -> 
         case findDenseDimensionExpr(l, var, fmt) of
         | nothing() -> findDenseDimensionExpr(r, var, fmt)
@@ -161,6 +163,8 @@ function findAccessesExpr
         else [pair(nm.name, ind)]
         end
     | tExpr(_) -> []
+    | funcExpr(_, arg) ->
+        findAccessesExpr(arg, var)
     | add(l, r) -> 
         findAccessesExpr(l, var) ++
         findAccessesExpr(r, var)
@@ -185,6 +189,7 @@ function getExprs
     | nullTensorExpr() -> []
     | access(_, _) -> []
     | tExpr(ex) -> [ex]
+    | funcExpr(_, arg) -> getExprs(arg)
     | add(l, r) -> getExprs(l) ++ getExprs(r)
     | sub(l, r) -> getExprs(l) ++ getExprs(r)
     | mul(l, r) -> getExprs(l) ++ getExprs(r)
