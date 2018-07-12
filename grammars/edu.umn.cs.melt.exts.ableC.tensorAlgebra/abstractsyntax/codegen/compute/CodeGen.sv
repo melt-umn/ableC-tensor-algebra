@@ -54,7 +54,11 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
     );
 
   local subOrder::[[String]] =
-    parseOrder(expr, env);
+    filter(
+      \ lst::[String]
+      -> !null(lst),
+      parseOrder(expr, env)
+    );
   local topOrder::[String] =
     orderList(access, head(formats).dimenOrder);
   local acc::[String] =
@@ -992,17 +996,55 @@ String ::= ex::TensorAssignExpr subs::[Pair<TensorExpr String>] layer::Boolean e
     | _ -> "error"
     end;
 
+  local exp::TensorExpr =
+    undoSub(ex.tensorValue, subs, env);
+
   return
-    if listLength(subs) > 1
-    then s"""fprintf(stderr, "Parsing error...");"""
-    else
-    if listLength(subs) == 0
-    then s"${out}->data[${outAccess}] += ${evalExpr(ex.tensorValue, env)};"
-    else
-    if layer
-    then
-    s"${out}->data[${outAccess}] += ${evalExpr(head(subs).fst, env)};"
-    else "";
+    if !layer
+    then ""
+    else s"${out}->data[${outAccess}] += ${evalExpr(exp, env)};";
+}
+
+function undoSub
+TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>] env::Decorated Env
+{
+  ex.env = env;
+  
+  return
+    case ex of
+    | nullTensorExpr() -> ex
+    | access(_, _) -> ex
+    | tExpr(declRefExpr(name(s))) ->
+        let idx::Integer =
+          positionOf(
+            stringEq(_, _),
+            s,
+            map(
+              \ p::Pair<TensorExpr String> 
+              -> p.snd
+              ,
+              subs
+            )
+          )
+        in
+        if idx == -1
+        then ex
+        else
+          let res::Maybe<Pair<TensorExpr String>>
+            = getElem(subs, idx)
+          in
+          case res of
+          | nothing() -> ex
+          | just(p) -> p.fst
+          end
+          end
+        end
+    | tExpr(_) -> ex
+    | add(l, r) -> add(undoSub(l, subs, env), undoSub(r, subs, env), location=ex.location)
+    | sub(l, r) -> sub(undoSub(l, subs, env), undoSub(r, subs, env), location=ex.location)
+    | mul(l, r) -> mul(undoSub(l, subs, env), undoSub(r, subs, env), location=ex.location)
+    | div(l, r) -> div(undoSub(l, subs, env), undoSub(r, subs, env), location=ex.location)
+    end;
 }
 
 function makeSub
@@ -1257,7 +1299,9 @@ Boolean ::= ex::TensorExpr left::[String] iv::String isOr::Boolean isOut::Boolea
     case ex of
     | nullTensorExpr() -> true
     | access(_, acc) ->
-        !containsAny(
+        listLength(acc) == 0
+        ||
+        (!containsAny(
           stringEq(_, _),
           left,
           acc
@@ -1267,7 +1311,7 @@ Boolean ::= ex::TensorExpr left::[String] iv::String isOr::Boolean isOut::Boolea
            stringEq(_, _),
            iv,
            acc
-         )
+         ))
     | tExpr(declRefExpr(name(s))) ->
         let v::String =
           parseVar(s)
