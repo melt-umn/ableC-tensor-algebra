@@ -77,7 +77,7 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
   expr.parenExpr = [];
   
   local exprSub::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] =
-    exprSubs(assign, acc);
+    exprSubs(assign, acc, env);
   
   local fwrd::Stmt =
     substStmt(
@@ -87,7 +87,7 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
           ${check_dims(assign, acc)}
           ${pack_tensors(tail(tensors), tail(formats))}
           ${setup_gen(tensors, formats)}
-          ${build_output(exprSub, acc, tensors, loc)}
+          ${build_output(exprSub, acc, tensors, loc, env)}
           {
             ${setup_gen(head(tensors) :: [], head(formats) :: [])}
             ${code_gen(exprSub, acc, loc, env)}
@@ -129,7 +129,7 @@ function generateExprSubs
 }
 
 function build_output
-String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] order::[String] tensors::[Name] loc::Location
+String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] order::[String] tensors::[Name] loc::Location env::Decorated Env
 {
   local expr::TensorAssignExpr =
     head(exprs).fst.fst;
@@ -160,7 +160,7 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
       ${out}->buffer.children = 0;
       
       unsigned long* index = GC_malloc(sizeof(unsigned long) * ${toString(fmt.dimens)});
-      ${build_body(exprs, order, nm, fmt, acc, loc)}
+      ${build_body(exprs, order, nm, fmt, acc, loc, env)}
       {
         ${build_pack(out, fmt)}
       }
@@ -205,14 +205,14 @@ String ::= name::String fmt::TensorFormatItem
 }
 
 function build_body
-String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] order::[String] nm::Name fmt::TensorFormatItem acc::[String] loc::Location
+String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] order::[String] nm::Name fmt::TensorFormatItem acc::[String] loc::Location env::Decorated Env
 {
   local expr::TensorAssignExpr =
     head(exprs).fst.fst;
   
   local out::String = nm.name;
 
-  local lattice::MergeLattice = merge_lattice(expr, head(order), loc);
+  local lattice::MergeLattice = merge_lattice(expr, head(order), loc, env);
   local optimized::MergeLattice = lattice_optimize(lattice, expr.tensorFormat);
   local point::LatticePoints = head(optimized.points);
   
@@ -340,11 +340,11 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
                          head(points)
                        in
                        let ex::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] =
-                         exprSubs(pnt.exprs, order)
+                         exprSubs(pnt.exprs, order, env)
                        in
                        s"""
                          else {
-                           ${build_body(tail(ex), tail(order), nm, fmt, acc, loc)}
+                           ${build_body(tail(ex), tail(order), nm, fmt, acc, loc, env)}
                          }
                        """
                        end
@@ -356,7 +356,7 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
                            -> let sd::[Pair<String Integer>] = sparse_dimensions(builtLattice([pnt]), iv)
                               in
                               let ex::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] =
-                                exprSubs(pnt.exprs, order)
+                                exprSubs(pnt.exprs, order, env)
                               in
                               s"""
                                 ${if null(sd)
@@ -364,7 +364,7 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
                                   else s"else if(${implode("&&", map(equals_iv(_, iv), sd))}) {"
                                 }
                                 
-                                ${build_body(tail(ex), tail(order), nm, fmt, acc, loc)}
+                                ${build_body(tail(ex), tail(order), nm, fmt, acc, loc, env)}
                                 
                                 }
                               """
@@ -564,7 +564,7 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
         head(tail(exprs)).snd.snd
       );
 
-  local lattice::MergeLattice = merge_lattice(expr, head(order), loc);
+  local lattice::MergeLattice = merge_lattice(expr, head(order), loc, env);
   local optimized::MergeLattice = lattice_optimize(lattice, expr.tensorFormat);
   local point::LatticePoints = head(optimized.points);
 
@@ -735,7 +735,7 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
                   head(points)
                 in
                 let ex::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] =
-                  exprSubs(pnt.exprs, order)
+                  exprSubs(pnt.exprs, order, env)
                 in
                 s"""
                   else {
@@ -759,7 +759,7 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
                     -> let sd::[Pair<String Integer>] = sparse_dimensions(builtLattice([pnt]), iv)
                        in
                        let ex::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] =
-                         exprSubs(pnt.exprs, order)
+                         exprSubs(pnt.exprs, order, env)
                        in
                        s"""
                           ${if null(sd)
@@ -1127,10 +1127,10 @@ String ::= ex::TensorAssignExpr subs::[Pair<TensorExpr String>] iv::String layer
 --}
 
 function makeSub
-TensorAssignExpr ::= ex::TensorAssignExpr sub::[Pair<TensorExpr String>]
+TensorAssignExpr ::= ex::TensorAssignExpr sub::[Pair<TensorExpr String>] env::Decorated Env
 {
   local subd::TensorExpr =
-    exprSub(ex.tensorValue, sub);
+    exprSub(ex.tensorValue, sub, env);
 
   return 
     assignExprExpr(
@@ -1142,8 +1142,9 @@ TensorAssignExpr ::= ex::TensorAssignExpr sub::[Pair<TensorExpr String>]
 }
 
 function exprSub
-TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>]
+TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>] env::Decorated Env
 {
+  ex.env = env;
   return
     case ex of
     | nullTensorExpr() -> ex
@@ -1187,7 +1188,7 @@ TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>]
           positionOf(
             \ e1::TensorExpr
               e2::TensorExpr
-            -> case e2 of
+            -> case decorate e2 with {env = env;} of
                | tExpr(declRefExpr(name(str))) ->
                    s == str
                | _ -> false
@@ -1239,7 +1240,7 @@ TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>]
           )
         in
         if idx == -1
-        then add(exprSub(l, subs), exprSub(r, subs), location=ex.location)
+        then add(exprSub(l, subs, env), exprSub(r, subs, env), location=ex.location)
         else 
           let res::Maybe<Pair<TensorExpr String>>
             = getElem(subs, idx)
@@ -1274,7 +1275,7 @@ TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>]
           )
         in
         if idx == -1
-        then sub(exprSub(l, subs), exprSub(r, subs), location=ex.location)
+        then sub(exprSub(l, subs, env), exprSub(r, subs, env), location=ex.location)
         else
           let res::Maybe<Pair<TensorExpr String>>
             = getElem(subs, idx)
@@ -1309,7 +1310,7 @@ TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>]
           )
         in
         if idx == -1
-        then mul(exprSub(l, subs), exprSub(r, subs), location=ex.location)
+        then mul(exprSub(l, subs, env), exprSub(r, subs, env), location=ex.location)
         else 
           let res::Maybe<Pair<TensorExpr String>>
             = getElem(subs, idx)
@@ -1344,7 +1345,7 @@ TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>]
           )
         in
         if idx == -1
-        then div(exprSub(l, subs), exprSub(r, subs), location=ex.location)
+        then div(exprSub(l, subs, env), exprSub(r, subs, env), location=ex.location)
         else
           let res::Maybe<Pair<TensorExpr String>>
             = getElem(subs, idx)
@@ -1455,8 +1456,10 @@ TensorExpr ::= ex::TensorExpr subs::[Pair<TensorExpr String>]
 --}
 
 function isAvail
-Boolean ::= ex::TensorExpr left::[String] iv::String isOr::Boolean isOut::Boolean
+Boolean ::= ex::TensorExpr left::[String] iv::String isOr::Boolean isOut::Boolean env::Decorated Env
 {
+  ex.env = env;
+  
   return
     case ex of
     | nullTensorExpr() -> true
@@ -1484,10 +1487,10 @@ Boolean ::= ex::TensorExpr left::[String] iv::String isOr::Boolean isOut::Boolea
           )
         end
     | tExpr(_) -> true
-    | add(l, r) -> isAvail(l, left, iv, true, isOut) && isAvail(r, left, iv, true, isOut)
-    | sub(l, r) -> isAvail(l, left, iv, true, isOut) && isAvail(r, left, iv, true, isOut)
-    | mul(l, r) -> isAvail(l, left, iv, false, isOut) && isAvail(r, left, iv, false, isOut)
-    | div(l, r) -> isAvail(l, left, iv, false, isOut) && isAvail(r, left, iv, false, isOut)
+    | add(l, r) -> isAvail(l, left, iv, true, isOut, env) && isAvail(r, left, iv, true, isOut, env)
+    | sub(l, r) -> isAvail(l, left, iv, true, isOut, env) && isAvail(r, left, iv, true, isOut, env)
+    | mul(l, r) -> isAvail(l, left, iv, false, isOut, env) && isAvail(r, left, iv, false, isOut, env)
+    | div(l, r) -> isAvail(l, left, iv, false, isOut, env) && isAvail(r, left, iv, false, isOut, env)
     end;
 }
 
@@ -1550,7 +1553,7 @@ String ::= e::TensorExpr env::Decorated Env
 
 function exprSubs
 [Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] 
-  ::= expr::TensorAssignExpr access::[String]
+  ::= expr::TensorAssignExpr access::[String] env::Decorated Env
 {
   local tmap::tm:Map<String Integer> =
     tm:add(
@@ -1562,7 +1565,7 @@ function exprSubs
     );
   
   local res::[Pair<TensorAssignExpr [Pair<TensorExpr String>]>] =
-    exprSubs_helper(expr, access, tmap);
+    exprSubs_helper(expr, access, tmap, env);
 
   local pres::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<TensorAssignExpr [Pair<TensorExpr String>]>>] =
     zipWith(
@@ -1578,7 +1581,7 @@ function exprSubs
 }
 
 function exprSubs_helper
-[Pair<TensorAssignExpr [Pair<TensorExpr String>]>] ::= expr::TensorAssignExpr left::[String] tmap::tm:Map<String Integer>
+[Pair<TensorAssignExpr [Pair<TensorExpr String>]>] ::= expr::TensorAssignExpr left::[String] tmap::tm:Map<String Integer> env::Decorated Env
 {
   local acc::[String] =
     case expr.tensorAssign of
@@ -1604,20 +1607,21 @@ function exprSubs_helper
     then pair(expr, []) :: pair(expr, []) :: []
     else
       let subs::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-        findSubs_new(expr.tensorValue, head(left), tail(left), false, isOut, tmap)
+        findSubs_new(expr.tensorValue, head(left), tail(left), false, isOut, tmap, env)
       in
       let inner::[Pair<TensorAssignExpr [Pair<TensorExpr String>]>] =
         exprSubs_helper(
-          makeSub(expr, subs.fst),
+          makeSub(expr, subs.fst, env),
           tail(left),
-          subs.snd
+          subs.snd,
+          env
         )
       in
       let nSubs::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-        findSubs_new(last(inner).fst.tensorValue, head(left), left, false, isOut, subs.snd)
+        findSubs_new(last(inner).fst.tensorValue, head(left), left, false, isOut, subs.snd, env)
       in
       let newExpr::TensorAssignExpr =
-        makeSub(last(inner).fst, nSubs.fst)
+        makeSub(last(inner).fst, nSubs.fst, env)
       in
       pair(expr, subs.fst) :: inner ++ [pair(newExpr, nSubs.fst)]
       end
@@ -1627,8 +1631,10 @@ function exprSubs_helper
 }
 
 function findSubs_new
-Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::String left::[String] isOr::Boolean isOut::Boolean map::tm:Map<String Integer>
+Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::String left::[String] isOr::Boolean isOut::Boolean map::tm:Map<String Integer> env::Decorated Env
 {
+  expr.env = env;
+  
   return
     case expr of
     | nullTensorExpr() -> pair([], map)
@@ -1676,7 +1682,7 @@ Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::
           end
         else pair([], map)
     | add(l, r) -> 
-        if isAvail(expr, left, iv, isOr, isOut)
+        if isAvail(expr, left, iv, isOr, isOut, env)
         then
           let num::Integer =
            head(tm:lookup(iv, map))
@@ -1689,16 +1695,16 @@ Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::
           end
         else 
           let lres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(l, iv, left, true, isOut, map)
+            findSubs_new(l, iv, left, true, isOut, map, env)
           in
           let rres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(r, iv, left, true, isOut, lres.snd)
+            findSubs_new(r, iv, left, true, isOut, lres.snd, env)
           in
           pair(rres.fst ++ lres.fst, rres.snd)
           end
           end
     | sub(l, r) -> 
-        if isAvail(expr, left, iv, isOr, isOut)
+        if isAvail(expr, left, iv, isOr, isOut, env)
         then
           let num::Integer =
             head(tm:lookup(iv, map))
@@ -1711,16 +1717,16 @@ Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::
           end
         else
           let lres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(l, iv, left, true, isOut, map)
+            findSubs_new(l, iv, left, true, isOut, map, env)
           in
           let rres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(r, iv, left, true, isOut, lres.snd)
+            findSubs_new(r, iv, left, true, isOut, lres.snd, env)
           in
           pair(rres.fst ++ lres.fst, rres.snd)
           end
           end
     | mul(l, r) -> 
-        if isAvail(expr, left, iv, isOr, isOut)
+        if isAvail(expr, left, iv, isOr, isOut, env)
         then
           let num::Integer =
             head(tm:lookup(iv, map))
@@ -1733,16 +1739,16 @@ Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::
           end
         else
           let lres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(l, iv, left, false, isOut, map)
+            findSubs_new(l, iv, left, false, isOut, map, env)
           in
           let rres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(r, iv, left, false, isOut, lres.snd)
+            findSubs_new(r, iv, left, false, isOut, lres.snd, env)
           in
           pair(rres.fst ++ lres.fst, rres.snd)
           end
           end        
     | div(l, r) -> 
-        if isAvail(expr, left, iv, isOr, isOut)
+        if isAvail(expr, left, iv, isOr, isOut, env)
         then
           let num::Integer =
             head(tm:lookup(iv, map))
@@ -1755,10 +1761,10 @@ Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> ::= expr::TensorExpr iv::
           end
         else
           let lres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(l, iv, left, false, isOut, map)
+            findSubs_new(l, iv, left, false, isOut, map, env)
           in
           let rres::Pair<[Pair<TensorExpr String>] tm:Map<String Integer>> =
-            findSubs_new(r, iv, left, false, isOut, lres.snd)
+            findSubs_new(r, iv, left, false, isOut, lres.snd, env)
           in
           pair(rres.fst ++ lres.fst, rres.snd)
           end
