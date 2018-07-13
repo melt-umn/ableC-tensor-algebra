@@ -756,7 +756,8 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
             if(0) {}
             
             ${let points::[LatticePoints] =
-                (if isAllCond(p.conds) && !null(sub_points(p)) then [] else [p]) ++ sub_points(p)
+                p :: sub_points(p)
+--                (if isAllCond(p.conds) && !null(sub_points(p)) then [] else [p]) ++ sub_points(p)
               in
               if listLength(points) == 0 || isNullCond(head(points).conds)
               then 
@@ -793,7 +794,7 @@ String ::= exprs::[Pair<Pair<TensorAssignExpr [Pair<TensorExpr String>]> Pair<Te
                             then s"else {"
                             else s"else if(${implode("&&", map(equals_iv(_, iv), sd))}){"
                           }
-                     
+                          
                           ${emitAvailExprs(head(ex).fst.fst, head(ex).fst.snd, decl, iv, is_inside, is_out_last, null(tail(order)), env)}
                      
                           ${code_gen(tail(ex), tail(order), loc, env, cnt+1)}

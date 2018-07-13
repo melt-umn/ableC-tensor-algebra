@@ -61,10 +61,6 @@ LatticePoints ::= expr::TensorAssignExpr var::String loc::Location env::Decorate
              then nullPoint(loc)
              else builtPoint([], expr, accessCond(nm, index))
              end
-         | tExpr(declRefExpr(name(s))) ->
-             if length(parseVar(substring(1, length(s), s))) > 0
-             then builtPoint([], expr, nullCond())
-             else builtPoint([], expr, allCond())
          | tExpr(_) -> builtPoint([], expr, allCond())
          | funcExpr(nm, arg) -> 
              let subPnt::LatticePoints =
@@ -461,7 +457,7 @@ LatticePoints ::= p::LatticePoints formats :: tm:Map<Name TensorFormatItem>
       !containsBy(
         \ a::LatticePoints
           b::LatticePoints
-       -> condEqual(a.conds, b.conds),
+       -> condEqual(a.conds, b.conds) && !isAllCond(a.conds),
         p,
         children
       ),
@@ -476,7 +472,8 @@ LatticePoints ::= p::LatticePoints formats :: tm:Map<Name TensorFormatItem>
       chs
     );
   local allBelow::Boolean =
-    !null(rmvAllBelow);
+    !isAllCond(p.conds)
+    && !null(rmvAllBelow);
 
   return 
     if allBelow

@@ -23,20 +23,21 @@ int main() {
   value(B)(3,0) = 9.0;
   
   tensor A(i,j) = sqrt(( B(i,j) )) + ((1)); // this isn't working. The + 1 get's dropped
+  // addition is simingly sparse when using constants
 
-  assert_f(value(A)(0,0), 2.0);
+  assert_f(value(A)(0,0), 3.0);
   assert_f(value(A)(0,1), 0.0);
   assert_f(value(A)(0,2), 0.0);
   assert_f(value(A)(0,3), 0.0);
   assert_f(value(A)(1,0), 0.0);
-  assert_f(value(A)(1,1), 1.0);
+  assert_f(value(A)(1,1), 2.0);
   assert_f(value(A)(1,2), 0.0);
   assert_f(value(A)(1,3), 0.0);
   assert_f(value(A)(2,0), 0.0);
   assert_f(value(A)(2,1), 0.0);
   assert_f(value(A)(2,2), 0.0);
-  assert_f(value(A)(2,3), 0.5);
-  assert_f(value(A)(3,0), 3.0);
+  assert_f(value(A)(2,3), 1.5);
+  assert_f(value(A)(3,0), 4.0);
   assert_f(value(A)(3,1), 0.0);
   assert_f(value(A)(3,2), 0.0);
   assert_f(value(A)(3,3), 0.0);
