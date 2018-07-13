@@ -123,7 +123,7 @@ concrete productions top::TensorElemExpr_c
   {
     top.tExpr = tExpr(expr.ast, location=top.location);
   }
-| '((' func::Identifier_t '((' lst::TensorElemExpr_c ')' ')' ')' ')'
+| func::Identifier_t '((' lst::TensorElemExpr_c ')' ')'
   {
     top.tExpr = funcExpr(fromId(func), lst.tExpr, location=top.location);
   }

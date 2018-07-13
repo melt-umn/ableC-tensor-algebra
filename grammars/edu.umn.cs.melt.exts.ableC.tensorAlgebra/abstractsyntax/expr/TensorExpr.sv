@@ -80,16 +80,17 @@ top::TensorExpr ::= fnct::Name arg::TensorExpr
            ]);
   
   top.errors =
-    case lookupValue(fnct.name, top.env) of
-    | b::[] ->
-        case b.typerep of
-        | functionType(t, _, _) ->
-            if t.isArithmeticType
-            then []
-            else [err(top.location, s"Expected a function returning a numeric expression (got ${showType(t)})")]
-        | _ -> [err(top.location, s"Expected a function (got ${showType(b.typerep)})")]
-        end
-    | _ -> [err(top.location, s"Cannot find symbol ${fnct.name}")]
+    case decorate declRefExpr(fnct, location=top.location) with {env=top.env; returnType=nothing();}of
+    | e ->
+--      case (decorate e with {env=top.env; returnType=nothing();}).typerep of
+--      | functionType(t, _, _) ->
+--          if t.isArithmeticType
+--          then []
+--          else [err(top.location, s"Expected a function returning a numeric expression (got ${showType(t)})")]
+--      | type -> [err(top.location, s"Expected a function (got ${showType(type)})")]
+--      end
+      [] -- todo: remove
+    | errorExpr(errs) -> errs
     end
     ++
     arg.errors;
@@ -330,8 +331,12 @@ Pair<TensorExpr [Pair<Name Integer>]> ::= e::TensorExpr sbs::[Pair<Name Integer>
         end
         end
     | tExpr(_) -> pair(e, sbs)
-    | funcExpr(_, arg) ->
-        replaceDuplicates_helper(arg, sbs)
+    | funcExpr(nm, arg) ->
+        let res::Pair<TensorExpr [Pair<Name Integer>]> =
+          replaceDuplicates_helper(arg, sbs)
+        in
+        pair(funcExpr(nm, res.fst, location=e.location), res.snd)
+        end
     | add(l, r) ->
         let lres::Pair<TensorExpr [Pair<Name Integer>]>
           = replaceDuplicates_helper(l, sbs)
