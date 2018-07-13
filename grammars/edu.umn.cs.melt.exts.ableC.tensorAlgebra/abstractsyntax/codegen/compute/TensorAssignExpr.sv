@@ -31,6 +31,67 @@ top::TensorAssignExpr ::=
   top.tensorFormat = tm:empty(\n::Name nm::Name -> compareString(n.name, nm.name));
 }
 
+function findDimension
+Pair<String Integer> ::= expr::TensorAssignExpr var::String
+{
+  return
+    case expr of
+    | nullAssignExpr() -> pair("error", -1)
+    | _ ->
+      case findDimensionExpr(expr.tensorAssign, var, expr.tensorFormat) of
+      | nothing() ->
+          case findDimensionExpr(expr.tensorValue, var, expr.tensorFormat) of
+          | nothing() -> pair("error", -1)
+          | just(x) -> x
+          end
+      | just(x) -> x
+      end
+    end;
+}
+
+function findDimensionExpr
+Maybe<Pair<String Integer>> ::= expr::TensorExpr var::String fmt::tm:Map<Name TensorFormatItem>
+{
+  return
+    case expr of
+    | access(nm, acc) ->
+        let i::Integer =
+          positionOf(
+            stringEq(_, _),
+            var,
+            acc
+          )
+        in
+        if i == -1
+        then nothing()
+        else
+          just(pair(nm.name, i))
+        end
+    | funcExpr(_, arg) -> findDimensionExpr(arg, var, fmt)
+    | add(l, r) ->
+        case findDimensionExpr(l, var, fmt) of
+        | nothing() -> findDimensionExpr(r, var, fmt)
+        | x -> x
+        end
+    | sub(l, r) ->
+        case findDimensionExpr(l, var, fmt) of
+        | nothing() -> findDimensionExpr(r, var, fmt)
+        | x -> x
+        end
+    | mul(l, r) ->
+        case findDimensionExpr(l, var, fmt) of
+        | nothing() -> findDimensionExpr(r, var, fmt)
+        | x -> x
+        end
+    | div(l, r) ->
+        case findDimensionExpr(r, var, fmt) of
+        | nothing() -> findDimensionExpr(r, var, fmt)
+        | x -> x
+        end
+    | _ -> nothing()
+    end;
+}
+
 function findDenseDimension
 Pair<String Integer> ::= expr::TensorAssignExpr var::String
 {

@@ -22,7 +22,7 @@ int main() {
   value(B)(2,3) = 0.25;
   value(B)(3,0) = 9.0;
   
-  tensor A(i,j) = sqrt(( B(i,j) ));
+  tensor A(i,j) = sqrt(( B(i,j) )) + ((1));
 
   assert_f(value(A)(0,0), 2.0);
   assert_f(value(A)(0,1), 0.0);

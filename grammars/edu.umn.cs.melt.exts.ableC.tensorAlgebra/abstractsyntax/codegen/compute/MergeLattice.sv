@@ -75,7 +75,7 @@ LatticePoints ::= expr::TensorAssignExpr var::String loc::Location env::Decorate
                  env
                )
              in
-             builtPoint(subPnt.points, expr, subPnt.conds)
+             pointFunc(subPnt, nm, loc)
              end
          | add(l, r) ->
              let lP::LatticePoints =
@@ -252,12 +252,14 @@ LatticePoints ::= pnt::LatticePoints expr::TensorExpr lc::Integer var::String lo
 }
 
 function pointFunc
-LatticePoints ::= fnc::Name pnt::LatticePoints loc::Location env::Decorated Env
+LatticePoints ::= pnt::LatticePoints fnc::Name loc::Location
 {
+  local exp::TensorAssignExpr =
+    pnt.exprs;
   return
     builtPoint(
-      map(pointFunc(fnc, _, loc, env), pnt.points),
-      pnt.exprs,
+      map(pointFunc(_, fnc, loc), pnt.points),
+      assignExprExpr(exp.tensorAssign, funcExpr(fnc, exp.tensorValue, location=loc), exp.tensorFormat, location=loc),
       pnt.conds
     );
 }

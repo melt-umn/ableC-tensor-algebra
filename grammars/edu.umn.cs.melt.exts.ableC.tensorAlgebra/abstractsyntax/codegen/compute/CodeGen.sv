@@ -98,6 +98,7 @@ Stmt ::= nm::Name access::[String] expr::TensorExpr env::Decorated Env loc::Loca
       parseStmt(s"""
         {
           ${check_dims(assign, acc)}
+          ${generate_dims(assign, acc)}
           ${pack_tensors(tail(tensors), tail(formats))}
           ${setup_gen(tensors, formats)}
           ${build_output(exprSub, acc, tensors, loc, env)}
@@ -496,6 +497,30 @@ String ::= expr::TensorAssignExpr iv::String
       end
       end
       end;      
+}
+
+function generate_dims
+String ::= expr::TensorAssignExpr order::[String]
+{
+  return
+    implode("\n",
+      map(
+        generate_idx_dim(expr, _),
+        order
+      )
+    );
+}
+
+function generate_idx_dim
+String ::= expr::TensorAssignExpr iv::String
+{
+  local dim::Pair<String Integer> =
+    findDimension(expr, iv);
+
+  return
+    s"""
+      unsigned long ${iv}_size = ${dim.fst}->dims[${toString(dim.snd)}];
+    """;
 }
 
 function setup_gen
@@ -897,16 +922,9 @@ String ::= vars::[String]
 function until_any_exhausted
 String ::= dims::[Pair<String Integer>] expr::TensorAssignExpr var::String
 {
-  local dim::String =
-    let dm::Pair<String Integer> =
-      findDenseDimension(expr, var)
-    in
-    s"${dm.fst}${toString(dm.snd)}"
-    end;
-
   return
     if null(dims)
-    then s"${var} < ${dim}_size"
+    then s"${var} < ${var}_size"
     else until_any_exhausted_helper(dims);
 }
 
