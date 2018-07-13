@@ -89,7 +89,7 @@ top::TensorExpr ::= fnct::Name arg::TensorExpr
             else [err(top.location, s"Expected a function returning a numeric expression (got ${showType(t)})")]
         | _ -> [err(top.location, s"Expected a function (got ${showType(b.typerep)})")]
         end
-    | _ -> [err(top.location, "Cannot find symbol ${fnct.name}")]
+    | _ -> [err(top.location, s"Cannot find symbol ${fnct.name}")]
     end
     ++
     arg.errors;

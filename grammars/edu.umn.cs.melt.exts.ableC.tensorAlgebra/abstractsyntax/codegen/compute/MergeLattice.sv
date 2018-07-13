@@ -47,264 +47,142 @@ MergeLattice ::= expr::TensorAssignExpr var::String loc::Location env::Decorated
 function lattice_points
 LatticePoints ::= expr::TensorAssignExpr var::String loc::Location env::Decorated Env
 {
-    return case decorate expr.tensorValue with {env = env;} of
-           | nullTensorExpr() -> nullPoint(loc)
-           | access(nm, acc) -> 
-               let index::Integer = positionOf(\s::String v::String -> s == v, var, acc)
-               in
-               if index == -1
-               then nullPoint(loc)
-               else builtPoint([], expr, accessCond(nm, index))
-               end
-           | tExpr(declRefExpr(name(s))) ->
-               if length(parseVar(substring(1, length(s), s))) > 0
-               then builtPoint([], expr, nullCond())
-               else builtPoint([], expr, allCond())
-           | tExpr(_) -> builtPoint([], expr, allCond())
-           | funcExpr(_, arg) -> 
-               case expr of
-               | assignExpr(b, acc, _, ts, fs) ->
-                   lattice_points(
-                     assignExpr(b, acc, arg, ts, fs, location=loc),
-                     var,
-                     loc,
-                     env)
-               | assignExprExpr(assign, _, fs) ->
-                   lattice_points(
-                     assignExprExpr(assign, arg, fs, location=loc),
-                     var,
-                     loc,
-                     env)
-               end
-           | add(l, r) -> 
-               case expr of
-               | assignExpr(b, acc, _, ts, fs) ->
-                   let lP::LatticePoints = 
-                       lattice_points(
-                         assignExpr(b, acc, l, ts, fs, location=loc),
-                         var, 
-                         loc,
-                         env)
-                   in let rP::LatticePoints = 
-                          lattice_points(
-                            assignExpr(b, acc, r, ts, fs, location=loc), 
-                            var, 
-                            loc,
-                            env)
-                   in 
-                   if isNullCond(lP.conds)
-                   then rP
-                   else if isNullCond(rP.conds)
-                   then lP
-                   else
-                      builtPoint(
-                        map(pointAdd(_, r, 0, var, loc, env),
-                          lP.points)
-                        ++
-                        map(pointAdd(_, l, 1, var, loc, env),
-                          rP.points)
-                        ++ (lP :: rP :: [])
-                        , 
-                        expr, orCond(lP.conds, rP.conds))
-                   end
-                   end
-               | assignExprExpr(assign, _, fs) ->
-                   let lP::LatticePoints =
-                     lattice_points(
-                       assignExprExpr(assign, l, fs, location=loc),
-                       var,
-                       loc,
-                       env)
-                   in let rP::LatticePoints =
-                     lattice_points(
-                       assignExprExpr(assign, r, fs, location=loc),
-                       var,
-                       loc,
-                       env)
-                   in 
-                   if isNullCond(lP.conds)
-                   then rP
-                   else if isNullCond(rP.conds)
-                   then lP
-                   else
-                     builtPoint(
-                        map(pointAdd(_, r, 0, var, loc, env),
-                          lP.points)
-                        ++
-                        map(pointAdd(_, l, 1, var, loc, env),
-                          rP.points)
-                        ++ (lP :: rP :: [])
-                        ,
-                        expr, orCond(lP.conds, rP.conds))
-                   end
-                   end
-               | _ -> nullPoint(loc)
-               end
-           | sub(l, r) ->
-               case expr of
-               | assignExpr(b, acc, _, ts, fs) ->
-                   let lP::LatticePoints =
-                     lattice_points(
-                       assignExpr(b, acc, l, ts, fs, location=loc),
-                       var,
-                       loc,
-                       env)
-                   in let rP::LatticePoints =
-                     lattice_points(
-                       assignExpr(b, acc, r, ts, fs, location=loc),
-                       var,
-                       loc,
-                       env)
-                   in
-                   if isNullCond(lP.conds)
-                   then rP
-                   else if isNullCond(rP.conds)
-                   then lP
-                   else
-                     builtPoint(
-                       map(pointSub(_, r, 0, var, loc, env),
-                         lP.points)
-                       ++
-                       map(pointSub(_, l, 1, var, loc, env),
-                         rP.points)
-                       ++ (lP :: rP :: [])
-                       ,
-                       expr, orCond(lP.conds, rP.conds))
-                   end
-                   end
-               | assignExprExpr(assign, _, fs) ->
-                   let lP::LatticePoints =
-                     lattice_points(
-                       assignExprExpr(assign, l, fs, location=loc),
-                       var,
-                       loc,
-                       env)
-                   in let rP::LatticePoints =
-                     lattice_points(
-                       assignExprExpr(assign, r, fs, location=loc),
-                       var,
-                       loc,
-                       env)
-                   in
-                   if isNullCond(lP.conds)
-                   then rP
-                   else if isNullCond(rP.conds)
-                   then lP
-                   else
-                     builtPoint(
-                       map(pointSub(_, r, 0, var, loc, env),
-                         lP.points)
-                       ++
-                       map(pointSub(_, l, 1, var, loc, env),
-                         rP.points)
-                       ++ (lP :: rP :: [])
-                       ,
-                       expr, orCond(lP.conds, rP.conds))
-                   end
-                   end
-               | _ -> nullPoint(loc)
-               end
-           | mul(l, r) -> 
-               case expr of
-               | assignExpr(b, acc, _, ts, fs) ->
-                   let lP::LatticePoints = 
-                       lattice_points(
-                         assignExpr(b, acc, l, ts, fs, location=loc), 
-                         var, 
-                         loc,
-                         env)
-                   in let rP::LatticePoints = 
-                          lattice_points(
-                            assignExpr(b, acc, r, ts, fs, location=loc), 
-                            var, 
-                            loc,
-                            env)
-                   in builtPoint(
-                        map(pointMult(_, r, 0, var, loc),
-                          lP.points)
-                        ++ 
-                        map(pointMult(_, l, 1, var, loc),
-                          rP.points)
-                        ,
-                        expr, andCond(lP.conds, rP.conds))
-                   end
-                   end
-               | assignExprExpr(assign, _, fs) ->
-                   let lP::LatticePoints =
-                     lattice_points(
-                       assignExprExpr(assign, l, fs, location=loc),
-                       var,
-                       loc,
-                       env)
-                   in let rP::LatticePoints =
-                     lattice_points(
-                       assignExprExpr(assign, r, fs, location=loc),
-                       var,
-                       loc,
-                       env)
-                   in builtPoint(
-                        map(pointMult(_, r, 0, var, loc),
-                          lP.points)
-                        ++
-                        map(pointMult(_, l, 1, var, loc),
-                          rP.points)
-                        ,
-                        expr, andCond(lP.conds, rP.conds))
-                   end
-                   end
-               | _ -> nullPoint(loc)
-               end
-           | div(l, r) ->
-               case expr of
-               | assignExpr(b, acc, _, ts, fs) ->
-                   let lP::LatticePoints = 
-                     lattice_points(
-                       assignExpr(b, acc, l, ts, fs, location=loc),
-                       var,
-                       loc,
-                       env)
-                   in let rP::LatticePoints =
-                     lattice_points(
-                       assignExpr(b, acc, r, ts, fs, location=loc),
-                       var,
-                       loc,
-                       env)
-                   in builtPoint(
-                        map(pointDiv(_, r, 0, var, loc),
-                          lP.points)
-                        ++
-                        map(pointDiv(_, l, 1, var, loc),
-                          rP.points)
-                        ,
-                        expr, andCond(lP.conds, rP.conds))
-                   end
-                   end
-               | assignExprExpr(assign, _, fs) ->
-                   let lP::LatticePoints =
-                     lattice_points(
-                       assignExprExpr(assign, l, fs, location=loc),
-                       var,
-                       loc,
-                       env)
-                   in let rP::LatticePoints =
-                     lattice_points(
-                       assignExprExpr(assign, r, fs, location=loc),
-                       var,
-                       loc,
-                       env)
-                   in builtPoint(
-                        map(pointDiv(_, r, 0, var, loc),
-                          lP.points)
-                        ++
-                        map(pointDiv(_, l, 1, var, loc),
-                          rP.points)
-                        ,
-                        expr, andCond(lP.conds, rP.conds))
-                   end
-                   end
-               | _ -> nullPoint(loc)
-               end
-           end;
+  local assign::TensorExpr =
+    expr.tensorAssign;
+  local fmts::tm:Map<Name TensorFormatItem> =
+    expr.tensorFormat;
+
+  return case decorate expr.tensorValue with {env = env;} of
+         | nullTensorExpr() -> nullPoint(loc)
+         | access(nm, acc) -> 
+             let index::Integer = positionOf(\s::String v::String -> s == v, var, acc)
+             in
+             if index == -1
+             then nullPoint(loc)
+             else builtPoint([], expr, accessCond(nm, index))
+             end
+         | tExpr(declRefExpr(name(s))) ->
+             if length(parseVar(substring(1, length(s), s))) > 0
+             then builtPoint([], expr, nullCond())
+             else builtPoint([], expr, allCond())
+         | tExpr(_) -> builtPoint([], expr, allCond())
+         | funcExpr(_, arg) -> 
+             lattice_points(
+               assignExprExpr(assign, arg, fmts, location=loc),
+               var,
+               loc,
+               env
+             ) -- todo: more work
+         | add(l, r) ->
+             let lP::LatticePoints =
+               lattice_points(
+                 assignExprExpr(assign, l, fmts, location=loc),
+                 var,
+                 loc,
+                 env)
+             in let rP::LatticePoints =
+               lattice_points(
+                 assignExprExpr(assign, r, fmts, location=loc),
+                 var,
+                 loc,
+                 env)
+             in
+             if isNullCond(lP.conds)
+             then rP
+             else if isNullCond(rP.conds)
+             then lP
+             else
+               builtPoint(
+                 map(pointAdd(_, r, 0, var, loc, env),
+                   lP.points)
+                 ++
+                 map(pointAdd(_, l, 1, var, loc, env),
+                   rP.points)
+                 ++ (lP :: rP :: [])
+                 ,
+                 expr, orCond(lP.conds, rP.conds))
+             end
+             end
+         | sub(l, r) ->
+             let lP::LatticePoints =
+               lattice_points(
+                 assignExprExpr(assign, l, fmts, location=loc),
+                 var,
+                 loc,
+                 env)
+             in let rP::LatticePoints =
+               lattice_points(
+                 assignExprExpr(assign, r, fmts, location=loc),
+                 var,
+                 loc,
+                 env)
+             in
+             if isNullCond(lP.conds)
+             then rP
+             else if isNullCond(rP.conds)
+             then lP
+             else
+               builtPoint(
+                 map(pointSub(_, r, 0, var, loc, env),
+                   lP.points)
+                 ++
+                 map(pointSub(_, l, 1, var, loc, env),
+                   rP.points)
+                 ++ (lP :: rP :: [])
+                 ,
+                 expr,
+                 orCond(lP.conds, rP.conds))
+             end
+             end
+         | mul(l, r) -> 
+             let lP::LatticePoints =
+               lattice_points(
+                 assignExprExpr(assign, l, fmts, location=loc),
+                 var,
+                 loc,
+                 env)
+             in let rP::LatticePoints =
+               lattice_points(
+                 assignExprExpr(assign, r, fmts, location=loc),
+                 var,
+                 loc,
+                 env)
+             in 
+             builtPoint(
+               map(pointMult(_, r, 0, var, loc),
+                 lP.points)
+               ++
+               map(pointMult(_, l, 1, var, loc),
+                 rP.points)
+               ,
+               expr, andCond(lP.conds, rP.conds))
+             end
+             end
+         | div(l, r) ->
+             let lP::LatticePoints =
+               lattice_points(
+                 assignExprExpr(assign, l, fmts, location=loc),
+                 var,
+                 loc,
+                 env)
+             in let rP::LatticePoints =
+               lattice_points(
+                 assignExprExpr(assign, r, fmts, location=loc),
+                 var,
+                 loc,
+                 env)
+             in
+             builtPoint(
+               map(pointDiv(_, r, 0, var, loc),
+                 lP.points)
+               ++
+               map(pointDiv(_, l, 1, var, loc),
+                 rP.points)
+               ,
+               expr, andCond(lP.conds, rP.conds))
+             end
+             end
+         end;
 }
 
 function pointMult

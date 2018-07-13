@@ -455,7 +455,7 @@ top::Stmt ::= base::Name index::[String] expr::TensorExpr
         duplicates
       ),
       codeGen(base, index, e, top.env, expr.location)
-    );
+    ); 
 }
 
 abstract production orderof_type
