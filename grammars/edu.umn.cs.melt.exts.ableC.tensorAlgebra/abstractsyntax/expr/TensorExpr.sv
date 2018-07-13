@@ -2,7 +2,6 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:expr;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
-synthesized attribute errors::[Message];
 inherited attribute parenExpr::[TensorExpr];
 nonterminal TensorExpr with pp, errors, env, location, parenExpr, proceduralName;
 
@@ -10,7 +9,7 @@ abstract production nullTensorExpr
 top::TensorExpr ::=
 {
   top.pp = ppConcat([text("null")]);
-  top.errors = [];
+  top.errors := [];
   top.proceduralName = "";
 }
 
@@ -27,7 +26,7 @@ top::TensorExpr ::= name::Name access::[String]
       text(")")
     ]);
 
-  top.errors =
+  top.errors :=
     case lookupValue(name.name, top.env) of
     | b::[] -> case b.typerep of
                | pointerType(_,
@@ -56,7 +55,7 @@ top::TensorExpr ::= expr::Expr
   top.pp = expr.pp;
   expr.returnType = nothing();
   
-  top.errors =
+  top.errors :=
     case expr of
     | errorExpr(errs) -> errs
     | _ -> if expr.typerep.isArithmeticType
@@ -79,7 +78,7 @@ top::TensorExpr ::= fnct::Name arg::TensorExpr
              text(")")
            ]);
   
-  top.errors =
+  top.errors :=
     case decorate declRefExpr(fnct, location=top.location) with {env=top.env; returnType=nothing();}of
     | e ->
 --      case (decorate e with {env=top.env; returnType=nothing();}).typerep of
@@ -109,7 +108,7 @@ top::TensorExpr ::= left::TensorExpr right::TensorExpr
     text(")")
   ]);
   
-  top.errors = left.errors ++ right.errors;
+  top.errors := left.errors ++ right.errors;
   
   left.parenExpr = [top];
   right.parenExpr = [top];
@@ -145,7 +144,7 @@ top::TensorExpr ::= left::TensorExpr right::TensorExpr
     text(")")
   ]);
   
-  top.errors = left.errors ++ right.errors;
+  top.errors := left.errors ++ right.errors;
   
   left.parenExpr = [top];
   right.parenExpr = [top];
@@ -180,7 +179,7 @@ top::TensorExpr ::= left::TensorExpr right::TensorExpr
     text(")")
   ]);
 
-  top.errors = left.errors ++ right.errors;
+  top.errors := left.errors ++ right.errors;
   
   left.parenExpr = [top];
   right.parenExpr = [top];
@@ -210,7 +209,7 @@ top::TensorExpr ::= left::TensorExpr right::TensorExpr
     text(")")
   ]);
 
-  top.errors = left.errors ++ right.errors;
+  top.errors := left.errors ++ right.errors;
   
   left.parenExpr = [top];
   right.parenExpr = [top];

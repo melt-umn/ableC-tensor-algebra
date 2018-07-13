@@ -146,3 +146,64 @@ String ::= order::[Integer] dimensions::Integer
       tree->val = 0.0;
     """;
 }
+
+function generateInsertZeroFunction
+String ::= fmt::TensorFormatItem
+{
+  local fmtNm::String = fmt.proceduralName;
+
+  return s"""
+    static void tensor_insertBuff_zero_${fmtNm}(struct tensor_tree_s*, unsigned long* index) {
+      unsigned long idx, end, i, currIdx;
+      char found = 0;
+      ${generateInsertZeroBody(fmt.dimenOrder, fmt.dimens)}
+    }
+  """;
+}
+
+function generateInsertZeroBody
+String ::= order::[Integer] dimensions::Integer
+{
+  local dim::Integer = head(order);
+  
+  return
+    if !null(order)
+    then s"""
+      idx = index[${toString(dim)}];
+      end = tree->numChildren;
+      found = 0;
+      i = 0;
+      currIdx = 0;
+      while(!found && i < end && currIdx <= idx) {
+        currIdx = tree->children[i].index;
+        if(currIdx == idx) {
+          tree = tree->children + i;
+          found = 1;
+        } else if(currIdx < idx) {
+          i++;
+        }
+      }
+      if(!found) {
+        struct tensor_tree_s* temp = GC_malloc(sizeof(struct tensor_tree_s) * (end + 1));
+        
+        memcpy(temp, tree->children, sizeof(struct tensor_tree_s) * i);
+        
+        temp[i].isLeaf = 0;
+        temp[i].index = idx;
+        temp[i].numChildren = 0;
+        
+        memcpy(temp + i + 1, tree->children + i, sizeof(struct tensor_tree_s) * (end - i));
+        
+        tree->numChidren += 1;
+        tree->children = temp;
+        tree = temp + i;
+      }
+      ${generateInsertZeroBody(tail(order), dimensions)}
+    """
+    else s"""
+      tree->isLeaf = 1;
+      tree->val = 0.0;
+      tree->index = idx;
+      return &(tree->val);
+    """;
+}
