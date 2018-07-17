@@ -53,7 +53,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
 {
   return
     if null(storage)
-    then "res->data = GC_malloc(sizeof(double) * count);"
+    then "t->data = GC_malloc(sizeof(double) * count);"
     else 
       let dim::Integer = head(storage).snd.fst in
       let dimen::String = toString(dim) in

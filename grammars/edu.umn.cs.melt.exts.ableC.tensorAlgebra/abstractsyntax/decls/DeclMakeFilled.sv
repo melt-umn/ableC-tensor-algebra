@@ -24,7 +24,7 @@ Decl ::= fmt::TensorFormat
   
   return parseDecl(s"""
     static void tensor_makeFilled_${fmtNm}(struct tensor_${fmtNm}* res, unsigned long* dims, double* data) {
-      tensor_make_${fmtNm}(res);
+      tensor_make_${fmtNm}(res, dims);
       
       unsigned long index = 0;
       struct tensor_tree_s* buffer = &(res->buffer);
@@ -32,7 +32,6 @@ Decl ::= fmt::TensorFormat
       ${generateMakeFilledBody(fmt.dimensions, 0, fmtNm)}
       
       res->bufferCnt = ${generateProductDims(fmt.dimensions, 0)};
-      return res;
     }
   """);
 }

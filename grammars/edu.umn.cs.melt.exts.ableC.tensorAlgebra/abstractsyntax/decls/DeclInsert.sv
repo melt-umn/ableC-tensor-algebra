@@ -130,7 +130,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
         while(!found && i < end && currIdx <= idx) {
           currIdx = tree->children[i].index;
           if(currIdx == idx) {
-            tree  &(tree->children[i]);
+            tree = &(tree->children[i]);
             found = 1;
           } else if(currIdx < idx) {
             i++;
@@ -181,7 +181,6 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
     if null(storage)
     then s"""
       tree->isLeaf = 1;
-      tree->val = 0.0;
       tree->index = idx;
       return &(tree->val);
     """

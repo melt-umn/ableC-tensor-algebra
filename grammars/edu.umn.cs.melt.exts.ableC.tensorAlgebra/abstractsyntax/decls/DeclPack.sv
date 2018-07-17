@@ -34,7 +34,7 @@ Decl ::= fmt::TensorFormat
   local fmtNm::String = fmt.proceduralName;
   
   return parseDecl(s"""
-    static void tensor_pack_${fmtNm}(struct tensor_tree_s* tree, unsigned long* dims) {
+    static void tensor_packTree_${fmtNm}(struct tensor_tree_s* tree, unsigned long* dims) {
       unsigned long count = 1;
       unsigned long cTemp, index;
       struct tensor_tree_s* temp;
@@ -196,7 +196,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>] fmtNm::String order::I
     if null(storage)
     then s"""
       unsigned long index[] = {${generateIndexArray(order)}};
-      double value = data[pTI${toString(dim - 1)}];
+      double value = data[pI${toString(dim - 1)}];
       tensor_insertBuff_${fmtNm}(buffer, index, value);
     """
     else
@@ -268,7 +268,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
         """
       }
       numChildren = newChildren;
-      tress = temp_tree;
+      trees = temp_tree;
       ${generatePackBody_Assemble(tail(storage))}
     """;
 }
