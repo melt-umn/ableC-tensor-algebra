@@ -4,6 +4,7 @@
 !.gitignore
 
 build.xml
+*.dot
 *.mtx
 *.tns
 *.rb
