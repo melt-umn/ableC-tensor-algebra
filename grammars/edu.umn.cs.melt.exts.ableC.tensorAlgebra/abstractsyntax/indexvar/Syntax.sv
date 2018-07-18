@@ -37,7 +37,26 @@ top::Decl ::= nms::[Name]
           d
         )
         ,
-        nilDecl(),
+        consDecl(
+          variableDecls(
+            [], 
+            nilAttribute(), 
+            directTypeExpr(
+              indexVarType(head(nms).location)
+            ),
+            foldl(
+              \ d::Declarators nm::Name
+              -> consDeclarator(
+                   declarator(nm, baseTypeExpr(), nilAttribute(), nothingInitializer()), 
+                   d
+                 )
+              ,
+              nilDeclarator(),
+              nms
+            )
+          ),
+          nilDecl()
+        ),
         vars
       )
     );

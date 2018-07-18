@@ -11,6 +11,11 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
+struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"), module("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"))) tensor_acc
+{
+  int x;
+};
+
 struct tensor_tree_s {
   char isLeaf;
   double val;

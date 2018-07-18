@@ -3,10 +3,44 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:ovrld;
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 abstract production accessTensor
-top::Expr ::= tensor::Expr idx::Exprs
+top::Expr ::= tensor::Expr idx::Exprs env::Decorated Env
 {
   propagate substituted;
+
+  local allIndexVars::Boolean =
+    foldl(
+      \ b::Boolean t::Type
+      -> b &&
+         case t of
+         | indexVarType(_) -> true
+         | _ -> false
+         end
+      ,
+      true,
+      idx.typereps
+    )
+    &&
+    case idx of
+    | nilExpr() -> false
+    | _ -> true
+    end;
   
+  local anyIndexVars::Boolean =
+    foldl(
+      \ b::Boolean t::Type
+      -> b ||
+         case t of
+         | indexVarType(_) -> true
+         | _ -> false
+         end
+      ,
+      false,
+      idx.typereps
+    );
+
+  local indexVarErr::Boolean =
+    anyIndexVars && !allIndexVars;
+
   local lErrors::[Message] = tensor.errors ++ idx.errors;
   
   local tErrors::[Message] =
@@ -47,53 +81,63 @@ top::Expr ::= tensor::Expr idx::Exprs
              ppImplode(text(", "), idx.pps),
              text(")")
            ]);
-  
+
   local fwrd::Expr =
-    substExpr(
-      declRefSubstitution("__tensor", tensor)
-      :: generateExprsSubs(idx, 0),
-      parseExpr(
-        if top.lValue
-        then 
-          if fmt.dimensions == 0
-          then s"""
-          *({
-            struct tensor_scalar* _tensor = &(__tensor);
-            _tensor->data;
-          })
-          """
-          else s"""
-          *({
-            struct tensor_${fmtNm}* _tensor = &(__tensor);
-            unsigned long __index[] = { ${generateExprsArray(idx, 0)} };
-            tensor_getPointer_${fmtNm}(_tensor, __index);
-          })
-          """
-        else
-          if fmt.dimensions == 0
-          then s"""
-          ({
-            struct tensor_scalar* _tensor = &(__tensor);
-            _tensor->data[0];
-          })
-          """
-          else s"""
-          ({
-            struct tensor_${fmtNm}* _tensor = &(__tensor);
-            unsigned long __index[] = { ${generateExprsArray(idx, 0)} };
-            tensor_pack_${fmtNm}(_tensor);
-            tensor_get_${fmtNm}(_tensor, __index);
-          })
-          """
-      )
-    );
+    if allIndexVars
+    then
+      emptyAccess
+    else
+      substExpr(
+        declRefSubstitution("__tensor", tensor)
+        :: generateExprsSubs(idx, 0),
+        parseExpr(
+          if top.lValue
+          then 
+            if fmt.dimensions == 0
+            then s"""
+            *({
+              struct tensor_scalar* _tensor = &(__tensor);
+              _tensor->data;
+            })
+            """
+            else s"""
+            *({
+              struct tensor_${fmtNm}* _tensor = &(__tensor);
+              unsigned long __index[] = { ${generateExprsArray(idx, 0)} };
+              tensor_getPointer_${fmtNm}(_tensor, __index);
+            })
+            """
+          else
+            if fmt.dimensions == 0
+            then s"""
+            ({
+              struct tensor_scalar* _tensor = &(__tensor);
+              _tensor->data[0];
+            })
+            """
+            else s"""
+            ({
+              struct tensor_${fmtNm}* _tensor = &(__tensor);
+              unsigned long __index[] = { ${generateExprsArray(idx, 0)} };
+              tensor_pack_${fmtNm}(_tensor);
+              tensor_get_${fmtNm}(_tensor, __index);
+            })
+            """
+        )
+      );
   
   forwards to
     mkErrorCheck(
       if null(lErrors)
       then
         if null(tErrors)
-        then sErrors
+        then 
+          if null(sErrors)
+          then 
+            if indexVarErr
+            then [err(top.location, "Some dimensions of the tensor were accessed using index variables, others were not. This is not supported.")]
+            else []
+          else sErrors
         else tErrors
       else lErrors
       ,

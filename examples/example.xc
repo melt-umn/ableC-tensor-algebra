@@ -5,6 +5,8 @@ tensor format mat ({dense, sparse});
 tensor format vec ({sparse});
 tensor format sca ();
 
+indexvar i, j;
+
 int main() {
   tensor<mat> A = build(tensor<mat>)({4, 16 / 4});
 
@@ -18,6 +20,8 @@ int main() {
   A(3,0) = 1.2;
   A(3,0) -= 0.2;
   A(3,2) = 1.5;
+
+  A(i,j) + A(i,j);
 
   for(int i = 0; i < (dimenof(A))[0]; i++) {
     for(int j = 0; j < (dimenof(A))[1]; j++) {
