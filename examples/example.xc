@@ -21,8 +21,6 @@ int main() {
   A(3,0) -= 0.2;
   A(3,2) = 1.5;
 
-  A(i,j) + A(i,j);
-
   for(int i = 0; i < (dimenof(A))[0]; i++) {
     for(int j = 0; j < (dimenof(A))[1]; j++) {
       printf("A(%d, %d) = %f\n", i, j, A(i,j));
@@ -48,6 +46,8 @@ int main() {
   x() /= 4.0;
   
   printf("x() = %f\n", x());
+
+  4 * A(i,j) + b(i) * x(j);
 
   return 0;
 }

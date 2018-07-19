@@ -59,3 +59,53 @@ Maybe<ovrld:BinaryProd> ::= h::Type r::Type env::Decorated Env
       subTensor(_, _, location=_)
     )];
 }
+
+aspect function ovrld:getMulOverloadProd
+Maybe<ovrld:BinaryProd> ::= h::Type r::Type env::Decorated Env
+{
+  overloads <-
+    [pair(
+      pair(
+        "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
+        "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"
+      ),
+      mulTensor(_, _, location=_)
+    )];
+
+  lOverloads <-
+    [pair(
+      "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
+      mulTensor(_, _, location=_)
+    )];
+  
+  rOverloads <-
+    [pair(
+      "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
+      mulTensor(_, _, location=_)
+    )];
+}
+
+aspect function ovrld:getDivOverloadProd
+Maybe<ovrld:BinaryProd> ::= h::Type r::Type env::Decorated Env
+{
+  overloads <-
+    [pair(
+      pair(
+        "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
+        "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"
+      ),
+      divTensor(_, _, location=_)
+    )];
+
+  lOverloads <-
+    [pair(
+      "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
+      divTensor(_, _, location=_)
+    )];
+  
+  rOverloads <-
+    [pair(
+      "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
+      divTensor(_, _, location=_)
+    )];
+}
