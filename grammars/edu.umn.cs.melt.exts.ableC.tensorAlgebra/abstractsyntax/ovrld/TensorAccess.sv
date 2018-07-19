@@ -7,6 +7,33 @@ top::Expr ::= tensor::Expr idx::Exprs env::Decorated Env
 {
   propagate substituted;
 
+  local fmt::TensorFormat =
+    case tensor.typerep of 
+    | tensorType(_, f, _) -> new(f.tensorFormat)
+    | _ -> errorTensorFormat()
+    end;
+
+  local tStr::String =
+    head(top.tensorNames);
+
+  local access::[String] =
+    orderList(
+      getAccess(idx, env),
+      map(
+        \ p::Pair<Integer Pair<Integer Integer>>
+        -> p.snd.fst
+        ,
+        fmt.storage
+      )
+    );
+  
+  local types::[Integer] =
+    map(
+      \ p::Pair<Integer Pair<Integer Integer>> -> p.snd.snd
+      ,
+      fmt.storage
+    );
+
   local allIndexVars::Boolean =
     foldl(
       \ b::Boolean t::Type
@@ -56,7 +83,7 @@ top::Expr ::= tensor::Expr idx::Exprs env::Decorated Env
     )
     ++
     case tensor.typerep of
-    | tensorType(_, _, _) -> []
+    | tensorType(_, f, _) -> f.tensorFormatLookupCheck
     | x -> [err(tensor.location, s"Expected a tensor type, got ${showType(x)}")]
     end;
   
@@ -72,7 +99,6 @@ top::Expr ::= tensor::Expr idx::Exprs env::Decorated Env
     end;
   format.env = top.env;
   
-  local fmt::TensorFormat = new(format.tensorFormat);
   local fmtNm::String = fmt.proceduralName;
   
   top.pp = ppConcat([
@@ -125,6 +151,122 @@ top::Expr ::= tensor::Expr idx::Exprs env::Decorated Env
             """
         )
       );
+
+  top.tensorName = head(top.tensorNames);
+
+  top.conds = 
+    if allIndexVars
+    then
+      map(
+        \ s::String -> 
+           let i::Integer =
+             positionBy(
+               \ is::String -> is == s
+               ,
+               access             
+             )
+           in
+           if i == -1
+           then nullCond()
+           else 
+             if case getElem(types, i) of
+                | nothing() -> false
+                | just(x) -> x == storeSparse
+                end
+             then sparseAccess(top, i, env)
+             else denseAccess(top, s, i, env)
+           end
+        ,
+        top.accessOrder
+      )
+    else
+      map(
+        \ s::String -> allCond()
+        ,
+        top.accessOrder
+      );
+  
+  top.subExpr =
+    map(
+      \ s::String -> []
+      ,
+      top.accessOrder
+    );
+  
+  top.sparse = 
+    if allIndexVars
+    then
+      map(
+        \ s::String ->
+           let i::Integer =
+             positionBy(
+               \ is::String -> is == s
+               ,
+               access
+             )
+           in
+           if i == -1
+           then []
+           else
+             if case getElem(types, i) of
+                | nothing() -> true
+                | just(x) -> x == storeDense
+                end
+             then []
+             else [pair(top, i)]
+           end
+        ,
+        top.accessOrder
+      )
+    else
+      map(
+        \ s::String -> []
+        ,
+        top.accessOrder
+      );
+  
+  top.canSub = 
+    if allIndexVars
+    then
+      map(
+        \ b::Boolean -> 
+           if b
+           then [top]
+           else []
+        ,
+        top.isAvail
+      )
+    else
+      map(
+        \ s::String -> [top]
+        ,
+        top.accessOrder
+      );
+  
+  top.isAvail =
+    if allIndexVars
+    then
+      mapTail(
+        \ l::[String] 
+        -> !containsAny(stringEq, access, l)
+        ,
+        top.accessOrder
+      )
+    else
+      map(
+        \ s::String -> true
+        ,
+        top.accessOrder
+      );
+  
+  top.orders =
+    if allIndexVars
+    then
+      [access]
+    else
+      [];
+  
+  top.tensors = [top];
   
   forwards to
     mkErrorCheck(
@@ -143,4 +285,23 @@ top::Expr ::= tensor::Expr idx::Exprs env::Decorated Env
       ,
       fwrd
     );
+}
+
+function getAccess
+[String] ::= idx::Exprs env::Decorated Env
+{
+  idx.env = env;
+  idx.returnType = nothing();
+
+  return 
+    case idx of
+    | nilExpr() -> []
+    | consExpr(h, tl) ->
+       case h of
+       | declRefExpr(name(i)) -> i
+       | _ -> "err"
+       end
+       ::
+       getAccess(tl, env)
+    end;
 }

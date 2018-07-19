@@ -1,5 +1,7 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:ovrld;
 
+import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
+
 global emptyAccess :: Expr =
   parseExpr(s"""
   ({
@@ -7,9 +9,3 @@ global emptyAccess :: Expr =
     x;
   })
   """);
-
-abstract production addTensor
-top::Expr ::= l::Expr r::Expr
-{
-  forwards to emptyAccess;
-}

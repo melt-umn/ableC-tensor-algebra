@@ -62,3 +62,52 @@ function orderList
        end
     end;
 }
+
+function zip3
+[a] ::= f::(a ::= b c d) lstA::[b] lstB::[c] lstC::[d]
+{
+  return
+    if null(lstA) || null(lstB) || null(lstC)
+    then []
+    else f(head(lstA), head(lstB), head(lstC))
+      :: zip3(f, tail(lstA), tail(lstB), tail(lstC));
+}
+
+function positionBy
+Integer ::= f::(Boolean ::= a) lst::[a]
+{
+  return positionBy_helper(f, lst, 0);
+}
+
+function positionBy_helper
+Integer ::= f::(Boolean ::= a) lst::[a] i::Integer
+{
+  return
+    if null(lst)
+    then -1
+    else 
+      if f(head(lst))
+      then i
+      else positionBy_helper(f, tail(lst), i+1);
+}
+
+function mapTail
+[a] ::= f::(a ::= [b]) lst::[b]
+{
+  return
+    if null(lst)
+    then []
+    else f(tail(lst))
+      :: mapTail(f, tail(lst));
+}
+
+function containsAny
+Boolean ::= eq::(Boolean ::= a a) items::[a] array::[a]
+{
+  return
+    if null(items)
+    then false
+    else
+      containsBy(eq, head(items), array)
+      || containsAny(eq, tail(items), array);
+}
