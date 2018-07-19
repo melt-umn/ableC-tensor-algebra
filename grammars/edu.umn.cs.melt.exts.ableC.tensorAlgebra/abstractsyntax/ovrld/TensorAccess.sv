@@ -13,9 +13,6 @@ top::Expr ::= tensor::Expr idx::Exprs env::Decorated Env
     | _ -> errorTensorFormat()
     end;
 
-  local tStr::String =
-    head(top.tensorNames);
-
   local access::[String] =
     orderList(
       getAccess(idx, env),
@@ -268,21 +265,26 @@ top::Expr ::= tensor::Expr idx::Exprs env::Decorated Env
   
   top.tensors = [top];
   
+  local allErrors :: [Message] = 
+    lErrors 
+    ++
+    if null(lErrors)
+    then 
+      tErrors
+      ++
+      if null(tErrors)
+      then
+        sErrors
+      else []
+    else []
+    ++
+    if indexVarErr
+    then [err(top.location, "Some dimensions of the tensor were accessed using index variables, others were not. This is not supported.")]
+    else [];
+  
   forwards to
     mkErrorCheck(
-      if null(lErrors)
-      then
-        if null(tErrors)
-        then 
-          if null(sErrors)
-          then 
-            if indexVarErr
-            then [err(top.location, "Some dimensions of the tensor were accessed using index variables, others were not. This is not supported.")]
-            else []
-          else sErrors
-        else tErrors
-      else lErrors
-      ,
+      allErrors,
       fwrd
     );
 }

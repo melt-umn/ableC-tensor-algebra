@@ -141,5 +141,9 @@ top::Expr ::= l::Expr r::Expr
       top.subNames
     );
 
-  forwards to emptyAccess;
+  forwards to 
+    mkErrorCheck(
+      l.errors ++ r.errors,
+      emptyAccess
+    );
 }

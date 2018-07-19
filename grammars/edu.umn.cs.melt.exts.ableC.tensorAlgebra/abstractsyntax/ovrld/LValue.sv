@@ -38,6 +38,17 @@ top::Expr ::= lhs::Expr rhs::Expr
   rhs.lValue = false;
 }
 
+aspect function ovrld:getBinaryOverload
+Expr ::= 
+  lhs::Expr rhs::Expr loc::Location
+  env::Decorated Env returnType::Maybe<Type>
+  overloadFn::(Maybe<ovrld:BinaryProd> ::= Type Type Decorated Env)
+  defaultProd::ovrld:BinaryProd
+{
+  lhs.lValue = false;
+  rhs.lValue = false;
+}
+
 --------------------------------------------
 aspect function ovrld:getAssignOverload
 Expr ::= 

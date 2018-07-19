@@ -109,3 +109,28 @@ Maybe<ovrld:BinaryProd> ::= h::Type r::Type env::Decorated Env
       divTensor(_, _, location=_)
     )];
 }
+
+aspect function ovrld:getEqOverloadProd
+Maybe<ovrld:BinaryProd> ::= l::Type r::Type env::Decorated Env
+{
+  overloads <-
+    [pair(
+      pair(
+        "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
+        "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"
+      ),
+      assignTensor(_, _, location=_)
+    )];
+  
+  lOverloads <-
+    [pair(
+      "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
+      assignTensor(_, _, location=_)
+    )];
+  
+  rOverloads <-
+    [pair(
+      "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
+      assignTensor(_, _, location=_)
+    )];
+}

@@ -5,7 +5,7 @@ tensor format mat ({dense, sparse});
 tensor format vec ({sparse});
 tensor format sca ();
 
-indexvar i, j;
+indexvar i, j, k;
 
 int main() {
   tensor<mat> A = build(tensor<mat>)({4, 16 / 4});
@@ -47,7 +47,9 @@ int main() {
   
   printf("x() = %f\n", x());
 
-  4 * A(i,j) + b(i) * x(j);
+  tensor<vec> B = build(tensor<vec>)({7});
+
+  B(j) = 4 * A(i,j) + b(i) * x();
 
   return 0;
 }
