@@ -12,3 +12,10 @@ A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compi
   * SubTensor: Synthesized equation subed exceeds flow type with dependencies on subNames
   * MulTensor: Synthesized equation subed exceeds flow type with dependencies on subNames
   * DivTensor: Synthesized equation subed exceeds flow type with dependencies on subNames
+* Open ableC issue about whether we should have an lValue attribute that says whether the expr is an l-value
+* Investigate and implement loop parallelization where possible
+* Add check for including tensors.xh header file
+* Find nice examples
+
+## Ideas
+* Have Expr create a TensorExpr which has the needed attributes on it
