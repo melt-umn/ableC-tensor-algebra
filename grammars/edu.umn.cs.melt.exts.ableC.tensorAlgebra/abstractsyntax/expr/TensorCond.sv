@@ -17,22 +17,14 @@ top::TensorCond ::=
 }
 
 abstract production sparseAccess
-top::TensorCond ::= tensor::Expr dim::Integer env::Decorated Env
+top::TensorCond ::= tensor::Expr dim::Integer env::Decorated Env tNm::String
 {
-  tensor.returnType = nothing();
-  tensor.env = env;
-
-  local tNm::String = tensor.tensorName;
   top.condition = s"(p${tNm}${toString(dim+1)} < ${tNm}${toString(dim+1)}_pos[p${tNm}${toString(dim)} + 1])";
 }
 
 abstract production denseAccess
-top::TensorCond ::= tensor::Expr var::String dim::Integer env::Decorated Env
+top::TensorCond ::= tensor::Expr var::String dim::Integer env::Decorated Env tNm::String
 {
-  tensor.returnType = nothing();
-  tensor.env = env;
-
-  local tNm::String = tensor.tensorName;
   top.condition = s"(${var} < ${tNm}${toString(dim+1)}_size)";
 }
 

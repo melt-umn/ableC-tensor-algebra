@@ -170,8 +170,8 @@ top::Expr ::= tensor::Expr idx::Exprs env::Decorated Env
                 | nothing() -> false
                 | just(x) -> x == storeSparse
                 end
-             then sparseAccess(top, i, env)
-             else denseAccess(top, s, i, env)
+             then sparseAccess(top, i, env, head(top.tensorNames))
+             else denseAccess(top, s, i, env, head(top.tensorNames))
            end
         ,
         top.accessOrder
@@ -263,7 +263,7 @@ top::Expr ::= tensor::Expr idx::Exprs env::Decorated Env
     else
       [];
   
-  top.tensors = [top];
+  top.tensors = [tensor];
   
   local allErrors :: [Message] = 
     lErrors 

@@ -57,11 +57,16 @@ top::Expr ::= l::Expr r::Expr env::Decorated Env
   
   r.subNames = 
     generateSubNames(l.canSub, access);
+
+  local tensorSubs::[Pair<String Expr>] =
+    findTensorSubs(l.tensors, "l", 0, env, true)
+    ++
+    findTensorSubs(r.tensors, "r", 0, env, false);
   
   forwards to 
     mkErrorCheck(
       l.errors ++ r.errors ++ lErrors,
-      mkStringConst(s"${implode(", ", access)}", top.location)
+      mkStringConst(s"${implode(", ", map((.condition), r.conds))}", top.location)
     );
 }
 
@@ -160,6 +165,23 @@ function generateTensorNames
          s"__tensor_${pfx}_${toString(idx)}"
          ::
          generateTensorNames(tail(tensors), pfx, idx+1, env)
+      end;
+}
+
+function findTensorSubs
+[Pair<String Expr>] ::= tensors::[Expr] pfx::String idx::Integer env::Decorated Env lValue::Boolean
+{
+  return
+    if null(tensors)
+    then []
+    else 
+      case decorate head(tensors) with {env=env; returnType=nothing(); lValue=lValue;} of
+      | declRefExpr(name(_)) ->
+         findTensorSubs(tail(tensors), pfx, idx, env, lValue)
+      | _ ->
+         pair(s"__tensor_${pfx}_${toString(idx)}", head(tensors))
+         ::
+         findTensorSubs(tail(tensors), pfx, idx+1, env, lValue)
       end;
 }
 
