@@ -35,11 +35,29 @@ top::Expr ::= l::Expr r::Expr
   local lErrors::[Message] =
     if !null(onlyL)
     then [err(top.location, s"Cannot generate code for this calculation since the index variable${if listLength(onlyL) > 1 then "s" else ""} ${implode(", ", onlyL)} occur${if listLength(onlyL) > 1 then "" else "s"} only on the left-hand side.")]
-    else 
+    else
       if null(access) 
       then [err(top.location, "Cannot generate code for this calculation due to cyclical access pattern.")]
       else [];
-    
+  
+  r.output = l;
+  l.output = l;
+  
+  r.accessOrder = access;
+  l.accessOrder = access;
+  
+  l.tensorNames = 
+    generateTensorNames(l.tensors, "l", 0);
+  
+  r.tensorNames = 
+    generateTensorNames(r.tensors, "r", 0);
+  
+  l.subNames =
+    generateSubNames(l.canSub, access);
+  
+  r.subNames = 
+    generateSubNames(l.canSub, access);
+  
   forwards to 
     mkErrorCheck(
       l.errors ++ r.errors ++ lErrors,
@@ -124,4 +142,43 @@ function merge_access
           then []
           else v :: en
         end;
+}
+
+function generateTensorNames
+[String] ::= tensors::[Expr] pfx::String idx::Integer
+{
+  return
+    if null(tensors)
+    then []
+    else
+      case head(tensors) of
+      | declRefExpr(name(nm)) -> 
+         nm 
+         :: 
+         generateTensorNames(tail(tensors), pfx, idx)
+      | _ -> 
+         s"__tensor_${pfx}_${toString(idx)}"
+         ::
+         generateTensorNames(tail(tensors), pfx, idx+1)
+      end;
+}
+
+function generateSubNames
+[[String]] ::= sbs::[[Expr]] vars::[String]
+{
+  return
+    if null(sbs)
+    then []
+    else
+      let v::String = head(vars)
+      in
+      map(
+        \ i::Integer
+        -> s"t${v}${toString(i)}"
+        ,
+        makeList(integerCompare, inc, 0, listLength(head(sbs)))
+      )
+      ::
+      generateSubNames(tail(sbs), tail(vars))
+      end; 
 }
