@@ -48,6 +48,7 @@ int main() {
   printf("x() = %f\n", x());
 
   tensor<vec> B = build(tensor<vec>)({7});
+  tensor<mat> C = build(tensor<mat>)({7, 7});
 
   B(j) = 4 * A(i,j) + b(i) * x();
 
