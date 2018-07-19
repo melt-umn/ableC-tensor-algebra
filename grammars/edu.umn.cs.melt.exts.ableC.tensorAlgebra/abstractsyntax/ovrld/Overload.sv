@@ -119,18 +119,18 @@ Maybe<ovrld:BinaryProd> ::= l::Type r::Type env::Decorated Env
         "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
         "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"
       ),
-      assignTensor(_, _, location=_)
+      assignTensor(_, _, env, location=_)
     )];
   
   lOverloads <-
     [pair(
       "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
-      assignTensor(_, _, location=_)
+      assignTensor(_, _, env, location=_)
     )];
   
   rOverloads <-
     [pair(
       "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
-      assignTensor(_, _, location=_)
+      assignTensor(_, _, env, location=_)
     )];
 }

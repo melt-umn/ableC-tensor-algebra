@@ -3,7 +3,7 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:ovrld;
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 abstract production assignTensor
-top::Expr ::= l::Expr r::Expr
+top::Expr ::= l::Expr r::Expr env::Decorated Env
 {
   l.lValue = true;
   r.lValue = false;
@@ -47,10 +47,10 @@ top::Expr ::= l::Expr r::Expr
   l.accessOrder = access;
   
   l.tensorNames = 
-    generateTensorNames(l.tensors, "l", 0);
+    generateTensorNames(l.tensors, "l", 0, env);
   
   r.tensorNames = 
-    generateTensorNames(r.tensors, "r", 0);
+    generateTensorNames(r.tensors, "r", 0, env);
   
   l.subNames =
     generateSubNames(l.canSub, access);
@@ -145,21 +145,21 @@ function merge_access
 }
 
 function generateTensorNames
-[String] ::= tensors::[Expr] pfx::String idx::Integer
+[String] ::= tensors::[Expr] pfx::String idx::Integer env::Decorated Env
 {
   return
     if null(tensors)
     then []
     else
-      case head(tensors) of
+      case decorate head(tensors) with {env=env; returnType=nothing();} of
       | declRefExpr(name(nm)) -> 
          nm 
          :: 
-         generateTensorNames(tail(tensors), pfx, idx)
+         generateTensorNames(tail(tensors), pfx, idx, env)
       | _ -> 
          s"__tensor_${pfx}_${toString(idx)}"
          ::
-         generateTensorNames(tail(tensors), pfx, idx+1)
+         generateTensorNames(tail(tensors), pfx, idx+1, env)
       end;
 }
 
