@@ -51,7 +51,7 @@ int main() {
 
   double y;
 
-  B[j] = 4 * A[i,j] + b[i] * x;
+  B[i] = 4 * A[i,j] + b[i] * x;
   y = 4 * A[i,j] + b[i] * x;
 
   return 0;

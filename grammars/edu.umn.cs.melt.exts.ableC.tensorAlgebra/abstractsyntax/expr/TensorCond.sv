@@ -19,7 +19,7 @@ top::TensorCond ::=
 abstract production sparseAccess
 top::TensorCond ::= tNm::String dim::Integer
 {
-  top.condition = s"(p${tNm}${toString(dim+1)} < ${tNm}${toString(dim+1)}_pos[p${tNm}${toString(dim)} + 1])";
+  top.condition = s"(p${tNm}${toString(dim+1)} < ${tNm}${toString(dim+1)}_pos[${if dim == 0 then "1" else s"p${tNm}${toString(dim)} + 1"}])";
 }
 
 abstract production denseAccess

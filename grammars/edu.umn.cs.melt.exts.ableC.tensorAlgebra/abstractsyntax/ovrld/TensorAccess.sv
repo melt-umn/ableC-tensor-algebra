@@ -7,7 +7,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
 {
   propagate substituted;
 
-  top.tensorExpr =
+  top.tensorExp =
     tensorAccess(top, tensor, idx, env, location=top.location);
 
   local fmt::TensorFormat =
@@ -128,25 +128,6 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
       allErrors,
       fwrd
     );
-}
-
-function getAccess
-[String] ::= idx::Expr env::Decorated Env
-{
-  idx.env = env;
-  idx.returnType = nothing();
-
-  return 
-    case idx of
-    | commaExpr(l, r) ->
-       case l of
-       | declRefExpr(name(i)) -> 
-          i :: getAccess(r, env)
-       | _ -> "__error" :: []
-       end
-    | declRefExpr(name(i)) -> i :: []
-    | _ -> "__error" :: []
-    end;
 }
 
 function getTypereps

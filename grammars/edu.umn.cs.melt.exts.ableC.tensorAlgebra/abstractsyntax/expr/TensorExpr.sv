@@ -1,5 +1,7 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:expr;
 
+imports silver:langutil:pp;
+
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 synthesized attribute tensorName :: String;
@@ -13,6 +15,8 @@ synthesized attribute isAvail :: [Boolean];
 synthesized attribute orders :: [[String]];
 synthesized attribute tensors :: [TensorExpr];
 synthesized attribute subed :: [TensorExpr];
+synthesized attribute compute :: String;
+synthesized attribute envr :: Decorated Env;
 
 autocopy attribute accessOrder :: [String];
 autocopy attribute subNames :: [[String]];
@@ -22,15 +26,16 @@ autocopy attribute output :: TensorExpr;
 nonterminal TensorExpr with
   tensorName, tensorExpr, conds, subExpr,
   sparse, dense, canSub, isAvail, orders,
-  tensors, subed, accessOrder, subNames,
-  tensorNames, output, location;
+  tensors, subed, compute, envr, accessOrder, 
+  subNames, tensorNames, output, location;
 
 abstract production tensorBaseExpr
-top::TensorExpr ::= ex::Expr
+top::TensorExpr ::= ex::Expr env::Decorated Env
 {
   top.tensorName = "__none";
   
   top.tensorExpr = ex;
+  top.envr = env;
   
   top.conds = 
     map(
@@ -84,6 +89,8 @@ top::TensorExpr ::= ex::Expr
       ,
       top.accessOrder
     );
+
+  top.compute = "exit(1);";
 }
 
 abstract production tensorAccess
@@ -119,6 +126,7 @@ top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
   top.tensorName = head(top.tensorNames);
 
   top.tensorExpr = ex;
+  top.envr = env;
 
   top.conds =
     map(
@@ -235,6 +243,7 @@ top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
                 name(head(sbs), location=top.location), 
                 location=top.location
               ),
+              env,
               location=top.location
             )
         else top
@@ -243,14 +252,17 @@ top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
       top :: top.subed,
       top.isAvail
     );
+  
+  top.compute = generateCompute(top);
 }
 
 abstract production tensorAdd
-top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr
+top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__name";
 
   top.tensorExpr = ex;
+  top.envr = env;
 
   top.conds =
     zipWith(
@@ -356,6 +368,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr
                 name(head(sbs), location=top.location),
                 location=top.location
               ),
+              env,
               location=top.location
             )
         else top
@@ -394,14 +407,17 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr
 
   r.tensorNames =
     drop(listLength(l.tensors), top.tensorNames);
+
+  top.compute = generateCompute(top);
 }
 
 abstract production tensorSub
-top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr
+top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__name";
 
   top.tensorExpr = ex;
+  top.envr = env;
 
   top.conds =
     zipWith(
@@ -507,6 +523,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr
                 name(head(sbs), location=top.location),
                 location=top.location
               ),
+              env,
               location=top.location
             )
         else top
@@ -545,14 +562,17 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr
 
   r.tensorNames =
     drop(listLength(l.tensors), top.tensorNames);
+
+  top.compute = generateCompute(top);
 }
 
 abstract production tensorMul
-top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr
+top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__none";
 
   top.tensorExpr = ex;
+  top.envr = env;
 
   top.conds =
     zipWith(
@@ -657,6 +677,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr
                 name(head(sbs), location=top.location),
                 location=top.location
               ),
+              env,
               location=top.location
             )
         else top
@@ -695,14 +716,17 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr
 
   r.tensorNames = 
     drop(listLength(l.tensors), top.tensorNames);
+
+  top.compute = generateCompute(top);
 }
 
 abstract production tensorDiv
-top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr
+top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__none";
 
   top.tensorExpr = ex;
+  top.envr = env;
 
   top.conds =
     zipWith(
@@ -807,6 +831,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr
                 name(head(sbs), location=top.location),
                 location=top.location
               ),
+              env,
               location=top.location
             )
         else top
@@ -845,6 +870,8 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr
 
   r.tensorNames = 
     drop(listLength(l.tensors), top.tensorNames);
+
+  top.compute = generateCompute(top);
 }
 
 function getAccess
@@ -864,4 +891,84 @@ function getAccess
     | declRefExpr(name(i)) -> i :: []
     | _ -> "__error" :: []
     end;
+}
+
+function exprToString
+String ::= e::TensorExpr
+{
+  return
+    case e of
+    | tensorAdd(_, l, r, _) ->
+      "(" ++ exprToString(l) ++ " + " ++ exprToString(r) ++ ")"
+    | tensorSub(_, l, r, _) ->
+      "(" ++ exprToString(l) ++ " - " ++ exprToString(r) ++ ")"
+    | tensorMul(_, l, r, _) ->
+      "(" ++ exprToString(l) ++ " * " ++ exprToString(r) ++ ")"
+    | tensorDiv(_, l, r, _) ->
+      "(" ++ exprToString(l) ++ " / " ++ exprToString(r) ++ ")"
+    | tensorBaseExpr(ex, _) -> 
+      show(100, ex.pp)
+    | tensorAccess(_, t, i, _) ->
+      show(100, t.pp) ++ "[" ++ show(100, i.pp) ++ "]"
+    end;
+}
+
+function generateCompute
+String ::= ex::TensorExpr
+{
+  return 
+    generateCompute_helper(
+      ex.conds, ex.sparse, ex.dense, 
+      ex.canSub, ex.subed, ex.accessOrder
+    );
+}
+
+function generateCompute_helper
+String ::= 
+  conds::[TensorCond] sparse::[[Pair<String Integer>]] dense::[[Pair<String Integer>]]
+  canSub::[[TensorExpr]] subed::[TensorExpr] access::[String]
+{
+  local c::TensorCond = head(conds);
+  local s::[Pair<String Integer>] = head(sparse);
+  local d::[Pair<String Integer>] = head(dense);
+  local cs::[TensorExpr] = head(canSub);
+  local sd::TensorExpr = head(subed);
+  local iv::String = head(access);
+
+  return
+    if null(conds)
+    then ""
+    else
+      case c of
+      | sparseAccess(_, _) -> ""
+      | denseAccess(_, _, _) -> ""
+      | _ ->
+        implode("\n",
+          map(
+            \ p::Pair<String Integer> ->
+              s"unsigned long p${p.fst}${toString(p.snd+1)} = ${p.fst}${toString(p.snd+1)}_pos[${if p.snd == 0 then "0" else s"p${p.fst}${toString(p.snd)}"}];"
+            ,
+            s
+          )
+        )
+      end
+      ++
+      -- Something else has to happen here, need to handle lattice correctly
+      case c of
+      | sparseAccess(tNm, d) ->
+        s"for(unsigned long p${tNm}${toString(d+1)} = ${tNm}${toString(d+1)}_pos[${if d == 0 then "0" else s"p${tNm}${toString(d)}"}]; p${tNm}${toString(d+1)} < ${tNm}${toString(d+1)}_pos[${if d == 0 then "1" else s"p${tNm}${toString(d)} + 1"}]; p${tNm}${toString(d+1)})"
+      | denseAccess(tNm, d, var) ->
+        s"for(unsigned long ${var} = 0; ${var} < ${tNm}${toString(d+1)}_dimension; ${var}++)"
+      | _ -> 
+        s"while(${c.condition})"
+      end
+      ++
+      "{"
+      ++
+      generateCompute_helper(
+        tail(conds), tail(sparse), tail(dense),
+        tail(canSub), tail(subed), tail(access)
+      )
+      ++
+      "}";
 }

@@ -111,3 +111,25 @@ Boolean ::= eq::(Boolean ::= a a) items::[a] array::[a]
       containsBy(eq, head(items), array)
       || containsAny(eq, tail(items), array);
 }
+
+function filterWith
+[a] ::= lst::[a] inc::[Boolean]
+{
+  return
+    if null(lst) || null(inc)
+    then []
+    else
+      if head(inc)
+      then head(lst) :: filterWith(tail(lst), tail(inc))
+      else filterWith(tail(lst), tail(inc));
+}
+
+function zip6
+[a] ::= f::(a ::= b c d e f g) l1::[b] l2::[c] l3::[d] l4::[e] l5::[f] l6::[g]
+{
+  return
+    if null(l1) || null(l2) || null(l3) || null(l4) || null(l5) || null(l6)
+    then []
+    else f(head(l1), head(l2), head(l3), head(l4), head(l5), head(l6))
+      :: zip6(f, tail(l1), tail(l2), tail(l3), tail(l4), tail(l5), tail(l6));
+}
