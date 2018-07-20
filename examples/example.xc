@@ -49,7 +49,10 @@ int main() {
   tensor<vec> B = build(tensor<vec>)({7});
   tensor<mat> C = build(tensor<mat>)({7, 7});
 
+  double y;
+
   B[j] = 4 * A[i,j] + b[i] * x;
+  y = 4 * A[i,j] + b[i] * x;
 
   return 0;
 }

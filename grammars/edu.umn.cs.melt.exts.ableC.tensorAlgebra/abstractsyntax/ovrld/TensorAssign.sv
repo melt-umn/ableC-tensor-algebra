@@ -2,20 +2,40 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:ovrld;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
-abstract production accessTensor
-top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
+abstract production accessTensorAssign
+top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Expr env::Decorated Env
 {
   propagate substituted;
 
-  top.tensorExpr =
-    tensorAccess(top, tensor, idx, env, location=top.location);
+  local rightTensorExpr :: Boolean =
+    case moduleName(env, right.typerep) of
+    | nothing() -> false
+    | just(s) -> s == "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"
+    end;
 
   local fmt::TensorFormat =
     case tensor.typerep of
     | tensorType(_, f, _) -> new(f.tensorFormat)
     | _ -> errorTensorFormat()
     end;
+  
+  local access::[String] =
+    orderList(
+      getAccess(idx, env),
+      map(
+        \ p::Pair<Integer Pair<Integer Integer>>
+        -> p.snd.fst
+        ,
+        fmt.storage
+      )
+    );
 
+  local types::[Integer] =
+    map(
+      \ p::Pair<Integer Pair<Integer Integer>> -> p.snd.snd
+      ,
+      fmt.storage
+    );
 
   local allIndexVars::Boolean =
     foldl(
@@ -29,7 +49,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
       true,
       getTypereps(idx, env)
     );
-  
+
   local anyIndexVars::Boolean =
     foldl(
       \ b::Boolean t::Type
@@ -47,7 +67,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
     anyIndexVars && !allIndexVars;
 
   local lErrors::[Message] = tensor.errors ++ idx.errors;
-  
+
   local tErrors::[Message] =
     flatMap(
       \ t::Type
@@ -64,50 +84,65 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
     | tensorType(_, f, _) -> f.tensorFormatLookupCheck
     | x -> [err(tensor.location, s"Expected a tensor type, got ${showType(x)}")]
     end;
-  
+
   local sErrors::[Message] =
     if getCount(idx, env) != fmt.dimensions
     then [err(tensor.location, s"Number of dimensions specified does not match, expected ${toString(fmt.dimensions)}, got ${toString(getCount(idx, env))}.")]
     else [];
-  
+
+  local format::Name =
+    case tensor.typerep of
+    | tensorType(_, fmt, _) -> fmt
+    | _ -> name("__error__", location=tensor.location)
+    end;
+  format.env = top.env;
+
   local fmtNm::String = fmt.proceduralName;
-  
+
   top.pp = ppConcat([
              tensor.pp,
-             text("("),
+             text("["),
              idx.pp,
-             text(")")
+             text("]")
            ]);
 
   local fwrd::Expr =
-    if allIndexVars
+    if rightTensorExpr
     then
-      emptyAccess
-    else
-      substExpr(
-        declRefSubstitution("__tensor", tensor)
-        :: generateExprsSubs(idx, 0, env),
-        parseExpr(
-          if fmt.dimensions == 0
-          then s"""
-          ({
-            struct tensor_scalar* _tensor = &(__tensor);
-            _tensor->data[0];
-          })
-          """
-          else s"""
-          ({
-            struct tensor_${fmtNm}* _tensor = &(__tensor);
-            unsigned long __index[] = { ${generateExprsArray(idx, 0, env)} };
-            tensor_pack_${fmtNm}(_tensor);
-            tensor_get_${fmtNm}(_tensor, __index);
-          })
-          """
+      if allIndexVars
+      then -- x[i] = A[i,j]
+        tensorAssignToTensor(tensor, idx, right, location=top.location) -- perhaps we should add op to this
+      else -- x = A[i,j]
+        errorExpr([err(top.location, "This should not occur")], location=top.location)
+    else -- x[i] = a
+      op(
+        substExpr(
+          declRefSubstitution("__tensor", tensor)
+          :: generateExprsSubs(idx, 0, env),
+          parseExpr(
+            if fmt.dimensions == 0
+            then s"""
+              *({
+                struct tensor_scalar* _tensor = &(__tensor);
+                _tensor->data;
+              })
+            """
+            else s"""
+              *({
+                struct tensor_${fmtNm}* _tensor = &(__tensor);
+                unsigned long __index[] = { ${generateExprsArray(idx, 0, env)} };
+                tensor_getPointer_${fmtNm}(_tensor, __index);
+              })
+            """
         )
-      );
-  
-  local allErrors :: [Message] = 
-    lErrors 
+      )
+      ,
+      right,
+      top.location
+    );
+
+  local allErrors :: [Message] =
+    lErrors
     ++
     if null(lErrors)
     then 
@@ -122,57 +157,10 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
     if indexVarErr
     then [err(top.location, "Some dimensions of the tensor were accessed using index variables, others were not. This is not supported.")]
     else [];
-  
+
   forwards to
     mkErrorCheck(
       allErrors,
       fwrd
     );
-}
-
-function getAccess
-[String] ::= idx::Expr env::Decorated Env
-{
-  idx.env = env;
-  idx.returnType = nothing();
-
-  return 
-    case idx of
-    | commaExpr(l, r) ->
-       case l of
-       | declRefExpr(name(i)) -> 
-          i :: getAccess(r, env)
-       | _ -> "__error" :: []
-       end
-    | declRefExpr(name(i)) -> i :: []
-    | _ -> "__error" :: []
-    end;
-}
-
-function getTypereps
-[Type] ::= idx::Expr env::Decorated Env
-{
-  idx.env = env;
-  idx.returnType = nothing();
-
-  return
-    case idx of
-    | commaExpr(l, r) ->
-       l.typerep :: getTypereps(r, env)
-    | _ -> idx.typerep :: []
-    end;
-}
-
-function getCount
-Integer ::= idx::Expr env::Decorated Env
-{
-  idx.env = env;
-  idx.returnType = nothing();
-
-  return
-    case idx of
-    | commaExpr(_, r) ->
-       1 + getCount(r, env)
-    | _ -> 1
-    end;
 }
