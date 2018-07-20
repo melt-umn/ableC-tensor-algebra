@@ -2,6 +2,8 @@
 A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compiler* by Fredrik Kjolstad, et. al.
 
 ## Todo
+* Add TensorExpr nonterminal and an attribute of this type on Expr
+* Re-implement TensorExpr with add, sub, mul, div, expr
 * Implement tensor assignment to generate compute code
 * Implement sparse and dense functions over tensor accesses for tensor expressions
 * Fix flow type errors from MWDA analysis
