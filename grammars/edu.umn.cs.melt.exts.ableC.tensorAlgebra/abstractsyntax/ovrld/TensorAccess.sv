@@ -7,29 +7,15 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
 {
   propagate substituted;
 
+  top.tensorExpr =
+    tensorAccess(top, tensor, idx, env, location=top.location);
+
   local fmt::TensorFormat =
     case tensor.typerep of
     | tensorType(_, f, _) -> new(f.tensorFormat)
     | _ -> errorTensorFormat()
     end;
 
-  local access::[String] =
-    orderList(
-      getAccess(idx, env),
-      map(
-        \ p::Pair<Integer Pair<Integer Integer>>
-        -> p.snd.fst
-        ,
-        fmt.storage
-      )
-    );
-  
-  local types::[Integer] =
-    map(
-      \ p::Pair<Integer Pair<Integer Integer>> -> p.snd.snd
-      ,
-      fmt.storage
-    );
 
   local allIndexVars::Boolean =
     foldl(
@@ -83,13 +69,6 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
     if getCount(idx, env) != fmt.dimensions
     then [err(tensor.location, s"Number of dimensions specified does not match, expected ${toString(fmt.dimensions)}, got ${toString(getCount(idx, env))}.")]
     else [];
-  
-  local format::Name =
-    case tensor.typerep of
-    | tensorType(_, fmt, _) -> fmt
-    | _ -> name("__error__", location=tensor.location)
-    end;
-  format.env = top.env;
   
   local fmtNm::String = fmt.proceduralName;
   
