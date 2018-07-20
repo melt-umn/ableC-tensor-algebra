@@ -1,12 +1,22 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:ovrld;
 
-aspect function ovrld:getCallOverloadProd
-Maybe<(Expr ::= Expr Exprs Location)> ::= t::Type env::Decorated Env
+aspect function ovrld:getArraySubscriptOverloadProd
+Maybe<(Expr ::= Expr Expr Location)> ::= t::Type env::Decorated Env
 {
   overloads <-
     [pair(
       "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor",
       accessTensor(_, _, env, location=_)
+    )];
+}
+
+aspect function ovrld:getSubscriptAssignOverloadProd
+Maybe<(Expr ::= Expr Expr (Expr ::= Expr Expr Loc) Expr Location)> ::= t::Type env::Decorated Env
+{
+  overloads <-
+    [pair(
+      "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor",
+      accessTensorAssign(_, _, _, _, env, location=_)
     )];
 }
 
@@ -107,30 +117,5 @@ Maybe<ovrld:BinaryProd> ::= h::Type r::Type env::Decorated Env
     [pair(
       "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
       divTensor(_, _, location=_)
-    )];
-}
-
-aspect function ovrld:getEqOverloadProd
-Maybe<ovrld:BinaryProd> ::= l::Type r::Type env::Decorated Env
-{
-  overloads <-
-    [pair(
-      pair(
-        "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
-        "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"
-      ),
-      assignTensor(_, _, env, location=_)
-    )];
-  
-  lOverloads <-
-    [pair(
-      "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
-      assignTensor(_, _, env, location=_)
-    )];
-  
-  rOverloads <-
-    [pair(
-      "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
-      assignTensor(_, _, env, location=_)
     )];
 }

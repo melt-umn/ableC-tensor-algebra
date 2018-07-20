@@ -8,28 +8,25 @@ Decl ::= fmt::TensorFormat
   local fmtNm::String = fmt.proceduralName;
 
   return
-    if fmt.dimensions == 0
-    then decls(nilDecl())
-    else 
-      decls(consDecl(
+    decls(consDecl(
+      maybeValueDecl(
+        s"tensor_insertBuff_${fmtNm}",
+        declInsertFunc(fmt)
+      ),
+      consDecl(
         maybeValueDecl(
-          s"tensor_insertBuff_${fmtNm}",
-          declInsertFunc(fmt)
+          s"tensor_insertBuff_mid_${fmtNm}",
+          declInsertMidFunction(fmt)
         ),
         consDecl(
           maybeValueDecl(
-            s"tensor_insertBuff_mid_${fmtNm}",
-            declInsertMidFunction(fmt)
+            s"tensor_insertZero_${fmtNm}",
+            declInsertZeroFunction(fmt)
           ),
-          consDecl(
-            maybeValueDecl(
-              s"tensor_insertZero_${fmtNm}",
-              declInsertZeroFunction(fmt)
-            ),
-            nilDecl()
-          )
+          nilDecl()
         )
-      ));
+      )
+    ));
 }
 
 function declInsertFunc

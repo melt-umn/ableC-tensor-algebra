@@ -13,7 +13,7 @@ top::TensorFormat ::= specifiers::[Integer] dimenOrder::[Integer] source::Locati
 {
   top.proceduralName = 
     case specifiers, dimenOrder of
-    | [], [] -> "scalar"
+    | [], [] -> "__error"
     | _, _ -> formName(specifiers, dimenOrder)
     end;
   top.dimensions = listLength(specifiers);

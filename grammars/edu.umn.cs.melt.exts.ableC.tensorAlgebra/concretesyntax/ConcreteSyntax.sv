@@ -4,10 +4,6 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 
 concrete productions top::Declaration_c
-| 'tensor' 'format' nm::Identifier_t '(' ')' ';'
-  {
-    top.ast = format(fromId(nm), [], []);
-  }
 | 'tensor' 'format' nm::Identifier_t '(' '{' specs::SpecifierList_c '}' ')' ';'
   {
     top.ast = format(fromId(nm), specs.list, makeList(integerCompare, inc, 0, listLength(specs.list)));

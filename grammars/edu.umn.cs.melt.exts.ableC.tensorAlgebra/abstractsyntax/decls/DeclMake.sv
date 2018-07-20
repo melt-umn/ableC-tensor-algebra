@@ -8,13 +8,10 @@ Decl ::= fmt::TensorFormat
   local fmtNm::String = fmt.proceduralName;
 
   return
-    if fmt.dimensions == 0
-    then decls(nilDecl())
-    else 
-      maybeValueDecl(
-        s"tensor_make_${fmtNm}",
-        declTensorMake(fmt)
-      );
+    maybeValueDecl(
+      s"tensor_make_${fmtNm}",
+      declTensorMake(fmt)
+    );
 }
 
 function declTensorMake

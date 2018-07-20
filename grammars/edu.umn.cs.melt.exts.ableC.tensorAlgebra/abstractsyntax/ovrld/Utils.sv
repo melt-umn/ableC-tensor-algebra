@@ -1,27 +1,33 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:ovrld;
 
+import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
+
 function generateExprsSubs
-[Substitution] ::= ex::Exprs int::Integer
+[Substitution] ::= ex::Expr int::Integer env::Decorated Env
 {
+  ex.env = env;
+  ex.returnType = nothing();
+
   return
     case ex of
-    | consExpr(e, tl) ->
-       declRefSubstitution(s"__expr_${toString(int)}", e)
-       :: generateExprsSubs(tl, int+1)
-    | nilExpr() -> []
+    | commaExpr(l, r) ->
+       declRefSubstitution(s"__expr_${toString(int)}", l)
+       :: generateExprsSubs(r, int+1, env)
+    | e -> declRefSubstitution(s"__expr_${toString(int)}", e)
+       :: []
     end;
 }
 
 function generateExprsArray
-String ::= ex::Exprs int::Integer
+String ::= ex::Expr int::Integer env::Decorated Env
 {
+  ex.env = env;
+  ex.returnType = nothing();
+
   return
     case ex of
-    | consExpr(_, tl) ->
-       case tl of
-       | consExpr(_, _) -> s"__expr_${toString(int)}, " ++ generateExprsArray(tl, int+1)
-       | nilExpr() -> s"__expr_${toString(int)}"
-       end
-    | nilExpr() -> ""
+    | commaExpr(l, r) ->
+       s"__expr_${toString(int)}, " ++ generateExprsArray(r, int+1, env)
+    | _ -> s"__expr_${toString(int)}"
     end;
 }

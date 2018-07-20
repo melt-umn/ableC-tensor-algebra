@@ -11,8 +11,7 @@ Decl ::= fmt::TensorFormat
     maybeTagDecl(
       s"tensor_${fmtNm}",
       parseDecl(
-        if fmt.dimensions != 0
-        then s"""
+        s"""
           struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_${fmtNm}"), module("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor"))) tensor_${fmtNm} {
             unsigned long* dims;
             unsigned long*** indices;
@@ -23,13 +22,6 @@ Decl ::= fmt::TensorFormat
             char* form;
             unsigned long dataLen;
           };
-        """
-        else s"""
-          struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_${fmtNm}"), module("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor"))) tensor_${fmtNm} {
-            double* data;
-            
-            char* form;
-          };          
         """
       )
     );

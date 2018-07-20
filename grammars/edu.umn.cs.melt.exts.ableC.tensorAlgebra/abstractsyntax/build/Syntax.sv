@@ -172,10 +172,6 @@ top::Expr ::= type::TypeName args::[Expr]
           if type.isIntegerType
           then []
           else [err(dims.location, s"Tensor must be built using a pointer of integer type. Got ${showType(dims.typerep)}.")]
-       | _ -> 
-          if dims.typerep.isArithmeticType && null(fmt.storage)
-          then []
-          else [err(dims.location, s"Tensor must be built using an array or pointer of integer type. Got ${showType(dims.typerep)}.")]
        end
     | _::_ -> [err(dims.location, "Tensor must be built using one expression, not multiple.")]
     end;
@@ -190,40 +186,24 @@ top::Expr ::= type::TypeName args::[Expr]
     end;
   
   local fwrd::Expr =
-    if null(fmt.storage)
-    then
-      substExpr(
-        declRefSubstitution(s"__value", dims) :: [],
-        parseExpr(s"""
-        ({
-          double _value = __value;
-          struct tensor_scalar _tensor;
-          _tensor.data = GC_malloc(sizeof(double));
-          _tensor.data[0] = __value;
-          _tensor.form = "";
-          _tensor;
-        })
-        """)
-      )
-    else
-      substExpr(
-        declRefSubstitution(s"__dimens", dims) ::
-          typedefSubstitution("__dim_type__", directTypeExpr(dimType)) ::
-          [],
-        parseExpr(s"""
-        ({
-          proto_typedef __dim_type__;
-          __dim_type__ _dimens = __dimens;
-          unsigned long* __tensor_arr = GC_malloc(sizeof(unsigned long) * ${toString(dimens)});
-          for(unsigned long i = 0; i < ${toString(dimens)}; i++) {
-            __tensor_arr[i] = _dimens[i];
-          }
-          struct tensor_${fmtNm} _tensor;
-          tensor_make_${fmtNm}(&_tensor, __tensor_arr);
-          _tensor;
-        })
-        """)
-      );
+    substExpr(
+      declRefSubstitution(s"__dimens", dims) ::
+        typedefSubstitution("__dim_type__", directTypeExpr(dimType)) ::
+        [],
+      parseExpr(s"""
+      ({
+        proto_typedef __dim_type__;
+        __dim_type__ _dimens = __dimens;
+        unsigned long* __tensor_arr = GC_malloc(sizeof(unsigned long) * ${toString(dimens)});
+        for(unsigned long i = 0; i < ${toString(dimens)}; i++) {
+          __tensor_arr[i] = _dimens[i];
+        }
+        struct tensor_${fmtNm} _tensor;
+        tensor_make_${fmtNm}(&_tensor, __tensor_arr);
+        _tensor;
+      })
+      """)
+    );
 
   forwards to mkErrorCheck(lErrors, fwrd);
 }

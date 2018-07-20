@@ -8,9 +8,6 @@ Decl ::= fmt::TensorFormat
   local fmtNm::String = fmt.proceduralName;
   
   return 
-  if fmt.dimensions == 0
-  then decls(nilDecl())
-  else
     decls(
       consDecl(
         maybeValueDecl(

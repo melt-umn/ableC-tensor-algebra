@@ -8,25 +8,19 @@ Decl ::= fmt::TensorFormat
   local fmtNm::String = fmt.proceduralName;
   
   return
-    if fmt.dimensions == 0
-    then
-      decls(
+    decls(consDecl(
+      maybeValueDecl(
+        s"tensor_get_${fmtNm}",
+        declGetFunction(fmt)
+      ),
+      consDecl(
+        maybeValueDecl(
+          s"tensor_getPointer_${fmtNm}",
+          declGetPointerFunction(fmt)
+        ),
         nilDecl()
       )
-    else
-      decls(consDecl(
-        maybeValueDecl(
-          s"tensor_get_${fmtNm}",
-          declGetFunction(fmt)
-        ),
-        consDecl(
-          maybeValueDecl(
-            s"tensor_getPointer_${fmtNm}",
-            declGetPointerFunction(fmt)
-          ),
-          nilDecl()
-        )
-      ));
+    ));
 }
 
 function declGetFunction

@@ -7,6 +7,12 @@ top::Decl ::= nm::Name specs::[Integer] order::[Integer]
 {
   local errors::[Message] =
     (
+    if listLength(specs) == 0
+    then [err(nm.location, "Zero dimensional tensors (scalars) cannot be declared as tensor formats. Declare values as normal double values.")]
+    else []
+    )
+    ++
+    (
     if listLength(specs) != listLength(order)
     then [err(nm.location, "Tensor format must have same number of dimensions in specifiers and order.")]
     else []
