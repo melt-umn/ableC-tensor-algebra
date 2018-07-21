@@ -5,17 +5,28 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production tensorAssignToTensor
 top::Expr ::= tensor::Expr idx::Expr right::Expr
 {
+  propagate substituted;
+
+  top.pp = 
+    ppConcat([
+      tensor.pp,
+      text("["),
+      idx.pp,
+      text("] = "),
+      right.pp
+    ]);
+
   local leftOnly::[String] =
     let lAcc::[String] =
       nubBy(
         stringEq,
-        flatMap(\l::[String] -> l, out.orders)
+        flatMap(\l::[String] -> l, out.accesses)
       )
     in
     let rAcc::[String] =
       nubBy(
         stringEq,
-        flatMap(\l::[String] -> l, ex.orders)
+        flatMap(\l::[String] -> l, ex.accesses)
       )
     in
     filter(
@@ -36,7 +47,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     right.tensorExp;
 
   local order::Maybe<[String]> =
-    mergeOrder(out.orders ++ ex.orders);
+    mergeOrder(out.accesses ++ ex.accesses);
 
   local access::[String] =
     case order of
@@ -45,25 +56,11 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     end;
 
   ex.accessOrder = access;
-  ex.subNames =
-    zipWith(
-      \ lst::[TensorExpr] v::String ->
-        map(
-          \ i::Integer ->
-            s"t${v}${toString(i)}"
-          ,
-          makeList(integerCompare, inc, 0, listLength(lst))
-        )
-      ,
-      ex.canSub,
-      access
-    );
   ex.tensorNames =
     map(
       getTensorName(_),
       ex.tensors
     );
-  ex.output = out;
 
   local lErrors::[Message] =
     if invalidLeftVar
@@ -85,6 +82,15 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 abstract production tensorAssignToScalar
 top::Expr ::= output::Expr expr::Expr
 {
+  propagate substituted;
+
+  top.pp = 
+    ppConcat([
+      output.pp,
+      text(" = "),
+      expr.pp
+    ]);
+
   local out::TensorExpr =
     tensorBaseExpr(
       declRefExpr(
@@ -99,10 +105,9 @@ top::Expr ::= output::Expr expr::Expr
 
   local ex::TensorExpr =
     expr.tensorExp;
-  ex.output = out;
 
   local order::Maybe<[String]> =
-    mergeOrder(ex.orders);
+    mergeOrder(ex.accesses);
 
   local access::[String] =
     case order of

@@ -5,9 +5,9 @@ synthesized attribute condition :: String;
 nonterminal TensorCond with condition;
 
 abstract production allCond
-top::TensorCond ::=
+top::TensorCond ::= v::String
 {
-  top.condition = "1";
+  top.condition = s"(${v} < ${v}_dimensions)";
 }
 
 abstract production nullCond
@@ -38,14 +38,28 @@ function condAnd
 TensorCond ::= l::TensorCond r::TensorCond
 {
   return
+    case l, r of
+    | nullCond(), nullCond() -> nullCond()
+    | nullCond(), _ -> r
+    | _, nullCond() -> l
+    | allCond(v), allCond(_) -> allCond(v)
+    | allCond(_), _ -> r
+    | _, allCond(_) -> l
+    | _, _ -> andCond(l, r)
+    end;
+}
+
+function condOr
+TensorCond ::= l::TensorCond r::TensorCond
+{
+  return
     case l of
-    | allCond() -> r
-    | nullCond() -> r
-    | _ -> 
-      case r of
-      | allCond() -> l
-      | nullCond() -> l
-      | _ -> andCond(l, r)
-      end
+    | nullCond(), nullCond() -> nullCond()
+    | nullCond(), _ -> r
+    | _, nullCond() -> l
+    | allCond(v), allCond(_) -> allCond(v)
+    | allCond(_), _ -> l
+    | _, allCond(_) -> r
+    | _, _ -> andCond(l, r)
     end;
 }
