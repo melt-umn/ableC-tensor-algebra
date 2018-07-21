@@ -1,4 +1,6 @@
-grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:expr;
+grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:lattice;
+
+import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 synthesized attribute condition :: String;
 
@@ -28,6 +30,21 @@ top::TensorCond ::= tNm::String dim::Integer var::String
   top.condition = s"(${var} < ${tNm}${toString(dim+1)}_size)";
 }
 
+function accessCond
+TensorCond ::= tNm::String dim::Integer var::String fmt::TensorFormat
+{
+  local trip::Maybe<Pair<Integer Pair<Integer Integer>>> =
+    getElem(fmt.storage, dim);
+  
+  local type::Integer = 
+    trip.fromJust.snd.snd;
+
+  return
+    if type == storeSparse
+    then sparseAccess(tNm, dim)
+    else denseAccess(tNm, dim, var);
+}
+
 abstract production andCond
 top::TensorCond ::= l::TensorCond r::TensorCond
 {
@@ -53,7 +70,7 @@ function condOr
 TensorCond ::= l::TensorCond r::TensorCond
 {
   return
-    case l of
+    case l, r of
     | nullCond(), nullCond() -> nullCond()
     | nullCond(), _ -> r
     | _, nullCond() -> l
