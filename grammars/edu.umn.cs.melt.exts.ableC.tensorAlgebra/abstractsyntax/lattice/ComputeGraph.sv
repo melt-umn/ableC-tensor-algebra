@@ -25,16 +25,10 @@ top::ComputeGraph ::=
   assign::TensorExpr fmts::tm:Map<String TensorFormat> value::TensorExpr
   vars::[String] loc::Location env::Decorated Env tensorNames::[String]
 {
-  local isOut::Boolean =
+  local isBelowOut::Boolean =
     !containsAny(
       stringEq,
       tail(vars),
-      head(assign.accesses)
-    )
-    &&
-    containsBy(
-      stringEq,
-      head(vars),
       head(assign.accesses)
     );
 
@@ -87,7 +81,7 @@ top::ComputeGraph ::=
 
   local sbs :: [[Pair<String TensorExpr>]] =
     map(
-      listSubs(_, tail(vars)),
+      listSubs(_, head(vars), tail(vars)),
       top.exprs
     );
 
@@ -103,7 +97,10 @@ top::ComputeGraph ::=
     else
       map(
         \ e::TensorExpr ->
-          computeGraph(assign, fmts, makeSubs(e, tail(vars)), isOut, tail(vars), loc, env, tensorNames)
+          computeGraph(
+            assign, fmts, 
+            makeSubs(e, head(vars), tail(vars), isBelowOut), 
+            tail(vars), loc, env, tensorNames)
         ,
         top.exprs
       );
@@ -115,6 +112,10 @@ top::ComputeGraph ::=
       zip3(
         \ c::TensorCond e::TensorExpr gr::ComputeGraph ->
           c.condition
+          ++
+          "--"
+          ++
+          exprToString(e)
           ++
           "\n"
           ++
@@ -151,15 +152,9 @@ function listSubs_helper
 {
   e.remaining = remain;
 
-  local isExpr :: Boolean =
-    case e of
-    | tensorBaseExpr(_, _) -> true
-    | _ -> false
-    end;
-
   return
-    if e.isAvail && !isExpr
-    then pair(s"t${var}${if idx == 0 then "" else toString(idx)}", e)
+    if e.isAvail && !isExpr(e)
+    then [pair(s"t${var}${if idx == 0 then "" else toString(idx)}", e)]
     else
       case e of
       | tensorAdd(_, l, r, _) ->
@@ -207,13 +202,102 @@ function listSubs_helper
 }
 
 function makeSubs
-TensorExpr ::= e::TensorExpr var::String remain::[String] isOut::Boolean
+TensorExpr ::= e::TensorExpr var::String remain::[String] isBelowOut::Boolean
 {
-  return makeSubs_helper(e, var, remain, isOut, 0).fst;
+  return makeSubs_helper(e, var, remain, isBelowOut, 0).fst;
 }
 
 function makeSubs_helper
-Pair<TensorExpr Integer> ::= e::TensorExpr var::String remain::[String] idx::Integer
+Pair<TensorExpr Integer> ::= e::TensorExpr var::String remain::[String] isBelowOut::Boolean idx::Integer
 {
   e.remaining = remain;
+
+  return
+    if e.isAvail && !isExpr(e)
+    then
+      pair(
+        tensorBaseExpr(
+          declRefExpr(
+            name(s"t${var}${if idx == 0 then "" else toString(idx)}", location=e.location),
+            location=e.location
+          ),
+          e.envr,
+          location=e.location
+        ),
+        idx+1
+      )
+    else
+      case e of
+      | tensorAdd(ex, l, r, en) ->
+        if l.isAvail && !isExpr(l) && isBelowOut
+        then pair(r, idx+1)
+        else if r.isAvail && !isExpr(r) && isBelowOut
+        then pair(l, idx+1)
+        else 
+          let sL::Pair<TensorExpr Integer> =
+            makeSubs_helper(l, var, remain, isBelowOut, idx)
+          in let sR::Pair<TensorExpr Integer> =
+            makeSubs_helper(r, var, remain, isBelowOut, sL.snd)
+          in
+          pair(tensorAdd(ex, sL.fst, sR.fst, en, location=e.location), sR.snd)
+          end
+          end
+      | tensorSub(ex, l, r, en) ->
+        if l.isAvail && !isExpr(l) && isBelowOut
+        then pair(r, idx+1)
+        else if r.isAvail && !isExpr(r) && isBelowOut
+        then pair(l, idx+1)
+        else
+          let sL::Pair<TensorExpr Integer> =
+            makeSubs_helper(l, var, remain, isBelowOut, idx)
+          in let sR::Pair<TensorExpr Integer> =
+            makeSubs_helper(r, var, remain, isBelowOut, sL.snd)
+          in
+          pair(tensorSub(ex, sL.fst, sR.fst, en, location=e.location), sR.snd)
+          end
+          end
+      | tensorMul(ex, l, r, en) ->
+        let sL::Pair<TensorExpr Integer> =
+          makeSubs_helper(l, var, remain, false, idx)
+        in let sR::Pair<TensorExpr Integer> =
+          makeSubs_helper(r, var, remain, false, sL.snd)
+        in
+        pair(tensorMul(ex, sL.fst, sR.fst, en, location=e.location), sR.snd)
+        end
+        end
+      | tensorDiv(ex, l, r, en) ->
+        let sL::Pair<TensorExpr Integer> =
+          makeSubs_helper(l, var, remain, false, idx)
+        in let sR::Pair<TensorExpr Integer> = 
+          makeSubs_helper(r, var, remain, false, sL.snd)
+        in
+        pair(tensorDiv(ex, sL.fst, sR.fst, en, location=e.location), sR.snd)
+        end
+        end
+      | _ -> pair(e, idx)
+      end;
+}
+
+function isExpr
+Boolean ::= e::TensorExpr
+{
+  return
+    case e of
+    | tensorBaseExpr(_, _) -> true
+    | _ -> false
+    end;
+}
+
+function exprToString
+String ::= e::TensorExpr
+{
+  return
+    case e of
+    | tensorBaseExpr(e, _) -> show(100, e.pp)
+    | tensorAccess(_, t, i, _) -> show(100, t.pp) ++ "[" ++ show(100, i.pp) ++ "]"
+    | tensorAdd(_, l, r, _) -> "(" ++ exprToString(l) ++ "+" ++ exprToString(r) ++ ")"
+    | tensorSub(_, l, r, _) -> "(" ++ exprToString(l) ++ "-" ++ exprToString(r) ++ ")"
+    | tensorMul(_, l, r, _) -> "(" ++ exprToString(l) ++ "*" ++ exprToString(r) ++ ")"
+    | tensorDiv(_, l, r, _) -> "(" ++ exprToString(l) ++ "/" ++ exprToString(r) ++ ")"
+    end;
 }
