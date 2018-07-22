@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include "tensors.xh"
 
-tensor format mat ({dense, sparse});
+tensor format tri ({sparse, sparse, sparse});
+tensor format mat ({sparse, sparse});
 tensor format vec ({sparse});
 
 indexvar i, j, k;
@@ -48,17 +49,11 @@ int main() {
 
   tensor<vec> B = build(tensor<vec>)({7});
   tensor<mat> C = build(tensor<mat>)({7, 7});
+  tensor<tri> D = build(tensor<tri>)({7, 7, 7});
 
   double y;
 
-  B[i] = A[i,j];
-  B[i] = 4 * A[i,j];
-  B[i] = b[i];
-  B[i] = b[i] * x;
-  B[i] = A[i,j] + b[i];
-  B[i] = 4 * A[i,j] + b[i] * x;
-  B[i] = 4 * A[i,j] + b[i] * x;
-  y = 4 * A[i,j] + b[i] * x;
+  B[j] = C[i,j] * D[i,j,k] + A[j,k];
 
   return 0;
 }

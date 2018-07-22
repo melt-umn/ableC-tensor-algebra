@@ -3,7 +3,7 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:lattice;
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 synthesized attribute conds :: [TensorCond];
-synthesized attribute exprs :: [TensorExpr];
+synthesized attribute exprs :: [[TensorExpr]];
 synthesized attribute ifCnd :: [[TensorCond]];
 synthesized attribute frthr :: [[ComputeGraph]];
 synthesized attribute compute :: String;
@@ -73,7 +73,113 @@ top::ComputeGraph ::=
       filtered
     );
 
+  local sbLts :: [[LatticePoint]] =
+    map(
+      \ e::LatticePoint ->
+         let lattice::LatticePoint =
+           lattice_points(
+             assign, fmts,
+             e.value, head(vars),
+             loc, env, false
+           )
+          in 
+          let pnts::[LatticePoint] =
+            extractPoints(lattice)
+          in
+          filterHead(
+            \ c::LatticePoint h::[LatticePoint] ->
+              !containsWith(
+                \ con::TensorCond ->
+                  condIsAbove(con, c.cond)
+                ,
+                map((.cond), h)
+              )
+            ,
+            pnts
+          )
+          end
+          end
+      ,
+      filtered
+    );
+
   top.exprs =
+    if listLength(vars) == 1
+    then 
+      map(
+        \ p::LatticePoint ->
+          [p.value]
+        ,
+        filtered
+      )
+    else
+      map(
+        \ lst::[LatticePoint] ->
+          map(
+            \ l::LatticePoint ->
+              l.value
+            ,
+            lst
+          )
+        ,
+        sbLts
+      );
+
+  top.frthr = 
+    if listLength(vars) == 1
+    then
+      map(
+        \ e::[TensorExpr] ->
+          []
+        ,
+        top.exprs
+      )
+    else
+      map(
+        \ lst::[LatticePoint] ->
+          map(
+            \ lp::LatticePoint ->
+              computeGraph(
+                assign, fmts, 
+                makeSubs(
+                  lp.value, head(vars),
+                  tail(vars), isBelowOut
+                ),
+                tail(vars), loc,
+                env
+              )
+            ,
+            lst
+          )
+        ,
+        sbLts
+      );
+
+  top.ifCnd =
+    if listLength(vars) == 1
+    then 
+      map(
+        \ e::[TensorExpr] ->
+          []
+        ,
+        top.exprs
+      )
+    else
+      map(
+        \ lst::[LatticePoint] ->
+          map(
+            \ lp::LatticePoint ->
+              lp.cond
+            ,
+            lst
+          )
+        ,
+        sbLts
+      );
+
+  top.var = head(vars);
+
+  local exs::[TensorExpr] =
     map(
       \ p::LatticePoint ->
         p.value
@@ -81,98 +187,14 @@ top::ComputeGraph ::=
       filtered
     );
 
-  local sbs :: [[Pair<String TensorExpr>]] =
-    map(
-      listSubs(_, head(vars), tail(vars)),
-      top.exprs
-    );
-
-  top.frthr = 
-    if listLength(vars) == 1
-    then
-      map(
-        \ e::TensorExpr ->
-          []
-        ,
-        top.exprs
-      )
-    else
-      map(
-        \ e::TensorExpr ->
-          let lattice::LatticePoint =
-            lattice_points(
-              assign, fmts, 
-              e, head(vars), 
-              loc, env, false
-            )
-          in
-          let pnts::[LatticePoint] =
-            extractPoints(lattice)
-          in
-          map(
-            \ lp::LatticePoint ->
-              computeGraph(
-                assign, fmts,
-                makeSubs(
-                  lp.value, head(vars),
-                  tail(vars),
-                  isBelowOut
-                ),
-                tail(vars), loc, 
-                env
-              )
-            ,
-            pnts
-          )
-          end
-          end
-        ,
-        top.exprs
-      );
-
-  top.ifCnd =
-    if listLength(vars) == 1
-    then 
-      map(
-        \ e::TensorExpr ->
-          []
-        ,
-        top.exprs
-      )
-    else
-      map(
-        \ e::TensorExpr ->
-          let lattice::LatticePoint =
-            lattice_points(
-              assign, fmts, 
-              e, head(vars),
-              loc, env, false
-            )
-          in
-          let pnts::[LatticePoint] =
-            extractPoints(lattice)
-          in
-          map(
-            \ lp::LatticePoint ->
-              lp.cond
-            ,
-            pnts
-          )
-          end
-          end
-        ,
-        top.exprs
-      );
-
-  top.var = head(vars);
-
   top.compute = 
     implode("\n",
-      zip4(
-        \ c::TensorCond e::TensorExpr cd::[TensorCond] gr::[ComputeGraph] ->
-          generateCode(c, e, cd, gr, head(vars), fmts)
+      zip5(
+        \ c::TensorCond ex::TensorExpr e::[TensorExpr] cd::[TensorCond] gr::[ComputeGraph] ->
+          generateCode(c, ex, e, cd, gr, head(vars), fmts)
         ,
         top.conds,
+        exs,
         top.exprs,
         top.ifCnd,
         top.frthr
@@ -408,7 +430,7 @@ String ::= c::TensorCond e::TensorExpr var::String fmts::tm:Map<String TensorFor
 
 function generateCode
 String ::= 
-  c::TensorCond e::TensorExpr ic::[TensorCond] 
+  c::TensorCond ex::TensorExpr e::[TensorExpr] ic::[TensorCond] 
   g::[ComputeGraph] v::String fmts::tm:Map<String TensorFormat>
 {
   local forLoop::Boolean =
@@ -431,18 +453,12 @@ String ::=
     (
     if forLoop
     then
-      s"for(unsigned long ${forVar} = 0; ${generateFullCondition(c, e, v, fmts)}; ${forVar}++) {"
+      s"for(unsigned long ${forVar} = 0; ${generateFullCondition(c, ex, v, fmts)}; ${forVar}++) {"
     else
-      s"while(${generateFullCondition(c, e, v, fmts)}) {"
+      s"while(${generateFullCondition(c, ex, v, fmts)}) {"
     )
     ++
-    "\n  expr = "
-    ++
-    exprToString(e)
-    ++
-    "\n  tensor = "
-    ++
-    e.tensorName
+    "\n  if(0) {}"
     ++
     "\n  "
     ++
@@ -451,9 +467,19 @@ String ::=
       explode(
         "\n",
         implode("\n",
-          zipWith(
-            \ c::TensorCond g::ComputeGraph ->
-              s"if(${c.ifCond}) {"
+          zip3(
+            \ c::TensorCond e::TensorExpr g::ComputeGraph ->
+              (
+              if c.ifCond != "1"
+              then
+                s"else if(${c.ifCond}) {"
+              else
+                "else {"
+              )
+              ++
+              "\n  "
+              ++
+              exprToString(e)
               ++
               "\n  "
               ++
@@ -470,6 +496,7 @@ String ::=
               "}"
             ,
             ic,
+            e,
             g
           )
         )

@@ -46,9 +46,12 @@ LatticePoint ::=
         lattice_points(assign, fmts, r, var, loc, env, loop)
       in
       case lP.cond, rP.cond of
-      | nullCond(), nullCond() -> lP
-      | nullCond(), _ -> rP
-      | _, nullCond() -> lP
+      | nullCond(), nullCond() -> 
+        latticePoint([], value, nullCond())
+      | nullCond(), _ ->
+        latticePoint(rP.pnts, value, rP.cond)
+      | _, nullCond() -> 
+        latticePoint(lP.pnts, value, lP.cond)
       | _, _ ->
         latticePoint(
           map(pointAdd(_, assign, fmts, r, 0, var, loc, env, loop),
@@ -69,9 +72,12 @@ LatticePoint ::=
         lattice_points(assign, fmts, r, var, loc, env, loop)
       in
       case lP.cond, rP.cond of
-      | nullCond(), nullCond() -> lP
-      | nullCond(), _ -> rP
-      | _, nullCond() -> lP
+      | nullCond(), nullCond() -> 
+        latticePoint([], value, nullCond())
+      | nullCond(), _ ->
+        latticePoint(rP.pnts, value, rP.cond)
+      | _, nullCond() -> 
+        latticePoint(lP.pnts, value, lP.cond)
       | _, _ ->
         latticePoint(
           map(pointSub(_, assign, fmts, r, 0, var, loc, env, loop),
