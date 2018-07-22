@@ -102,11 +102,7 @@ top::ComputeGraph ::=
           let lattice::LatticePoint =
             lattice_points(
               assign, fmts, 
-              makeSubs(
-                e, head(vars), 
-                tail(vars), 
-                isBelowOut
-              ), head(vars), 
+              e, head(vars), 
               loc, env, false
             )
           in
@@ -117,7 +113,11 @@ top::ComputeGraph ::=
             \ lp::LatticePoint ->
               computeGraph(
                 assign, fmts,
-                lp.value,
+                makeSubs(
+                  lp.value, head(vars),
+                  tail(vars),
+                  isBelowOut
+                ),
                 tail(vars), loc, 
                 env
               )
@@ -145,11 +145,7 @@ top::ComputeGraph ::=
           let lattice::LatticePoint =
             lattice_points(
               assign, fmts, 
-              makeSubs(
-                e, head(vars),
-                tail(vars),
-                isBelowOut
-              ), head(vars),
+              e, head(vars),
               loc, env, false
             )
           in
