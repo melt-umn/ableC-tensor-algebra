@@ -55,12 +55,26 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     | just(l) -> l
     end;
 
-  ex.accessOrder = access;
-  ex.tensorNames =
+  local tensorNames::[String] =
     map(
       getTensorName(_),
       ex.tensors
     );
+  
+  local fmts::tm:Map<String TensorFormat> =
+    tm:add(
+      map(
+        \ e::TensorExpr ->
+          pair(getTensorName(e), getTensorFormat(e))
+        ,
+        ex.tensors
+      )
+      ,
+      tm:empty(compareString)
+    );
+
+  ex.accessOrder = access;
+  ex.tensorNames = tensorNames;
 
   local lErrors::[Message] =
     if invalidLeftVar
@@ -72,10 +86,17 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     | just(_) -> []
     end;
 
+  local graph::ComputeGraph =
+    computeGraph(
+      out, fmts, ex, access,
+      top.location, top.env, 
+      tensorNames
+    );
+
   forwards to
     mkErrorCheck(
       lErrors,
-      mkStringConst(implode(", ", access), top.location)
+      mkStringConst(implode(", ", access) ++ "\n" ++ graph.compute, top.location)
     );
 }
 

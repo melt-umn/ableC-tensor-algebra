@@ -133,3 +133,44 @@ function zip6
     else f(head(l1), head(l2), head(l3), head(l4), head(l5), head(l6))
       :: zip6(f, tail(l1), tail(l2), tail(l3), tail(l4), tail(l5), tail(l6));
 }
+
+function filterHead
+[a] ::= f::(Boolean ::= a [a]) lst::[a]
+{
+  return 
+    filterHead_helper(
+      f, lst,
+      map(
+        \ i::Integer ->
+          take(i, lst)
+        ,
+        makeList(integerCompare, inc, 0, listLength(lst))
+      )
+    );
+}
+
+function filterHead_helper
+[a] ::= f::(Boolean ::= a [a]) lst::[a] hs::[[a]]
+{
+  return
+    if null(lst) || null(hs)
+    then []
+    else 
+      if f(head(lst), head(hs))
+      then 
+        head(lst) ::
+        filterHead_helper(f, tail(lst), tail(hs))
+      else
+        filterHead_helper(f, tail(lst), tail(hs));
+}
+
+function containsWith
+Boolean ::= f::(Boolean ::= a) lst::[a]
+{
+  return
+    if null(lst)
+    then false
+    else
+      f(head(lst)) ||
+      containsWith(f, tail(lst));
+}

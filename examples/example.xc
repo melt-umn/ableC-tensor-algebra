@@ -51,6 +51,12 @@ int main() {
 
   double y;
 
+  B[i] = A[i,j];
+  B[i] = 4 * A[i,j];
+  B[i] = b[i];
+  B[i] = b[i] * x;
+  B[i] = A[i,j] + b[i];
+  B[i] = 4 * A[i,j] + b[i] * x;
   B[i] = 4 * A[i,j] + b[i] * x;
   y = 4 * A[i,j] + b[i] * x;
 

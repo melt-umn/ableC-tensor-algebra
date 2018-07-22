@@ -13,9 +13,13 @@ synthesized attribute envr :: Decorated Env;
 autocopy attribute tensorNames :: [String];
 autocopy attribute accessOrder :: [String];
 
+autocopy attribute remaining :: [String];
+synthesized attribute isAvail :: Boolean;
+
 nonterminal TensorExpr with
   tensorName, accesses, tensorExpr, envr, tensors, 
-  tensorNames, accessOrder, location;
+  tensorNames, accessOrder, remaining, isAvail,
+  location;
 
 abstract production tensorBaseExpr
 top::TensorExpr ::= ex::Expr env::Decorated Env
@@ -27,6 +31,8 @@ top::TensorExpr ::= ex::Expr env::Decorated Env
   top.envr = env;
   
   top.tensors = [];
+
+  top.isAvail = true;
 }
 
 abstract production tensorAccess
@@ -60,6 +66,13 @@ top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
   top.accesses = [access];
 
   top.tensors = [top];
+
+  top.isAvail =
+    !containsAny(
+      stringEq,
+      top.remaining,
+      access
+    );
 }
 
 abstract production tensorAdd
@@ -78,6 +91,8 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 
   r.tensorNames =
     drop(listLength(l.tensors), top.tensorNames);
+
+  top.isAvail = l.isAvail && r.isAvail;
 }
 
 abstract production tensorSub
@@ -96,6 +111,8 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 
   r.tensorNames =
     drop(listLength(l.tensors), top.tensorNames);
+
+  top.isAvail = l.isAvail && r.isAvail;
 }
 
 abstract production tensorMul
@@ -114,6 +131,8 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 
   r.tensorNames =
     drop(listLength(l.tensors), top.tensorNames);
+
+  top.isAvail = l.isAvail && r.isAvail;
 }
 
 abstract production tensorDiv
@@ -132,6 +151,8 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 
   r.tensorNames =
     drop(listLength(l.tensors), top.tensorNames);
+
+  top.isAvail = l.isAvail && r.isAvail;
 }
 
 function getAccess
