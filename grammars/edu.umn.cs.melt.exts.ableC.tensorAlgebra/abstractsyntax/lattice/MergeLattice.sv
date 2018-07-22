@@ -22,7 +22,7 @@ top::LatticePoint ::= pnts::[LatticePoint] value::TensorExpr cond::TensorCond
 function lattice_points
 LatticePoint ::= 
   assign::TensorExpr fmts::tm:Map<String TensorFormat> value::TensorExpr
-  var::String loc::Location env::Decorated Env
+  var::String loc::Location env::Decorated Env loop::Boolean
 {
   return
     case value of
@@ -41,9 +41,9 @@ LatticePoint ::=
       end
     | tensorAdd(_, l, r, _) ->
       let lP::LatticePoint =
-        lattice_points(assign, fmts, l, var, loc, env)
+        lattice_points(assign, fmts, l, var, loc, env, loop)
       in let rP::LatticePoint =
-        lattice_points(assign, fmts, r, var, loc, env)
+        lattice_points(assign, fmts, r, var, loc, env, loop)
       in
       case lP.cond, rP.cond of
       | nullCond(), nullCond() -> lP
@@ -51,22 +51,22 @@ LatticePoint ::=
       | _, nullCond() -> lP
       | _, _ ->
         latticePoint(
-          map(pointAdd(_, assign, fmts, r, 0, var, loc, env),
+          map(pointAdd(_, assign, fmts, r, 0, var, loc, env, loop),
             lP.pnts)
           ++
-          map(pointAdd(_, assign, fmts, l, 1, var, loc, env),
+          map(pointAdd(_, assign, fmts, l, 1, var, loc, env, loop),
             rP.pnts)
           ++ (lP :: rP :: [])
           ,
-          value, condOr(lP.cond, rP.cond))
+          value, condOr(lP.cond, rP.cond, loop))
       end
       end
       end
     | tensorSub(_, l, r, _) -> 
       let lP::LatticePoint =
-        lattice_points(assign, fmts, l, var, loc, env)
+        lattice_points(assign, fmts, l, var, loc, env, loop)
       in let rP::LatticePoint =
-        lattice_points(assign, fmts, r, var, loc, env)
+        lattice_points(assign, fmts, r, var, loc, env, loop)
       in
       case lP.cond, rP.cond of
       | nullCond(), nullCond() -> lP
@@ -74,47 +74,47 @@ LatticePoint ::=
       | _, nullCond() -> lP
       | _, _ ->
         latticePoint(
-          map(pointSub(_, assign, fmts, r, 0, var, loc, env),
+          map(pointSub(_, assign, fmts, r, 0, var, loc, env, loop),
             lP.pnts)
           ++
-          map(pointSub(_, assign, fmts, l, 1, var, loc, env),
+          map(pointSub(_, assign, fmts, l, 1, var, loc, env, loop),
             rP.pnts)
           ++ (lP :: rP :: [])
           ,
-          value, condOr(lP.cond, rP.cond))
+          value, condOr(lP.cond, rP.cond, loop))
       end
       end
       end
     | tensorMul(_, l, r, _) -> 
       let lP::LatticePoint =
-        lattice_points(assign, fmts, l, var, loc, env)
+        lattice_points(assign, fmts, l, var, loc, env, loop)
       in let rP::LatticePoint =
-        lattice_points(assign, fmts, r, var, loc, env)
+        lattice_points(assign, fmts, r, var, loc, env, loop)
       in
       latticePoint(
-        map(pointMul(_, assign, fmts, r, 0, var, loc, env),
+        map(pointMul(_, assign, fmts, r, 0, var, loc, env, loop),
           lP.pnts)
         ++
-        map(pointMul(_, assign, fmts, l, 1, var, loc, env),
+        map(pointMul(_, assign, fmts, l, 1, var, loc, env, loop),
           rP.pnts)
         ,
-        value, condAnd(lP.cond, rP.cond))
+        value, condAnd(lP.cond, rP.cond, loop))
       end
       end
     | tensorDiv(_, l, r, _) ->
       let lP::LatticePoint =
-        lattice_points(assign, fmts, l, var, loc, env)
+        lattice_points(assign, fmts, l, var, loc, env, loop)
       in let rP::LatticePoint =
-        lattice_points(assign, fmts, r, var, loc, env)
+        lattice_points(assign, fmts, r, var, loc, env, loop)
       in
       latticePoint(
-        map(pointDiv(_, assign, fmts, r, 0, var, loc, env),
+        map(pointDiv(_, assign, fmts, r, 0, var, loc, env, loop),
           lP.pnts)
         ++
-        map(pointDiv(_, assign, fmts, l, 1, var, loc, env),
+        map(pointDiv(_, assign, fmts, l, 1, var, loc, env, loop),
           rP.pnts)
         ,
-        value, condAnd(lP.cond, rP.cond))
+        value, condAnd(lP.cond, rP.cond, loop))
       end
       end
     end;
@@ -123,7 +123,7 @@ LatticePoint ::=
 function pointAdd
 LatticePoint ::= 
   pnt::LatticePoint assign::TensorExpr fmts::tm:Map<String TensorFormat> 
-  expr::TensorExpr lc::Integer var::String loc::Location env::Decorated Env
+  expr::TensorExpr lc::Integer var::String loc::Location env::Decorated Env loop::Boolean
 {
   return
     case lc of
@@ -136,12 +136,12 @@ LatticePoint ::=
           expr,
           var,
           loc,
-          env
+          env, loop
         ) ::
-        map(pointAdd(_, assign, fmts, expr, lc, var, loc, env), pnt.pnts)
+        map(pointAdd(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts)
         ,
         tensorAdd(addExpr(pnt.value.tensorExpr, expr.tensorExpr, location=loc), pnt.value, expr, env, location=loc),
-        condOr(pnt.cond, generateCond(expr, var, loc, fmts))
+        condOr(pnt.cond, generateCond(expr, var, loc, fmts, loop), loop)
       )
     | 1 -> -- expr is on the left
       latticePoint(
@@ -152,12 +152,12 @@ LatticePoint ::=
           expr,
           var,
           loc,
-          env
+          env, loop
         ) ::
-        map(pointAdd(_, assign, fmts, expr, lc, var, loc, env), pnt.pnts)
+        map(pointAdd(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts)
         ,
         tensorAdd(addExpr(expr.tensorExpr, pnt.value.tensorExpr, location=loc), expr, pnt.value, env, location=loc),
-        condOr(generateCond(expr, var, loc, fmts), pnt.cond)
+        condOr(generateCond(expr, var, loc, fmts, loop), pnt.cond, loop)
       )
     end;
 }
@@ -165,7 +165,7 @@ LatticePoint ::=
 function pointSub
 LatticePoint ::= 
   pnt::LatticePoint assign::TensorExpr fmts::tm:Map<String TensorFormat> 
-  expr::TensorExpr lc::Integer var::String loc::Location env::Decorated Env
+  expr::TensorExpr lc::Integer var::String loc::Location env::Decorated Env loop::Boolean
 {
   return
     case lc of
@@ -178,12 +178,12 @@ LatticePoint ::=
           expr,
           var,
           loc,
-          env
+          env, loop
         ) ::
-        map(pointSub(_, assign, fmts, expr, lc, var, loc, env), pnt.pnts)
+        map(pointSub(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts)
         ,
         tensorSub(subExpr(pnt.value.tensorExpr, expr.tensorExpr, location=loc), pnt.value, expr, env, location=loc),
-        condOr(pnt.cond, generateCond(expr, var, loc, fmts))
+        condOr(pnt.cond, generateCond(expr, var, loc, fmts, loop), loop)
       )
     | 1 -> -- expr is on the left
       latticePoint(
@@ -194,12 +194,12 @@ LatticePoint ::=
           expr,
           var,
           loc,
-          env
+          env, loop
         ) ::
-        map(pointSub(_, assign, fmts, expr, lc, var, loc, env), pnt.pnts)
+        map(pointSub(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts)
         ,
         tensorSub(subExpr(expr.tensorExpr, pnt.value.tensorExpr, location=loc), expr, pnt.value, env, location=loc),
-        condOr(generateCond(expr, var, loc, fmts), pnt.cond)
+        condOr(generateCond(expr, var, loc, fmts, loop), pnt.cond, loop)
       )
     end;
 }
@@ -207,21 +207,21 @@ LatticePoint ::=
 function pointMul
 LatticePoint ::= 
   pnt::LatticePoint assign::TensorExpr fmts::tm:Map<String TensorFormat> 
-  expr::TensorExpr lc::Integer var::String loc::Location env::Decorated Env
+  expr::TensorExpr lc::Integer var::String loc::Location env::Decorated Env loop::Boolean
 {
   return
     case lc of
     | 0 -> -- expr is on the right
       latticePoint(
-        map(pointMul(_, assign, fmts, expr, lc, var, loc, env), pnt.pnts),
+        map(pointMul(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts),
         tensorMul(mulExpr(pnt.value.tensorExpr, expr.tensorExpr, location=loc), pnt.value, expr, env, location=loc),
-        condAnd(pnt.cond, generateCond(expr, var, loc, fmts))
+        condAnd(pnt.cond, generateCond(expr, var, loc, fmts, loop), loop)
       )
     | 1 -> -- expr is on the left
       latticePoint(
-        map(pointMul(_, assign, fmts, expr, lc, var, loc, env), pnt.pnts),
+        map(pointMul(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts),
         tensorMul(mulExpr(expr.tensorExpr, pnt.value.tensorExpr, location=loc), expr, pnt.value, env, location=loc),
-        condAnd(generateCond(expr, var, loc, fmts), pnt.cond)
+        condAnd(generateCond(expr, var, loc, fmts, loop), pnt.cond, loop)
       )
     end;
 }
@@ -229,28 +229,28 @@ LatticePoint ::=
 function pointDiv
 LatticePoint ::= 
   pnt::LatticePoint assign::TensorExpr fmts::tm:Map<String TensorFormat> 
-  expr::TensorExpr lc::Integer var::String loc::Location env::Decorated Env
+  expr::TensorExpr lc::Integer var::String loc::Location env::Decorated Env loop::Boolean
 {
   return
     case lc of
     | 0 -> -- expr is on the right
       latticePoint(
-        map(pointDiv(_, assign, fmts, expr, lc, var, loc, env), pnt.pnts),
+        map(pointDiv(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts),
         tensorDiv(divExpr(pnt.value.tensorExpr, expr.tensorExpr, location=loc), pnt.value, expr, env, location=loc),
-        condAnd(pnt.cond, generateCond(expr, var, loc, fmts))
+        condAnd(pnt.cond, generateCond(expr, var, loc, fmts, loop), loop)
       )
     | 1 -> -- expr is on the left
       latticePoint(
-        map(pointDiv(_, assign, fmts, expr, lc, var, loc, env), pnt.pnts),
+        map(pointDiv(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts),
         tensorDiv(divExpr(expr.tensorExpr, pnt.value.tensorExpr, location=loc), expr, pnt.value, env, location=loc),
-        condAnd(generateCond(expr, var, loc, fmts), pnt.cond)
+        condAnd(generateCond(expr, var, loc, fmts, loop), pnt.cond, loop)
       )
     end;
 }
 
 function generateCond
 TensorCond ::= 
-  expr::TensorExpr var::String loc::Location fmts::tm:Map<String TensorFormat>
+  expr::TensorExpr var::String loc::Location fmts::tm:Map<String TensorFormat> loop::Boolean
 {
   return
     case expr of
@@ -269,38 +269,38 @@ TensorCond ::=
       end
     | tensorAdd(_, l, r, _) ->
       let lC::TensorCond =
-        generateCond(l, var, loc, fmts)
+        generateCond(l, var, loc, fmts, loop)
       in let rC::TensorCond =
-        generateCond(r, var, loc, fmts)
+        generateCond(r, var, loc, fmts, loop)
       in
-      condOr(lC, rC)
+      condOr(lC, rC, loop)
       end
       end
     | tensorSub(_, l, r, _) ->
       let lC::TensorCond =
-        generateCond(l, var, loc, fmts)
+        generateCond(l, var, loc, fmts, loop)
       in let rC::TensorCond =
-        generateCond(r, var, loc, fmts)
+        generateCond(r, var, loc, fmts, loop)
       in
-      condOr(lC, rC)
+      condOr(lC, rC, loop)
       end
       end
     | tensorMul(_, l, r, _) ->
       let lC::TensorCond =
-        generateCond(l, var, loc, fmts)
+        generateCond(l, var, loc, fmts, loop)
       in let rC::TensorCond =
-        generateCond(r, var, loc, fmts)
+        generateCond(r, var, loc, fmts, loop)
       in
-      condAnd(lC, rC)
+      condAnd(lC, rC, loop)
       end
       end
     | tensorDiv(_, l, r, _) ->
       let lC::TensorCond =
-        generateCond(l, var, loc, fmts)
+        generateCond(l, var, loc, fmts, loop)
       in let rC::TensorCond =
-        generateCond(r, var, loc, fmts)
+        generateCond(r, var, loc, fmts, loop)
       in
-      condAnd(lC, rC)
+      condAnd(lC, rC, loop)
       end
       end
     end;

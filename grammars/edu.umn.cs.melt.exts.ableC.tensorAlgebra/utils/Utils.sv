@@ -73,6 +73,16 @@ function zip3
       :: zip3(f, tail(lstA), tail(lstB), tail(lstC));
 }
 
+function zip4
+[a] ::= f::(a ::= b c d e) lstA::[b] lstB::[c] lstC::[d] lstD::[e]
+{
+  return
+    if null(lstA) || null(lstB) || null(lstC) || null(lstD)
+    then []
+    else f(head(lstA), head(lstB), head(lstC), head(lstD))
+      :: zip4(f, tail(lstA), tail(lstB), tail(lstC), tail(lstD));
+}
+
 function positionBy
 Integer ::= f::(Boolean ::= a) lst::[a]
 {

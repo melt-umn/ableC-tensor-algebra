@@ -4,17 +4,19 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 synthesized attribute conds :: [TensorCond];
 synthesized attribute exprs :: [TensorExpr];
-synthesized attribute frthr :: [ComputeGraph];
+synthesized attribute ifCnd :: [[TensorCond]];
+synthesized attribute frthr :: [[ComputeGraph]];
 synthesized attribute compute :: String;
 synthesized attribute var :: String;
 
-nonterminal ComputeGraph with conds, exprs, frthr, compute, var;
+nonterminal ComputeGraph with conds, exprs, ifCnd, frthr, compute, var;
 
 abstract production nullGraph
 top::ComputeGraph ::= 
 {
   top.conds = [];
   top.exprs = [];
+  top.ifCnd = [];
   top.frthr = [];
   top.compute = "";
   top.var = "";
@@ -33,7 +35,7 @@ top::ComputeGraph ::=
     );
 
   local lp::LatticePoint =
-    lattice_points(assign, fmts, value, head(vars), loc, env);
+    lattice_points(assign, fmts, value, head(vars), loc, env, true);
 
   local pnts::[LatticePoint] =
     extractPoints(lp);
@@ -90,17 +92,78 @@ top::ComputeGraph ::=
     then
       map(
         \ e::TensorExpr ->
-          nullGraph()
+          []
         ,
         top.exprs
       )
     else
       map(
         \ e::TensorExpr ->
-          computeGraph(
-            assign, fmts, 
-            makeSubs(e, head(vars), tail(vars), isBelowOut), 
-            tail(vars), loc, env)
+          let lattice::LatticePoint =
+            lattice_points(
+              assign, fmts, 
+              -:q-makeSubs(
+                e, head(vars), 
+                tail(vars), 
+                isBelowOut
+              ), head(vars), 
+              loc, env, false
+            )
+          in
+          let pnts::[LatticePoint] =
+            extractPoints(lattice)
+          in
+          map(
+            \ lp::LatticePoint ->
+              computeGraph(
+                assign, fmts,
+                lp.value,
+                tail(vars), loc, 
+                env
+              )
+            ,
+            pnts
+          )
+          end
+          end
+        ,
+        top.exprs
+      );
+
+  top.ifCnd =
+    if listLength(vars) == 1
+    then 
+      map(
+        \ e::TensorExpr ->
+          []
+        ,
+        top.exprs
+      )
+    else
+      map(
+        \ e::TensorExpr ->
+          let lattice::LatticePoint =
+            lattice_points(
+              assign, fmts, 
+              makeSubs(
+                e, head(vars),
+                tail(vars),
+                isBelowOut
+              ), head(vars),
+              loc, env, false
+            )
+          in
+          let pnts::[LatticePoint] =
+            extractPoints(lattice)
+          in
+          map(
+            \ lp::LatticePoint ->
+              lp.cond
+            ,
+            pnts
+          )
+          end
+          end
         ,
         top.exprs
       );
@@ -109,32 +172,13 @@ top::ComputeGraph ::=
 
   top.compute = 
     implode("\n",
-      zip3(
-        \ c::TensorCond e::TensorExpr gr::ComputeGraph ->
-          s"while(${generateFullCondition(c, e, head(vars), fmts)}) {"
-          ++
-          "\n  expr = "
-          ++
-          exprToString(e)
-          ++
-          "\n  tensor = "
-          ++
-          e.tensorName
-          ++
-          "\n  "
-          ++
-          implode(
-            "\n  ",
-            explode(
-              "\n",
-              gr.compute
-            )
-          )
-          ++
-          "\n}"
+      zip4(
+        \ c::TensorCond e::TensorExpr cd::[TensorCond] gr::[ComputeGraph] ->
+          generateCode(c, e, cd, gr, head(vars), fmts)
         ,
         top.conds,
         top.exprs,
+        top.ifCnd,
         top.frthr
       )
     );
@@ -364,4 +408,77 @@ String ::= c::TensorCond e::TensorExpr var::String fmts::tm:Map<String TensorFor
         ")"
     | _ -> ""
     end;
+}
+
+function generateCode
+String ::= 
+  c::TensorCond e::TensorExpr ic::[TensorCond] 
+  g::[ComputeGraph] v::String fmts::tm:Map<String TensorFormat>
+{
+  local forLoop::Boolean =
+    case c of
+    | allCond(_) -> true
+    | denseAccess(_, _, _) -> true
+    | sparseAccess(_, _, _) -> true
+    | _ -> false
+    end;
+
+  local forVar::String =
+    case c of
+    | allCond(v) -> v
+    | denseAccess(_, _, v) -> v
+    | sparseAccess(n, d, _) -> s"p${n}${toString(d+1)}"
+    | _ -> ""
+    end;
+
+  return
+    (
+    if forLoop
+    then
+      s"for(unsigned long ${forVar} = 0; ${generateFullCondition(c, e, v, fmts)}; ${forVar}++) {"
+    else
+      s"while(${generateFullCondition(c, e, v, fmts)}) {"
+    )
+    ++
+    "\n  expr = "
+    ++
+    exprToString(e)
+    ++
+    "\n  tensor = "
+    ++
+    e.tensorName
+    ++
+    "\n  "
+    ++
+    implode(
+      "\n  ",
+      explode(
+        "\n",
+        implode("\n",
+          zipWith(
+            \ c::TensorCond g::ComputeGraph ->
+              s"if(${c.ifCond}) {"
+              ++
+              "\n  "
+              ++
+              implode(
+                "\n  ",
+                explode(
+                  "\n",
+                  g.compute
+                )
+              )
+              ++
+              "\n"
+              ++
+              "}"
+            ,
+            ic,
+            g
+          )
+        )
+      )
+    )
+    ++
+    "\n}";
 }
