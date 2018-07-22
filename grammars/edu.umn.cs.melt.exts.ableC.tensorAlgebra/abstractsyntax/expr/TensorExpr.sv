@@ -10,16 +10,19 @@ synthesized attribute tensorExpr :: Expr;
 synthesized attribute tensors :: [TensorExpr];
 synthesized attribute envr :: Decorated Env;
 
-autocopy attribute tensorNames :: [String];
 autocopy attribute accessOrder :: [String];
 
 autocopy attribute remaining :: [String];
 synthesized attribute isAvail :: Boolean;
 
+autocopy attribute variable :: String;
+synthesized attribute sparse :: [Pair<String Integer>];
+synthesized attribute dense :: [Pair<String Integer>];
+
 nonterminal TensorExpr with
   tensorName, accesses, tensorExpr, envr, tensors, 
-  tensorNames, accessOrder, remaining, isAvail,
-  location;
+  accessOrder, remaining, isAvail, variable,
+  fmts, sparse, dense, location;
 
 abstract production tensorBaseExpr
 top::TensorExpr ::= ex::Expr env::Decorated Env
@@ -33,6 +36,9 @@ top::TensorExpr ::= ex::Expr env::Decorated Env
   top.tensors = [];
 
   top.isAvail = true;
+
+  top.sparse = [];
+  top.dense = [];
 }
 
 abstract production tensorAccess
@@ -47,7 +53,7 @@ top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
     | _ -> errorTensorFormat()
     end;
 
-  top.tensorName = head(top.tensorNames);
+  top.tensorName = getTensorName(top);
 
   local access::[String] =
     orderList(
@@ -73,6 +79,38 @@ top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
       top.remaining,
       access
     );
+
+  local f::TensorFormat =
+    head(tm:lookup(top.tensorName, top.fmts));
+
+  local dim::Integer =
+    positionOf(
+      stringEq,
+      top.variable,
+      access
+    );
+
+  local prs::Maybe<Pair<Integer Pair<Integer Integer>>> =
+    getElem(f.storage, dim);
+
+  local type::Integer =
+    prs.fromJust.snd.snd;
+
+  top.sparse =
+    if !prs.isJust
+    then []
+    else
+      if type == storeSparse
+      then [pair(top.tensorName, dim)]
+      else [];
+
+  top.dense =
+    if !prs.isJust
+    then []
+    else
+      if type == storeDense
+      then [pair(top.tensorName, dim)]
+      else [];
 }
 
 abstract production tensorAdd
@@ -86,13 +124,10 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 
   top.tensors = l.tensors ++ r.tensors;
 
-  l.tensorNames =
-    take(listLength(l.tensors), top.tensorNames);
-
-  r.tensorNames =
-    drop(listLength(l.tensors), top.tensorNames);
-
   top.isAvail = l.isAvail && r.isAvail;
+
+  top.sparse = l.sparse ++ r.sparse;
+  top.dense = l.dense ++ r.dense;
 }
 
 abstract production tensorSub
@@ -106,13 +141,10 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 
   top.tensors = l.tensors ++ r.tensors;
 
-  l.tensorNames =
-    take(listLength(l.tensors), top.tensorNames);
-
-  r.tensorNames =
-    drop(listLength(l.tensors), top.tensorNames);
-
   top.isAvail = l.isAvail && r.isAvail;
+
+  top.sparse = l.sparse ++ r.sparse;
+  top.dense = l.dense ++ r.dense;
 }
 
 abstract production tensorMul
@@ -126,13 +158,10 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 
   top.tensors = l.tensors ++ r.tensors;
 
-  l.tensorNames =
-    take(listLength(l.tensors), top.tensorNames);
-
-  r.tensorNames =
-    drop(listLength(l.tensors), top.tensorNames);
-
   top.isAvail = l.isAvail && r.isAvail;
+
+  top.sparse = l.sparse ++ r.sparse;
+  top.dense = l.dense ++ r.dense;
 }
 
 abstract production tensorDiv
@@ -146,13 +175,10 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 
   top.tensors = l.tensors ++ r.tensors;
 
-  l.tensorNames = 
-    take(listLength(l.tensors), top.tensorNames);
-
-  r.tensorNames =
-    drop(listLength(l.tensors), top.tensorNames);
-
   top.isAvail = l.isAvail && r.isAvail;
+
+  top.sparse = l.sparse ++ r.sparse;
+  top.dense = l.dense ++ r.dense;
 }
 
 function getAccess

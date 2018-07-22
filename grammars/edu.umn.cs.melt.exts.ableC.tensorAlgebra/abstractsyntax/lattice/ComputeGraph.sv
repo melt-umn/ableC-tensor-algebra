@@ -23,7 +23,7 @@ top::ComputeGraph ::=
 abstract production computeGraph
 top::ComputeGraph ::=
   assign::TensorExpr fmts::tm:Map<String TensorFormat> value::TensorExpr
-  vars::[String] loc::Location env::Decorated Env tensorNames::[String]
+  vars::[String] loc::Location env::Decorated Env 
 {
   local isBelowOut::Boolean =
     !containsAny(
@@ -33,7 +33,7 @@ top::ComputeGraph ::=
     );
 
   local lp::LatticePoint =
-    lattice_points(assign, fmts, value, head(vars), loc, env, tensorNames);
+    lattice_points(assign, fmts, value, head(vars), loc, env);
 
   local pnts::[LatticePoint] =
     extractPoints(lp);
@@ -100,7 +100,7 @@ top::ComputeGraph ::=
           computeGraph(
             assign, fmts, 
             makeSubs(e, head(vars), tail(vars), isBelowOut), 
-            tail(vars), loc, env, tensorNames)
+            tail(vars), loc, env)
         ,
         top.exprs
       );
@@ -111,15 +111,27 @@ top::ComputeGraph ::=
     implode("\n",
       zip3(
         \ c::TensorCond e::TensorExpr gr::ComputeGraph ->
-          c.condition
+          s"while(${generateFullCondition(c, e, head(vars), fmts)}) {"
           ++
-          "--"
+          "\n  expr = "
           ++
           exprToString(e)
           ++
-          "\n"
+          "\n  tensor = "
           ++
-          gr.compute
+          e.tensorName
+          ++
+          "\n  "
+          ++
+          implode(
+            "\n  ",
+            explode(
+              "\n",
+              gr.compute
+            )
+          )
+          ++
+          "\n}"
         ,
         top.conds,
         top.exprs,
@@ -299,5 +311,57 @@ String ::= e::TensorExpr
     | tensorSub(_, l, r, _) -> "(" ++ exprToString(l) ++ "-" ++ exprToString(r) ++ ")"
     | tensorMul(_, l, r, _) -> "(" ++ exprToString(l) ++ "*" ++ exprToString(r) ++ ")"
     | tensorDiv(_, l, r, _) -> "(" ++ exprToString(l) ++ "/" ++ exprToString(r) ++ ")"
+    end;
+}
+
+function generateFullCondition
+String ::= c::TensorCond e::TensorExpr var::String fmts::tm:Map<String TensorFormat>
+{
+  e.fmts = fmts;
+  e.variable = var;
+
+  return
+    c.condition
+    ++
+    case c of
+    | allCond(_) ->
+      if null(e.sparse)
+      then ""
+      else
+        "&&"
+        ++
+        "("
+        ++
+        implode(
+          "&&",
+          map(
+            \ p::Pair<String Integer> ->
+              s"(p${p.fst}${toString(p.snd+1)} < ${p.fst}${toString(p.snd+1)}_pos[${if p.snd == 0 then "1" else s"p${p.fst}${toString(p.snd)} + 1"}])"
+            ,
+            e.sparse
+          )
+        )
+        ++
+        ")"
+    | denseAccess(_, _, _) ->
+      if null(e.sparse)
+      then ""
+      else
+        "&&"
+        ++
+        "("
+        ++
+        implode(
+          "&&",
+          map(
+            \ p::Pair<String Integer> ->
+              s"(p${p.fst}${toString(p.snd+1)} < ${p.fst}${toString(p.snd+1)}_pos[${if p.snd == 0 then "1" else s"p${p.fst}${toString(p.snd)} + 1"}])"
+            ,
+            e.sparse
+          )
+        )
+        ++
+        ")"
+    | _ -> ""
     end;
 }

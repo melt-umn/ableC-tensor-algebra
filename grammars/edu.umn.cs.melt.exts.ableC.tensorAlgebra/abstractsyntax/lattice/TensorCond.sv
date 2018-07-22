@@ -41,8 +41,7 @@ TensorCond ::= tNm::String dim::Integer var::String fmt::TensorFormat
 
   return
     if !trip.isJust
-    --then nullCond()
-    then allCond(s"${var}${toString(dim)}${tNm}")
+    then nullCond()
     else
       if type == storeSparse
       then sparseAccess(tNm, dim)
