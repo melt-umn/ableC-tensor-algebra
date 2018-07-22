@@ -102,7 +102,7 @@ top::ComputeGraph ::=
           let lattice::LatticePoint =
             lattice_points(
               assign, fmts, 
-              -:q-makeSubs(
+              makeSubs(
                 e, head(vars), 
                 tail(vars), 
                 isBelowOut
