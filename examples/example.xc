@@ -12,7 +12,7 @@ int main() {
   tensor<mat> B = build(tensor<mat>)({4, 4});
   tensor<mat> C = build(tensor<mat>)({4, 4});
 
-  A[i,j] = B[i,j] + C[j,k];
+  A[i,j] = B[i,j] + C[i,j];
 
   return 0;
 }

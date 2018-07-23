@@ -903,7 +903,7 @@ String ::=
               (
               if below
               then
-                s"\n  t${last(remain)} = ${evalExpr(reduceExpr(e, v, remain, true, e.envr))}"
+                s"\n  t${if null(remain) then v else last(remain)} = ${evalExpr(reduceExpr(e, v, remain, true, e.envr))}"
               else ""
               )
               ++
