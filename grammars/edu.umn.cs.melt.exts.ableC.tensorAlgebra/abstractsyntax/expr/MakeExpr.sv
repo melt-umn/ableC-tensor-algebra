@@ -39,3 +39,34 @@ String ::= e::Expr env::Decorated Env
     | _ -> s"_expr_${toString(e.location.line)}_${toString(e.location.column)}"
     end;
 }
+
+function generateTensorVals
+String ::= ex::TensorExpr
+{
+  local fmt::TensorFormat =
+    getTensorFormat(ex);
+  local nm::String =
+    getTensorName(ex);
+
+  return
+    s"double* ${nm}_data = ${nm}.data;"
+    ++
+    "\n"
+    ++
+    implode("\n",
+      map(
+        \ p::Pair<Integer Pair<Integer Integer>> ->
+          if p.snd.snd == storeDense
+          then 
+            s"unsigned long ${nm}${toString(p.fst+1)}_size = ${nm}.indices[${toString(p.snd.fst)}][0][0];"
+          else
+            s"unsigned long* ${nm}${toString(p.fst+1)}_pos = ${nm}.indices[${toString(p.snd.fst)}][0];"
+            ++
+            "\n"
+            ++
+            s"unsigned long* ${nm}${toString(p.fst+1)}_idx = ${nm}.indices[${toString(p.snd.fst)}][1];"
+        ,
+        fmt.storage
+      )
+    );
+}
