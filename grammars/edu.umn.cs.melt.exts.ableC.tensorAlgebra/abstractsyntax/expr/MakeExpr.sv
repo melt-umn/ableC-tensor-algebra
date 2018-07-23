@@ -29,3 +29,13 @@ TensorFormat ::= e::TensorExpr
     | _ -> errorTensorFormat()
     end;
 }
+
+function getExprName
+String ::= e::Expr env::Decorated Env
+{
+  return
+    case decorate e with {env=env; returnType=nothing();} of
+    | declRefExpr(nm) -> nm.name
+    | _ -> s"_expr_${toString(e.location.line)}_${toString(e.location.column)}"
+    end;
+}

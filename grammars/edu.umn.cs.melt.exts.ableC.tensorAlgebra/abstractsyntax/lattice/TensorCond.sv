@@ -214,7 +214,8 @@ Boolean ::= c::TensorCond b::TensorCond
     | denseAccess(_, _, _), allCond(_) -> false
     | denseAccess(_, _, _), denseAccess(_, _, _) -> true
     | denseAccess(_, _, _), _ -> true
-    | sparseAccess(_, _, _), sparseAccess(_, _, _) -> false 
+    | sparseAccess(n1, d1, v1), sparseAccess(n2, d2, v2) ->
+      n1 == n2 && d1 == d2 && v1 == v2
     | _, _ -> false
     end;
 }

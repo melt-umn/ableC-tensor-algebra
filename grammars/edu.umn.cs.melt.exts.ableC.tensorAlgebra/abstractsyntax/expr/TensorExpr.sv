@@ -4,10 +4,12 @@ imports silver:langutil:pp;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+synthesized attribute exprName :: String;
 synthesized attribute tensorName :: String;
 synthesized attribute accesses :: [[String]];
 synthesized attribute tensorExpr :: Expr;
 synthesized attribute tensors :: [TensorExpr];
+synthesized attribute exprs :: [Expr];
 synthesized attribute envr :: Decorated Env;
 
 autocopy attribute accessOrder :: [String];
@@ -20,9 +22,9 @@ synthesized attribute sparse :: [Pair<String Integer>];
 synthesized attribute dense :: [Pair<String Integer>];
 
 nonterminal TensorExpr with
-  tensorName, accesses, tensorExpr, envr, tensors, 
-  accessOrder, remaining, isAvail, variable,
-  fmts, sparse, dense, location;
+  exprName, tensorName, accesses, tensorExpr, envr, 
+  tensors, exprs, accessOrder, remaining, isAvail, 
+  variable, fmts, sparse, dense, location;
 
 abstract production tensorBaseExpr
 top::TensorExpr ::= ex::Expr env::Decorated Env
@@ -30,6 +32,9 @@ top::TensorExpr ::= ex::Expr env::Decorated Env
   top.tensorName = "__none";
   top.accesses = [];
   
+  top.exprName = getExprName(ex, env);
+  top.exprs = [ex];
+
   top.tensorExpr = ex;
   top.envr = env;
   
@@ -46,6 +51,9 @@ top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
 {
   tensor.env = env;
   tensor.returnType = nothing();
+
+  top.exprName = "__none";
+  top.exprs = [];
 
   local fmt::TensorFormat =
     case tensor.typerep of
@@ -119,6 +127,9 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
   top.tensorName = "__none";
   top.accesses = l.accesses ++ r.accesses;
 
+  top.exprName = "__none";
+  top.exprs = l.exprs ++ r.exprs;
+
   top.tensorExpr = ex;
   top.envr = env;
 
@@ -135,6 +146,9 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__none";
   top.accesses = l.accesses ++ r.accesses;
+
+  top.exprName = "__none";
+  top.exprs = l.exprs ++ r.exprs;
 
   top.tensorExpr = ex;
   top.envr = env;
@@ -153,6 +167,9 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
   top.tensorName = "__none";
   top.accesses = l.accesses ++ r.accesses;
 
+  top.exprName = "__none";
+  top.exprs = l.exprs ++ r.exprs;
+
   top.tensorExpr = ex;
   top.envr = env;
 
@@ -169,6 +186,9 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__none";
   top.accesses = l.accesses ++ r.accesses;
+
+  top.exprName = "__none";
+  top.exprs = l.exprs ++ r.exprs;
 
   top.tensorExpr = ex;
   top.envr = env;
