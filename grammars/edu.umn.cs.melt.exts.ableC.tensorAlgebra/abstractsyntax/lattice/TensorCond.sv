@@ -206,15 +206,15 @@ Boolean ::= c::TensorCond b::TensorCond
 {
   return
     case c, b of
-    | allCond(_), allCond(_) -> false
+    | allCond(_), allCond(_) -> false 
     | allCond(_), _ -> true
     | nullCond(), nullCond() -> true
     | nullCond(), _ -> true
     | _, nullCond() -> true
     | denseAccess(_, _, _), allCond(_) -> false
-    | denseAccess(_, _, _), denseAccess(_, _, _) -> false
+    | denseAccess(_, _, _), denseAccess(_, _, _) -> true
     | denseAccess(_, _, _), _ -> true
-    | sparseAccess(_, _, _), sparseAccess(_, _, _) -> false
+    | sparseAccess(_, _, _), sparseAccess(_, _, _) -> false 
     | _, _ -> false
     end;
 }

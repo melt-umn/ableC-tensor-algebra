@@ -61,7 +61,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
         \ e::TensorExpr ->
           pair(getTensorName(e), getTensorFormat(e))
         ,
-        ex.tensors
+        ex.tensors ++ out.tensors
       )
       ,
       tm:empty(compareString)

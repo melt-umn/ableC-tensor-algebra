@@ -53,11 +53,30 @@ top::ComputeGraph ::=
             h
           )
         in
-        !containsWith(
-          \ con::TensorCond ->
-            condIsAbove(con, cond)
+        foldl(
+          \ b::Boolean lat::LatticePoint ->
+            b || 
+            let e::Decorated TensorExpr =
+              decorate c.value with {variable=head(vars); fmts=fmts;}
+            in
+            let ex::Decorated TensorExpr =
+              decorate lat.value with {variable=head(vars); fmts=fmts;}
+            in
+            listLength(e.sparse) < listLength(ex.sparse)
+            end
+            end
           ,
-          conds
+          false,
+          h
+        )
+        --||
+        --!null(decorate c.value with {variable=head(vars); fmts=fmts;}.sparse)
+        ||
+        !containsWith(
+          \ lat::LatticePoint ->
+            condIsAbove(optimizeCond(lat.cond), cond)
+          ,
+          h
         )
         end
         end
@@ -89,10 +108,10 @@ top::ComputeGraph ::=
           filterHead(
             \ c::LatticePoint h::[LatticePoint] ->
               !containsWith(
-                \ con::TensorCond ->
-                  condIsAbove(con, c.cond)
+                \ lat::LatticePoint ->
+                  condIsAbove(lat.cond, c.cond)
                 ,
-                map((.cond), h)
+                h
               )
             ,
             pnts
@@ -104,35 +123,31 @@ top::ComputeGraph ::=
     );
 
   top.exprs =
-    if listLength(vars) == 1
-    then 
-      map(
-        \ p::LatticePoint ->
-          [p.value]
-        ,
-        filtered
-      )
-    else
-      map(
-        \ lst::[LatticePoint] ->
-          map(
-            \ l::LatticePoint ->
-              l.value
-            ,
-            lst
-          )
-        ,
-        sbLts
-      );
+    map(
+      \ lst::[LatticePoint] ->
+        map(
+          \ l::LatticePoint ->
+            l.value
+          ,
+          lst
+        )
+      ,
+      sbLts
+    );
 
   top.frthr = 
     if listLength(vars) == 1
     then
       map(
-        \ e::[TensorExpr] ->
-          []
+        \ lst::[LatticePoint] ->
+          map(
+            \ l::LatticePoint ->
+              nullGraph()
+            ,
+            lst
+          )
         ,
-        top.exprs
+        sbLts
       )
     else
       map(
@@ -156,26 +171,17 @@ top::ComputeGraph ::=
       );
 
   top.ifCnd =
-    if listLength(vars) == 1
-    then 
-      map(
-        \ e::[TensorExpr] ->
-          []
-        ,
-        top.exprs
-      )
-    else
-      map(
-        \ lst::[LatticePoint] ->
-          map(
-            \ lp::LatticePoint ->
-              lp.cond
-            ,
-            lst
-          )
-        ,
-        sbLts
-      );
+    map(
+      \ lst::[LatticePoint] ->
+        map(
+          \ lp::LatticePoint ->
+            lp.cond
+          ,
+          lst
+        )
+      ,
+      sbLts
+    );
 
   top.var = head(vars);
 
@@ -187,19 +193,26 @@ top::ComputeGraph ::=
       filtered
     );
 
-  top.compute = 
-    implode("\n",
-      zip5(
-        \ c::TensorCond ex::TensorExpr e::[TensorExpr] cd::[TensorCond] gr::[ComputeGraph] ->
-          generateCode(c, ex, e, cd, gr, head(vars), fmts)
-        ,
-        top.conds,
-        exs,
-        top.exprs,
-        top.ifCnd,
-        top.frthr
-      )
-    );
+  top.compute =
+    if null(top.conds)
+    then ""
+    else
+      generateCode(head(top.conds), head(exs), head(top.exprs), head(top.ifCnd), head(top.frthr), head(vars), fmts, listLength(top.conds) == 1, assign, tail(vars), true)
+      ++
+      "\n"
+      ++
+      implode("\n",
+        zip5(
+          \ c::TensorCond ex::TensorExpr e::[TensorExpr] cd::[TensorCond] gr::[ComputeGraph] ->
+            generateCode(c, ex, e, cd, gr, head(vars), fmts, listLength(top.conds) == 1, assign, tail(vars), false)
+          ,
+          tail(top.conds),
+          tail(exs),
+          tail(top.exprs),
+          tail(top.ifCnd),
+          tail(top.frthr)
+        )
+      );
 }
 
 function extractPoints
@@ -428,12 +441,27 @@ String ::= c::TensorCond e::TensorExpr var::String fmts::tm:Map<String TensorFor
     end;
 }
 
+function reduceExpr
+TensorExpr ::= ex::TensorExpr v::String remain::[String]
+{
+  ex.remaining = remain;
+
+  return ex;  
+}
+
 function generateCode
 String ::= 
   c::TensorCond ex::TensorExpr e::[TensorExpr] ic::[TensorCond] 
   g::[ComputeGraph] v::String fmts::tm:Map<String TensorFormat>
+  canEmitFor::Boolean assign::TensorExpr remain::[String]
+  top::Boolean
 {
+  local subs::[Pair<String TensorExpr>] =
+    listSubs(ex, v, remain);
+
   local forLoop::Boolean =
+    canEmitFor 
+    &&
     case c of
     | allCond(_) -> true
     | denseAccess(_, _, _) -> true
@@ -449,13 +477,191 @@ String ::=
     | _ -> ""
     end;
 
+  local emitElse::Boolean =
+    case c of
+    | sparseAccess(_, _, _) -> listLength(ic) == 1
+    | _ -> false
+    end;
+
+  ex.variable = v;
+  ex.fmts = fmts;
+
+  local below::Boolean =
+    case assign of
+    | tensorAccess(_, _, _, _) ->
+      let acc::[String] =
+        head(assign.accesses)
+      in
+      !containsAny(
+        stringEq, 
+        v :: remain,
+        acc
+      )
+      end
+    | _ -> true
+    end;
+
+  local output::Boolean =
+    case assign of
+    | tensorAccess(_, _, _, _) ->
+      let acc::[String] =
+        head(assign.accesses)
+      in
+      !containsAny(
+        stringEq, 
+        remain,
+        acc
+      )
+      &&
+      containsBy(
+        stringEq,
+        v,
+        acc
+      )
+      end
+    | _ -> false
+    end;
+
+  local above :: Boolean =
+    !output && !below;
+
+  assign.variable = v;
+  assign.fmts = fmts;
+
+  local outSparse::Maybe<Pair<String Integer>> =
+    case assign of
+    | tensorAccess(_, _, _, _) ->
+      let lst::[Pair<String Integer>] =
+        assign.sparse
+      in
+      if null(lst)
+      then nothing()
+      else just(head(lst))
+      end
+    | _ -> nothing()
+    end;
+
+  local outDense::Maybe<Pair<String Integer>> =
+    case assign of
+    | tensorAccess(_, _, _, _) ->
+      let lst::[Pair<String Integer>] =
+        assign.dense
+      in
+      if null(lst)
+      then nothing()
+      else just(head(lst))
+      end
+    | _ -> nothing()
+    end;
+
   return
+    (
+    if top
+    then
+      implode("\n",
+        map(
+          \ p::Pair<String Integer> ->
+            if forLoop && p.fst == forVar
+            then ""
+            else
+              s"unsigned long p${p.fst}${toString(p.snd+1)} = ${p.fst}${toString(p.snd+1)}_pos[${if p.snd == 0 then "0" else s"p${p.fst}${toString(p.snd)}"}];"
+          ,
+          ex.sparse
+        )
+      )
+    else ""
+    )
+    ++
+    "\n"
+    ++
+    case outSparse of
+    | just(pair(s, d)) ->
+      s"unsigned long p${s}${toString(d+1)} = ${s}${toString(d+1)}_pos[${if d == 0 then "0" else s"p${s}${toString(d)}"}];"
+    | nothing() -> ""
+    end
+    ++
+    "\n"
+    ++
     (
     if forLoop
     then
       s"for(unsigned long ${forVar} = 0; ${generateFullCondition(c, ex, v, fmts)}; ${forVar}++) {"
     else
       s"while(${generateFullCondition(c, ex, v, fmts)}) {"
+    )
+    ++
+    "\n  "
+    ++
+    (
+    if listLength(ex.sparse) == 1 && (!forLoop || forVar != v)
+    then 
+      let p::Pair<String Integer> =
+        head(ex.sparse)
+      in
+      s"unsigned long ${v} = ${p.fst}${toString(p.snd+1)}_idx[p${p.fst}${toString(p.snd+1)}];"
+      end
+    else
+      implode("\n  ",
+        map(
+          \ p::Pair<String Integer> ->
+            s"unsigned long ${v}${p.fst} = ${p.fst}${toString(p.snd+1)}_idx[p${p.fst}${toString(p.snd+1)}];"
+          ,
+          ex.sparse
+        )
+      )
+      ++
+      "\n  "
+      ++
+      (
+      if null(ex.sparse) || (forLoop && forVar == v)
+      then ""
+      else
+        s"unsigned long ${v} = ${generateMin(ex.sparse, v)};"
+      )
+    )
+    ++
+    "\n  "
+    ++
+    implode("\n  ",
+      map(
+        \ p::Pair<String Integer> ->
+          s"unsigned long p${p.fst}${toString(p.snd+1)} = ${if p.snd == 0 then "0" else s"(p${p.fst}${toString(p.snd)} * ${p.fst}${toString(p.snd+1)}_size)"} + ${v};"
+        ,
+        ex.dense
+      )
+    )
+    ++
+    "\n  "
+    ++
+    case outDense of
+    | just(pair(s, d)) ->
+      s"unsigned long p${s}${toString(d+1)} = ${if d == 0 then "0" else s"(p${s}${toString(d)} * ${s}${toString(d+1)}_size)"} + ${v};"
+    | nothing() -> ""
+    end
+    ++
+    (
+    if above
+    then
+      "\n  "
+      ++
+      implode("\n  ",
+        map(
+          \ p::Pair<String TensorExpr> ->
+            s"double ${p.fst} = ${exprToString(p.snd)};"
+          ,
+          subs
+        )
+      )
+    else ""
+    )
+    ++
+    (
+    if output && !null(remain)
+    then 
+      "\n  "
+      ++
+      s"double t${last(remain)} = 0.0;"
+    else ""
     )
     ++
     "\n  if(0) {}"
@@ -470,11 +676,11 @@ String ::=
           zip3(
             \ c::TensorCond e::TensorExpr g::ComputeGraph ->
               (
-              if c.ifCond != "1"
+              if c.ifCond == "1" || emitElse
               then
-                s"else if(${c.ifCond}) {"
-              else
                 "else {"
+              else
+                s"else if(${c.ifCond}) {"
               )
               ++
               "\n  "
@@ -491,9 +697,29 @@ String ::=
                 )
               )
               ++
-              "\n"
+              (
+              if below
+              then
+                "\n  //emit-reduction-compute()"
+              else ""
+              )
               ++
-              "}"
+              (
+              if output
+              then
+                "\n  //emit-compute()"
+              else ""
+              )
+              ++
+              "\n  "
+              ++
+              case outSparse of
+              | just(pair(s, d)) ->
+                s"p${s}${toString(d+1)}++;"
+              | nothing() -> ""
+              end
+              ++
+              "\n}"
             ,
             ic,
             e,
@@ -503,5 +729,38 @@ String ::=
       )
     )
     ++
+    "\n  "
+    ++
+    (
+    if listLength(ex.sparse) == 1 && (!forLoop || forVar != v)
+    then
+      let p::Pair<String Integer> =
+        head(ex.sparse)
+      in
+      s"p${p.fst}${toString(p.snd+1)}++;"
+      end
+    else
+      implode(
+        "\n  ",
+        map(
+          \ p::Pair<String Integer> ->
+            s"if(${v}${p.fst} == ${v}) p${p.fst}${toString(p.snd+1)}++;"
+          ,
+          ex.sparse
+        )
+      )
+    )
+    ++
     "\n}";
+}
+
+function generateMin
+String ::= prs::[Pair<String Integer>] var::String
+{
+  return 
+    case prs of
+    | [] -> ""
+    | p::[] -> s"${var}${p.fst}"
+    | p::tl -> s"({unsigned min = ${generateMin(tl, var)}; ${var}${p.fst} < min ? ${var}${p.fst} : min;})"
+    end;
 }
