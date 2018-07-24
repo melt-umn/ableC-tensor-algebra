@@ -9,3 +9,4 @@ A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compi
 * Investigate and implement loop parallelization where possible
 * Add check for including tensors.xh header file
 * Find nice examples
+* Implement string show using string extension
