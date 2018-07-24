@@ -2,6 +2,7 @@
 A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compiler* by Fredrik Kjolstad, et. al.
 
 ## Todo
+* Fix condition handling for test.xc and expression substitution
 * Handle duplicate tensor use in tensor expressions.
 * Extend test-suite to test correctness of code gen
 * Fix tensor computation in assignment to scalar.

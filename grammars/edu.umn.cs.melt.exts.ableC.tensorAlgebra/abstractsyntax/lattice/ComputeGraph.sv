@@ -36,6 +36,13 @@ top::ComputeGraph ::=
       head(assign.accesses)
     );
 
+  local above::Boolean =
+    containsBy(
+      stringEq,
+      last(head(assign.accesses)),
+      tail(vars)
+    );
+
   local lp::LatticePoint =
     lattice_points(assign, fmts, value, head(vars), loc, env, true);
 
@@ -158,9 +165,15 @@ top::ComputeGraph ::=
             \ lp::LatticePoint ->
               computeGraph(
                 assign, fmts, 
-                makeSubs(
-                  lp.value, head(vars),
-                  tail(vars), isBelowOut
+                (
+                if above
+                then
+                  makeSubs(
+                    lp.value, head(vars),
+                    tail(vars), isBelowOut
+                  )
+                else
+                  lp.value
                 ),
                 tail(vars), loc,
                 env
@@ -1240,7 +1253,7 @@ Pair<TensorExpr Integer> ::= ex::TensorExpr var::String remain::[String] idx::In
   ex.remaining = remain;
 
   return
-    if ex.isAvail
+    if ex.isAvail 
     then pair(ex, idx)
     else
       case ex of
