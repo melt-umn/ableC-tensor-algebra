@@ -305,7 +305,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   forwards to
     mkErrorCheck(
       lErrors,
-      substExpr(
+      mkStringConst(graph.compute, top.location)
+  {-    substExpr(
         stmtSubstitution("__tensor_decl", tensorDecl) ::
         stmtSubstitution("__expr_decl", exprDecl) ::
         stmtSubstitution("__tensor_prep", tensorValDec) ::
@@ -333,6 +334,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
         })
         """)
       )
+  -}
     );
 }
 
