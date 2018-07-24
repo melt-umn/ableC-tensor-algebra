@@ -15,18 +15,71 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       text("] = "),
       right.pp
     ]);
+  
+  local out::TensorExpr =
+    tensorAccess(tensor, tensor, idx, top.env, location=top.location);
+  
+  local ex::TensorExpr =
+    right.tensorExp;
+
+  local tensors::[TensorExpr] =
+    ex.tensors ++ out.tensors;
+
+  local tensorNames::[String] =
+    map(
+      getTensorName(_),
+      tensors
+    );
+
+  local tensorFormats::[TensorFormat] =
+    map(
+      getTensorFormat(_),
+      tensors
+    );
+
+  local newNames::[String] =
+    mapWithTail(
+      \ n::String o::[String] ->
+        let c::Integer =
+          count(stringEq, n, o)
+        in
+        if c > 0
+        then n ++ toString(c) ++ "_"
+        else n
+        end
+      ,
+      tensorNames
+    );
+
+  local outNew::TensorExpr =
+    modifyNames(
+      drop(
+        listLength(ex.tensors),
+        newNames
+      ),
+      out
+    );
+
+  local exNew::TensorExpr =
+    modifyNames(
+      take(
+        listLength(ex.tensors),
+        newNames
+      ),
+      ex
+    );
 
   local leftOnly::[String] =
     let lAcc::[String] =
       nubBy(
         stringEq,
-        flatMap(\l::[String] -> l, out.accesses)
+        flatMap(\l::[String] -> l, outNew.accesses)
       )
     in
     let rAcc::[String] =
       nubBy(
         stringEq,
-        flatMap(\l::[String] -> l, ex.accesses)
+        flatMap(\l::[String] -> l, exNew.accesses)
       )
     in
     filter(
@@ -40,12 +93,6 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   local invalidLeftVar::Boolean =
     !null(leftOnly);
 
-  local out::TensorExpr =
-    tensorAccess(tensor, tensor, idx, top.env, location=top.location);
-  
-  local ex::TensorExpr =
-    right.tensorExp;
-
   local order::Maybe<[String]> =
     mergeOrder(out.accesses ++ ex.accesses);
 
@@ -57,17 +104,18 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
-      map(
-        \ e::TensorExpr ->
-          pair(getTensorName(e), getTensorFormat(e))
+      zipWith(
+        \ s::String f::TensorFormat ->
+          pair(s, f)
         ,
-        ex.tensors ++ out.tensors
+        newNames,
+        tensorFormats
       )
       ,
       tm:empty(compareString)
     );
 
-  ex.accessOrder = access;
+  exNew.accessOrder = access;
 
   local lErrors::[Message] =
     if invalidLeftVar
@@ -81,7 +129,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
   local graph::ComputeGraph =
     computeGraph(
-      out, fmts, ex, access,
+      outNew, fmts, exNew, access,
       top.location, top.env
     );
 
@@ -91,10 +139,10 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     );
 
   local fmtNm::String =
-    getTensorFormat(out).proceduralName;
+    getTensorFormat(outNew).proceduralName;
 
   local outOrder::Integer = 
-    getTensorFormat(out).dimensions;
+    getTensorFormat(outNew).dimensions;
 
   local assembleStmt::Stmt =
     parseStmt(
@@ -106,15 +154,15 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       ++
       "unsigned long count = 1;\n"
       ++
-      generateMakeBody(getTensorFormat(out).storage)
+      generateMakeBody(getTensorFormat(outNew).storage)
       ++
       graph.asmbl
       ++
       s"""
-      unsigned long* dims = ${out.tensorName}.dims;
-      tensor_packTree_${fmtNm}(&(${out.tensorName}.buffer), dims);
+      unsigned long* dims = ${outNew.tensorName}.dims;
+      tensor_packTree_${fmtNm}(&(${outNew.tensorName}.buffer), dims);
       
-      struct tensor_tree_s* buffer = &(${out.tensorName}.buffer);
+      struct tensor_tree_s* buffer = &(${outNew.tensorName}.buffer);
       t->indices = GC_malloc(sizeof(unsigned long**) * ${toString(outOrder)});
       unsigned long numChildren = 1;
       struct tensor_tree_s** trees = &buffer;
@@ -122,7 +170,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       struct tensor_tree_s** temp_tree;
       unsigned long total, dimSize, index, newChildren;
 
-      ${generatePackBody_Assemble(getTensorFormat(out).storage)}
+      ${generatePackBody_Assemble(getTensorFormat(outNew).storage)}
 
       t->data = GC_malloc(sizeof(double) * numChildren);
       for(unsigned long i = 0; i < numChildren; i++) {
@@ -163,7 +211,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
         | _ -> nothing()
         end
       ,
-      ex.tensors ++ out.tensors
+      exNew.tensors ++ outNew.tensors
     );
 
   local exprInit :: [Maybe<Pair<String Expr>>] =
@@ -184,7 +232,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           end
         end
       ,
-      ex.exprs
+      exNew.exprs
     );
 
   local tensorDecls :: [Stmt] =
@@ -246,7 +294,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           generateTensorVals(e)
         )
       ,
-      ex.tensors
+      exNew.tensors
     );
 
   local tensorValDec :: Stmt =
@@ -265,7 +313,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           generateTensorVals(e)
         )
       ,
-      out.tensors
+      outNew.tensors
     );
 
   local outValDec :: Stmt =
@@ -279,8 +327,11 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
   local checkDims :: Stmt =
     parseStmt(
-      check_dims(out, ex, access, fmts)
+      check_dims(outNew, exNew, access, fmts)
     );
+
+  exNew.fmts = fmts;
+  outNew.fmts = fmts;
 
   local tensorPack :: Stmt =
     foldl(
@@ -296,17 +347,41 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
         )
       ,
       nullStmt(),
-      ex.tensors
+      exNew.tensors
     );
 
-  computeStmt.env = top.env;
-  computeStmt.returnType = nothing();
+  local tensorNameSub :: Stmt =
+    foldl(
+      \ s1::Stmt pr::Pair<String Pair<String String>> ->
+        seqStmt(s1,
+          if pr.snd.fst == pr.snd.snd
+          then
+            nullStmt()
+          else
+            parseStmt(
+              s"struct tensor_${fmtNm} ${pr.snd.fst} = ${pr.snd.snd};"
+            )
+        )
+      ,
+      nullStmt(),
+      zipWith(
+        pair,
+        map(
+          \ f::TensorFormat ->
+            f.proceduralName
+          ,
+          tensorFormats
+        ),
+        zipWith(pair, newNames, tensorNames)
+      )
+    );
 
   forwards to
     mkErrorCheck(
       lErrors,
       substExpr(
         stmtSubstitution("__tensor_decl", tensorDecl) ::
+        stmtSubstitution("__tensor_sub", tensorNameSub) ::
         stmtSubstitution("__expr_decl", exprDecl) ::
         stmtSubstitution("__tensor_prep", tensorValDec) ::
         stmtSubstitution("__check_dims", checkDims) ::
@@ -319,17 +394,18 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
         parseExpr(s"""
         ({
           __tensor_decl;
+          __tensor_sub;
           __expr_decl;
           __tensor_pack;
           __tensor_prep;
           __check_dims;
-          if(${checkFormats(exprToString(ex), ex.tensors ++ out.tensors)}) {
+          if(${checkFormats(exprToString(exNew), exNew.tensors ++ outNew.tensors)}) {
             {__assemble;}
           }
           __out_prep;
           __compute;
-          ${setFormats(exprToString(ex), ex.tensors ++ out.tensors)}
-          ${out.tensorName};
+          ${setFormats(exprToString(exNew), exNew.tensors ++ outNew.tensors)}
+          ${outNew.tensorName};
         })
         """)
       )

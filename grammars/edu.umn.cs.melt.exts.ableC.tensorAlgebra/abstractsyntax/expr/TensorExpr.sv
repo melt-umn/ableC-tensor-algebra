@@ -268,3 +268,109 @@ String ::= e::TensorExpr
       e.tensorName ++ "[" ++ implode(",", head(e.accesses)) ++ "]"
     end;
 }
+
+function modifyNames
+TensorExpr ::= names::[String] ex::TensorExpr
+{
+  return
+    case ex of
+    | tensorBaseExpr(_, _) -> ex
+    | tensorAccess(e, t, i, n) ->
+      if ex.tensorName != head(names)
+      then 
+        tensorAccess(
+          e,
+          declRefExpr(
+            name(
+              head(names),
+              location=ex.location
+            ),
+            location=ex.location
+          ),
+          i,
+          n,
+          location=ex.location
+        )
+      else ex
+    | tensorAdd(e, l, r, n) ->
+      tensorAdd(
+        e,
+        modifyNames(
+          take(
+            listLength(l.tensors),
+            names
+          ),
+          l
+        ),
+        modifyNames(
+          drop(
+            listLength(l.tensors),
+            names
+          ),
+          r
+        ),
+        n,
+        location=ex.location
+      )
+    | tensorSub(e, l, r, n) ->
+      tensorSub(
+        e,
+        modifyNames(
+          take(
+            listLength(l.tensors),
+            names
+          ),
+          l
+        ),
+        modifyNames(
+          drop(
+            listLength(l.tensors),
+            names
+          ),
+          r
+        ),
+        n,
+        location=ex.location
+      )
+    | tensorMul(e, l, r, n) ->
+      tensorMul(
+        e,
+        modifyNames(
+          take(
+            listLength(l.tensors),
+            names
+          ),
+          l
+        ),
+        modifyNames(
+          drop(
+            listLength(l.tensors),
+            names
+          ),
+          r
+        ),
+        n,
+        location=ex.location
+      )
+    | tensorDiv(e, l, r, n) ->
+      tensorDiv(
+        e,
+        modifyNames(
+          take(
+            listLength(l.tensors),
+            names
+          ),
+          l
+        ),
+        modifyNames(
+          drop(
+            listLength(l.tensors),
+            names
+          ),
+          r
+        ),
+        n,
+        location=ex.location
+      )
+    end;
+}

@@ -169,6 +169,18 @@ function filterHead
     );
 }
 
+function mapWithTail
+[a] ::= f::(a ::= b [b]) lst::[b]
+{
+  return
+    if null(lst)
+    then []
+    else
+      f(head(lst), tail(lst))
+      ::
+      mapWithTail(f, tail(lst));
+}
+
 function filterHead_helper
 [a] ::= f::(Boolean ::= a [a]) lst::[a] hs::[[a]]
 {
@@ -193,4 +205,16 @@ Boolean ::= f::(Boolean ::= a) lst::[a]
     else
       f(head(lst)) ||
       containsWith(f, tail(lst));
+}
+
+function count
+Integer ::= f::(Boolean ::= a a) i::a lst::[a]
+{
+  return
+    if null(lst)
+    then 0
+    else 
+      if f(i, head(lst))
+      then 1 + count(f, i, tail(lst))
+      else count(f, i, tail(lst));
 }
