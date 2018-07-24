@@ -39,11 +39,14 @@ top::ComputeGraph ::=
     );
 
   local above::Boolean =
-    containsBy(
-      stringEq,
-      last(head(assign.accesses)),
-      tail(vars)
-    );
+    if null(assign.accesses)
+    then false
+    else
+      containsBy(
+        stringEq,
+        last(head(assign.accesses)),
+        tail(vars)
+      );
 
   local lp::LatticePoint =
     lattice_points(assign, fmts, value, head(vars), loc, env, true);

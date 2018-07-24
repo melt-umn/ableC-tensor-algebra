@@ -25,9 +25,13 @@ int main() {
   printf("B[1, 2, 1] = %f\n", B[1, 2, 1]);
 
   A[i,j] = B[i,j,k] * C[k];
+  double x;
+  x = B[i,j,k] * C[k];
 
   printf("A[0, 0] = %f (should be 4.0)\n", A[0, 0]);
   printf("A[1, 2] = %f (should be 23.0)\n", A[1, 2]);
+
+  printf("x = %f\n", x);
 
   return 0;
 }

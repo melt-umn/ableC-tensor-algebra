@@ -408,7 +408,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           }
           __out_prep;
           __compute;
-          ${setFormats(exprToString(exNew, fmts), exNew.tensors ++ outNew.tensors)}
+          ${setFormats(exprToString(exNew, fmts), ex.tensors ++ out.tensors)}
           ${outNew.tensorName};
         })
         """)
@@ -443,7 +443,45 @@ top::Expr ::= output::Expr expr::Expr
   local ex::TensorExpr =
     expr.tensorExp;
 
-  ex.fmts = tm:empty(compareString); -- TODO: Fix
+  local tensors::[TensorExpr] =
+    ex.tensors;
+
+  local tensorNames::[String] =
+    map(
+      getTensorName(_),
+      tensors
+    );
+
+  local tensorFormats::[TensorFormat] =
+    map(
+      \ e::TensorExpr ->
+        getTensorFormat(e, tm:empty(compareString))
+      ,
+      tensors
+    );
+
+  local newNames::[String] =
+    mapWithTail(
+      \ n::String o::[String] ->
+        let c::Integer =
+          count(stringEq, n, o)
+        in
+        if c > 0
+        then n ++ toString(c) ++ "_"
+        else n
+        end
+      ,
+      tensorNames
+    );
+
+  local exNew::TensorExpr =
+    modifyNames(
+      newNames,
+      ex
+    );
+
+  out.fmts = fmts;
+  ex.fmts = fmts;
   local order::Maybe<[String]> =
     mergeOrder(ex.accesses);
 
@@ -453,16 +491,238 @@ top::Expr ::= output::Expr expr::Expr
     | just(l) -> l
     end;
 
+  local fmts::tm:Map<String TensorFormat> =
+    tm:add(
+      zipWith(
+        \ s::String f::TensorFormat ->
+          pair(s, f)
+        ,
+        newNames,
+        tensorFormats
+      ),
+      tm:empty(compareString)
+    );
+
+  exNew.accessOrder = access;
+
   local lErrors::[Message] =
     case order of
     | nothing() -> [err(top.location, "Cannot generate code for this tensor expression due to cyclical access patterns")]
     | just(_) -> []
     end;
 
+  local graph::ComputeGraph =
+    computeGraph(
+      out, fmts, exNew, access,
+      top.location, top.env
+    );
+
+  local computeStmt::Stmt =
+    parseStmt(
+      graph.compute
+    );
+
+  local tensorInit :: [Maybe<Pair<String Expr>>] =
+    map(
+      \ e::TensorExpr ->
+        case e of
+        | tensorAccess(_, ex, _, _) ->
+          case decorate ex with {env=e.envr; returnType=nothing();} of
+          | declRefExpr(name(_)) -> nothing()
+          | _ ->
+            let fmt::TensorFormat =
+              getTensorFormat(e, fmts)
+            in
+            let nm::String =
+              getTensorName(e)
+            in
+            just(
+              pair(
+                s"struct tensor_${fmt.proceduralName} ${nm} = __tensor_sub;",
+                ex
+              )
+            )
+            end
+            end
+          end
+        | _ -> nothing() 
+        end
+      ,
+      exNew.tensors
+    );
+
+  local exprInit :: [Maybe<Pair<String Expr>>] =
+    map(
+      \ e::Expr ->
+        case decorate e with {env=top.env; returnType=nothing();} of
+        | declRefExpr(name(_)) -> nothing()
+        | _ ->
+          let nm::String =
+            getExprName(e, top.env)
+          in
+          just(
+            pair(
+              s"double ${nm} = __expr_sub;",
+              e
+            )
+          )
+          end
+        end
+      ,
+      exNew.exprs
+    );
+
+  local tensorDecls :: [Stmt] =
+    map(
+      \ m::Maybe<Pair<String Expr>> ->
+        case m of
+        | just(pair(s, ex)) ->
+          substStmt(
+            [declRefSubstitution("__tensor_sub", ex)]
+            ,
+            parseStmt(s)
+          )
+        | nothing() -> nullStmt()
+        end
+      ,
+      tensorInit
+    );
+
+  local exprDecls :: [Stmt] =
+    map(
+      \ m::Maybe<Pair<String Expr>> ->
+        case m of
+        | just(pair(s, ex)) ->
+          substStmt(
+            [declRefSubstitution("__expr_sub", ex)]
+            ,
+            parseStmt(s)
+          )
+        | nothing() -> nullStmt()
+        end
+      ,
+      exprInit
+    );
+
+  local tensorDecl :: Stmt =
+    foldl(
+      \ s1::Stmt s2::Stmt ->
+        seqStmt(s1, s2)
+      ,
+      nullStmt(),
+      tensorDecls
+    );
+
+  local exprDecl :: Stmt =
+    foldl(
+      \ s1::Stmt s2::Stmt ->
+        seqStmt(s1, s2)
+      ,
+      nullStmt(),
+      exprDecls
+    );
+
+  local tensorValInit :: [Stmt] =
+    map(
+      \ e::TensorExpr ->
+        parseStmt(
+          generateTensorVals(e, fmts)
+        )
+      ,
+      exNew.tensors
+    );
+
+  local tensorValDec :: Stmt =
+    foldl(
+      \ s1::Stmt s2::Stmt ->
+        seqStmt(s1, s2)
+      ,
+      nullStmt(),
+      tensorValInit
+    );
+
+  local checkDims :: Stmt =
+    parseStmt(
+      check_dims(out, exNew, access, fmts)
+    );
+
+  exNew.fmts = fmts;
+
+  local tensorPack :: Stmt =
+    foldl(
+      \ s1::Stmt e::TensorExpr ->
+        seqStmt(s1,
+          let fmt::String = 
+            getTensorFormat(e, fmts).proceduralName
+          in
+          parseStmt(
+            s"tensor_pack_${fmt}(&${e.tensorName});"
+          )
+          end
+        )
+      ,
+      nullStmt(),
+      exNew.tensors
+    );
+
+  local tensorNameSub :: Stmt =
+    foldl(
+      \ s1::Stmt pr::Pair<String Pair<String String>> ->
+        seqStmt(s1,
+          if pr.snd.fst == pr.snd.snd
+          then
+            nullStmt()
+          else
+            parseStmt(
+              s"struct tensor_${pr.fst} ${pr.snd.fst} = ${pr.snd.snd};"
+            )
+        )
+      ,
+      nullStmt(),
+      zipWith(
+        pair,
+        map(
+          \ f::TensorFormat ->
+            f.proceduralName
+          ,
+          tensorFormats
+        ),
+        zipWith(pair, newNames, tensorNames)
+      )
+    );
+
   forwards to
     mkErrorCheck(
       lErrors,
-      mkStringConst(implode(", ", access), top.location)
+      substExpr(
+        stmtSubstitution("__tensor_decl", tensorDecl) ::
+        stmtSubstitution("__tensor_sub", tensorNameSub) ::
+        stmtSubstitution("__expr_decl", exprDecl) ::
+        stmtSubstitution("__tensor_prep", tensorValDec) ::
+        stmtSubstitution("__check_dims", checkDims) ::
+        stmtSubstitution("__tensor_pack", tensorPack) ::
+        stmtSubstitution("__compute", computeStmt) ::
+        []
+        ,
+        eqExpr(
+          output,
+          parseExpr(s"""
+          ({
+            __tensor_decl;
+            __tensor_sub;
+            __expr_decl;
+            __tensor_pack;
+            __tensor_prep;
+            __check_dims;
+            double t${head(access)}0 = 0.0;
+            __compute;
+            ${setFormats(exprToString(exNew, fmts), ex.tensors)};
+            t${head(access)}0;
+          })
+          """),
+          location=top.location
+        )
+      )
     );
 }
 
