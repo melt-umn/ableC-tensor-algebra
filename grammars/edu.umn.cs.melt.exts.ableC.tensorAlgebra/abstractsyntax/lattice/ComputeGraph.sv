@@ -27,7 +27,7 @@ top::ComputeGraph ::=
 abstract production computeGraph
 top::ComputeGraph ::=
   assign::TensorExpr fmts::tm:Map<String TensorFormat> value::TensorExpr
-  vars::[String] loc::Location env::Decorated Env 
+  vars::[String] loc::Location env::Decorated Env
 {
   local isBelowOut::Boolean =
     !containsAny(
@@ -78,8 +78,6 @@ top::ComputeGraph ::=
           false,
           h
         )
-        --||
-        --!null(decorate c.value with {variable=head(vars); fmts=fmts;}.sparse)
         ||
         !containsWith(
           \ lat::LatticePoint ->
@@ -513,13 +511,13 @@ String ::=
   c::TensorCond ex::TensorExpr e::[TensorExpr] ic::[TensorCond] 
   g::[ComputeGraph] v::String fmts::tm:Map<String TensorFormat>
   canEmitFor::Boolean assign::TensorExpr remain::[String]
-  top::Boolean
+  top::Boolean 
 {
   local subs::[Pair<String TensorExpr>] =
     listSubs(ex, v, remain);
 
-  local redSubs :: [Pair<String TensorExpr>] =
-    list_reducedSubs(ex, v::remain);
+  --local redSubs :: [Pair<String TensorExpr>] =
+  --  list_reducedSubs(ex, v::remain);
 
   local forLoop::Boolean =
     canEmitFor 
@@ -631,6 +629,9 @@ String ::=
     | _ -> false
     end;
 
+
+  local redSubs::[Pair<String TensorExpr>] =
+    list_reduceDeeper(ex, v::remain);
 
   return
     (
@@ -761,8 +762,8 @@ String ::=
               let red::TensorExpr = 
                 reduceDeeper(e, v, remain)
               in
-              let sbs::[String] =
-                list_reduceDeeper(e, v, remain)
+              let sbs::[Pair<String TensorExpr>] =
+                list_reduceDeeper(e, remain)
               in
               (
               if c.ifCond == "1" || emitElse
@@ -784,8 +785,8 @@ String ::=
                 then 
                   implode("\n  ",
                     map(
-                      \ s::String ->
-                        s"double ${s} = 0.0;"
+                      \ s::Pair<String TensorExpr> ->
+                        s"double ${s.fst} = 0.0;"
                       ,
                       sbs
                     )
@@ -812,7 +813,11 @@ String ::=
                     \ p::Pair<String TensorExpr> ->
                       if exprContained(e, p.snd)
                       then
-                        s"${p.fst} += ${evalExpr(p.snd)};"
+                        let sb::TensorExpr =
+                          performSubs(p.snd, sbs)
+                        in
+                        s"${p.fst} += ${evalExpr(sb)};"
+                        end
                       else ""
                     ,
                     redSubs
@@ -1228,13 +1233,13 @@ TensorExpr ::= ex::TensorExpr var::String remain::[String]
 }
 
 function list_reduceDeeper
-[String] ::= ex::TensorExpr var::String remain::[String]
+[Pair<String TensorExpr>] ::= ex::TensorExpr remain::[String]
 {
   return
     if null(remain)
     then []
     else
-      list_reduceDeeper_helper(ex, var, remain, 0).fst;
+      list_reduceDeeper_helper(ex, remain, 0).fst;
 }
 
 function list_reducedSubs
@@ -1296,7 +1301,8 @@ Pair<TensorExpr Integer> ::= ex::TensorExpr var::String remain::[String] idx::In
 }
 
 function list_reduceDeeper_helper
-Pair<[String] Integer> ::= ex::TensorExpr var::String remain::[String] idx::Integer
+Pair<[Pair<String TensorExpr>] Integer> ::= 
+  ex::TensorExpr remain::[String] idx::Integer
 {
   ex.remaining = remain;
 
@@ -1309,36 +1315,39 @@ Pair<[String] Integer> ::= ex::TensorExpr var::String remain::[String] idx::Inte
         pair([], idx)
       | tensorAccess(_, _, _, en) ->
         pair(
-          [s"t${head(remain)}${toString(idx)}"],
+          [pair(s"t${head(remain)}${toString(idx)}", ex)],
           idx+1
         )
-      | tensorAdd(ex, l, r, en) ->
+      | tensorAdd(ep, l, r, en) ->
         list_reduceDeeper_function(
-          var, remain, idx, ex, en, l, r
+          remain, idx, ep, en, l, r, ex
         )
-      | tensorSub(ex, l, r, en) ->
+      | tensorSub(ep, l, r, en) ->
         list_reduceDeeper_function(
-          var, remain, idx, ex, en, l, r
+          remain, idx, ep, en, l, r, ex
         )
-      | tensorMul(ex, l, r, en) ->
+      | tensorMul(ep, l, r, en) ->
         list_reduceDeeper_function(
-          var, remain, idx, ex, en, l, r
+          remain, idx, ep, en, l, r, ex
         )
-      | tensorDiv(ex, l, r, en) ->
+      | tensorDiv(ep, l, r, en) ->
         list_reduceDeeper_function(
-          var, remain, idx, ex, en, l, r
+          remain, idx, ep, en, l, r, ex
         )
       end;
 }
 
 function list_reducedSubs_helper
-Pair<[Pair<String TensorExpr>] Integer> ::= expr::TensorExpr remain::[String] idx::Integer
+Pair<[Pair<String TensorExpr>] Integer> ::= 
+  expr::TensorExpr remain::[String]
+  idx::Integer
 {
   expr.remaining = remain;
 
   return
     if expr.isAvail
-    then pair([], idx)
+    then 
+      pair([], idx)
     else
       case expr of
       | tensorBaseExpr(_, _) ->
@@ -1461,18 +1470,19 @@ Pair<TensorExpr Integer> ::=
 }
 
 function list_reduceDeeper_function
-Pair<[String] Integer> ::= 
-  var::String remain::[String] idx::Integer ex::Expr
+Pair<[Pair<String TensorExpr>] Integer> ::= 
+  remain::[String] idx::Integer ex::Expr
   env::Decorated Env l::TensorExpr r::TensorExpr
+  expr::TensorExpr
 {
   return
     if anyAvail(l, remain) && anyAvail(r, remain)
     then
-      let lSub::Pair<[String] Integer> =
-        list_reduceDeeper_helper(l, var, remain, idx)
+      let lSub::Pair<[Pair<String TensorExpr>] Integer> =
+        list_reduceDeeper_helper(l, remain, idx)
       in
-      let rSub::Pair<[String] Integer> =
-        list_reduceDeeper_helper(r, var, remain, lSub.snd)
+      let rSub::Pair<[Pair<String TensorExpr>] Integer> =
+        list_reduceDeeper_helper(r, remain, lSub.snd)
       in
       pair(
         lSub.fst ++ rSub.fst,
@@ -1482,12 +1492,12 @@ Pair<[String] Integer> ::=
       end
     else if anyAvail(l, remain)
     then
-      let lSub::Pair<[String] Integer> =
-        list_reduceDeeper_helper(l, var, remain, idx)
+      let lSub::Pair<[Pair<String TensorExpr>] Integer> =
+        list_reduceDeeper_helper(l, remain, idx)
       in
-      let rSub::Pair<[String] Integer> =
+      let rSub::Pair<[Pair<String TensorExpr>] Integer> =
         pair(
-          [s"t${head(remain)}${toString(lSub.snd)}"],
+          [pair(s"t${head(remain)}${toString(lSub.snd)}", r)],
           lSub.snd+1
         )
       in
@@ -1499,14 +1509,14 @@ Pair<[String] Integer> ::=
       end
     else if anyAvail(r, remain)
     then
-      let lSub::Pair<[String] Integer> =
+      let lSub::Pair<[Pair<String TensorExpr>] Integer> =
         pair(
-          [s"t${head(remain)}${toString(idx)}"],
+          [pair(s"t${head(remain)}${toString(idx)}", l)],
           idx+1
         )
       in
-      let rSub::Pair<[String] Integer> =
-        list_reduceDeeper_helper(r, var, remain, lSub.snd)
+      let rSub::Pair<[Pair<String TensorExpr>] Integer> =
+        list_reduceDeeper_helper(r, remain, lSub.snd)
       in
       pair(
         lSub.fst ++ rSub.fst,
@@ -1516,7 +1526,7 @@ Pair<[String] Integer> ::=
       end
     else
       pair(
-        [s"t${head(remain)}${toString(idx)}"],
+        [pair(s"t${head(remain)}${toString(idx)}", expr)],
         idx+1
       );
 }
@@ -1524,7 +1534,7 @@ Pair<[String] Integer> ::=
 function list_reducedSubs_function
 Pair<[Pair<String TensorExpr>] Integer> ::=
   remain::[String] idx::Integer ex::Expr env::Decorated Env
-  l::TensorExpr r::TensorExpr exp::TensorExpr
+  l::TensorExpr r::TensorExpr exp::TensorExpr 
 {
   return
     if anyAvail(l, remain) && anyAvail(r, remain)
@@ -1672,4 +1682,77 @@ Boolean ::= l1::[String] l2::[String]
     | h1::t1, h2::t2 -> h1 == h2 && lstEqual(t1, t2)
     | _, _ -> false
     end;
+}
+
+function performSubs
+TensorExpr ::= ex::TensorExpr sbs::[Pair<String TensorExpr>]
+{
+  return
+    foldl(
+      \ e::TensorExpr sb::Pair<String TensorExpr> ->
+        if exprContained(e, sb.snd)
+        then 
+          performSub_helper(e, sb)
+        else
+          e
+      ,
+      ex,
+      sbs
+    );
+}
+
+function performSub_helper
+TensorExpr ::= ex::TensorExpr sb::Pair<String TensorExpr>
+{
+  return
+    if exprEqual(ex, sb.snd)
+    then
+      tensorBaseExpr(
+        declRefExpr(
+          name(
+            sb.fst,
+            location=ex.location
+          ),
+          location=ex.location
+        ),
+        ex.envr,
+        location=ex.location
+      )
+    else
+      case ex of
+      | tensorBaseExpr(_, _) -> ex
+      | tensorAccess(_, _, _, _) -> ex
+      | tensorAdd(e, l, r, n) ->
+        tensorAdd(
+          e,
+          performSub_helper(l, sb),
+          performSub_helper(r, sb),
+          n,
+          location=ex.location
+        )
+      | tensorSub(e, l, r, n) ->
+        tensorSub(
+          e,
+          performSub_helper(l, sb),
+          performSub_helper(r, sb),
+          n,
+          location=ex.location
+        )
+      | tensorMul(e, l, r, n) ->
+        tensorMul(
+          e,
+          performSub_helper(l, sb),
+          performSub_helper(r, sb),
+          n,
+          location=ex.location
+        )
+      | tensorDiv(e, l, r, n) ->
+        tensorDiv(
+          e,
+          performSub_helper(l, sb),
+          performSub_helper(r, sb),
+          n,
+          location=ex.location
+        )
+      end;
 }

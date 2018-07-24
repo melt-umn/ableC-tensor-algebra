@@ -82,7 +82,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   local graph::ComputeGraph =
     computeGraph(
       out, fmts, ex, access,
-      top.location, top.env 
+      top.location, top.env
     );
 
   local computeStmt::Stmt =

@@ -64,20 +64,29 @@ function condAnd
 TensorCond ::= l::TensorCond r::TensorCond loop::Boolean
 {
   return
-    case l, r of
-    | nullCond(), nullCond() -> nullCond()
-    | nullCond(), allCond(_) -> nullCond()
-    | allCond(_), nullCond() -> nullCond()
-    | nullCond(), _ -> r
-    | _, nullCond() -> l
-    | allCond(v), allCond(_) -> allCond(v)
-    | allCond(_), _ -> r
-    | _, allCond(_) -> l
-    | denseAccess(_, _, _), denseAccess(_, _, _) -> l
-    | denseAccess(_, _, _), _ -> r
-    | _, denseAccess(_, _, _) -> l
-    | _, _ -> andCond(l, r)
-    end;
+    if isNullCond(l) && isNullCond(r)
+    then nullCond()
+    else if isNullCond(l) && isAllCond(r)
+    then nullCond()
+    else if isAllCond(l) && isNullCond(r)
+    then nullCond()
+    else if isNullCond(l)
+    then r
+    else if isNullCond(r)
+    then l
+    else if isAllCond(l) && isAllCond(r)
+    then l
+    else if isAllCond(l)
+    then r
+    else if isAllCond(r)
+    then l
+    else if isDenseCond(l) && isDenseCond(r)
+    then l
+    else if isDenseCond(l)
+    then r
+    else if isDenseCond(r)
+    then l
+    else andCond(l, r);
 }
 
 function condOr
@@ -86,31 +95,48 @@ TensorCond ::= l::TensorCond r::TensorCond loop::Boolean
   return
     if loop
     then
-      case l, r of
-      | nullCond(), nullCond() -> nullCond()
-      | nullCond(), _ -> r
-      | _, nullCond() -> l
-      | allCond(v), allCond(_) -> allCond(v)
-      | allCond(_), _ -> l
-      | _, allCond(_) -> r
-      | denseAccess(_, _, _), denseAccess(_, _, _) -> l
-      | denseAccess(_, _, _), _ -> l
-      | _, denseAccess(_, _, _) -> r
-      | _, _ -> andCond(l, r)
-      end
+      if isNullCond(l) && isNullCond(r)
+      then nullCond()
+      else if isNullCond(l)
+      then r
+      else if isNullCond(r)
+      then l
+      else if isAllCond(l) && isAllCond(r)
+      then l
+      else if isAllCond(l)
+      then l
+      else if isAllCond(r)
+      then r
+      else if isDenseCond(l) && isDenseCond(r)
+      then l
+      else if isDenseCond(l) 
+      then l
+      else if isDenseCond(r)
+      then r
+      else andCond(l, r)
     else
-      case l, r of
-      | nullCond(), nullCond() -> nullCond()
-      | nullCond(), _ -> r
-      | _, nullCond() -> l
-      | allCond(v), allCond(_) -> allCond(v)
-      | allCond(_), _ -> r
-      | _, allCond(_) -> l
-      | denseAccess(_, _, v), denseAccess(_, _, _) -> allCond(v)
-      | denseAccess(_, _, _), _ -> r
-      | _, denseAccess(_, _, _) -> l
-      | _, _ -> andCond(l, r)
-      end;
+      if isNullCond(l) && isNullCond(r)
+      then nullCond()
+      else if isNullCond(l)
+      then r
+      else if isNullCond(r)
+      then l
+      else if isAllCond(l) && isAllCond(r)
+      then l
+      else if isAllCond(l)
+      then r
+      else if isAllCond(r)
+      then l
+      else if isDenseCond(l) && isDenseCond(r)
+      then 
+        case l of
+        | denseAccess(_, _, v) -> allCond(v)
+        end
+      else if isDenseCond(l)
+      then r
+      else if isDenseCond(r)
+      then l
+      else andCond(l, r);
 }
 
 function optimizeCond
@@ -197,6 +223,46 @@ Boolean ::= c::TensorCond
   return
     case c of
     | allCond(_) -> true
+    | _ -> false
+    end;
+}
+
+function isNullCond
+Boolean ::= c::TensorCond
+{
+  return
+    case c of
+    | nullCond() -> true
+    | _ -> false
+    end;
+}
+
+function isDenseCond
+Boolean ::= c::TensorCond
+{
+  return
+    case c of
+    | denseAccess(_, _, _) -> true
+    | _ -> false
+    end;
+}
+
+function isSparseCond
+Boolean ::= c::TensorCond
+{
+  return
+    case c of
+    | sparseAccess(_, _, _) -> true
+    | _ -> false
+    end;
+}
+
+function isAndCond
+Boolean ::= c::TensorCond
+{
+  return
+    case c of
+    | andCond(_, _) -> true
     | _ -> false
     end;
 }
