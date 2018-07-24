@@ -66,6 +66,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
               temp[index].index = j;
               temp[index].isLeaf = 1;
               temp[index].val = oldChildren[idx].val;
+              idx++;
             } else {
               temp[index].index = j;
               temp[index].isLeaf = 1;

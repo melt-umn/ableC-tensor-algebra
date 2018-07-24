@@ -17,6 +17,11 @@ int main() {
   A[7,7] = 6.0;
   A[7,0] = 4.0;
 
+  printf("y[%d, %d] = %f (should be %f)\n", 0, 0, A[0,0], 4.0);
+  printf("y[%d, %d] = %f (should be %f)\n", 0, 3, A[0,3], 2.0);
+  printf("y[%d, %d] = %f (should be %f)\n", 7, 7, A[7,7], 6.0);
+  printf("y[%d, %d] = %f (should be %f)\n", 7, 0, A[7,0], 4.0);
+
   x[0] = 3.0;
   x[3] = 2.0;
   x[7] = 1.0;

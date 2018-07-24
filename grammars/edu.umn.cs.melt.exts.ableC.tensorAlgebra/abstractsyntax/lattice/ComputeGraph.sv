@@ -435,7 +435,7 @@ String ::= e::TensorExpr
   return
     case e of
     | tensorBaseExpr(e, _) -> show(100, e.pp)
-    | tensorAccess(_, t, i, _) -> show(100, t.pp) ++ "[" ++ show(100, i.pp) ++ "]"
+    | tensorAccess(_, t, i, _) -> e.tensorName ++ "[" ++ implode(",", head(e.accesses)) ++ "]"
     | tensorAdd(_, l, r, _) -> "(" ++ exprToString(l) ++ "+" ++ exprToString(r) ++ ")"
     | tensorSub(_, l, r, _) -> "(" ++ exprToString(l) ++ "-" ++ exprToString(r) ++ ")"
     | tensorMul(_, l, r, _) -> "(" ++ exprToString(l) ++ "*" ++ exprToString(r) ++ ")"
@@ -506,7 +506,7 @@ String ::=
     listSubs(ex, v, remain);
 
   local redSubs :: [Pair<String TensorExpr>] =
-    list_reducedSubs(ex, v, remain);
+    list_reducedSubs(ex, v::remain);
 
   local forLoop::Boolean =
     canEmitFor 
@@ -794,14 +794,24 @@ String ::=
               (
               if below
               then
-              s"\"reduce: ${evalExpr(red)}\";"
+                implode("\n",
+                  map(
+                    \ p::Pair<String TensorExpr> ->
+                      if exprContained(e, p.snd)
+                      then
+                        s"${p.fst} += ${evalExpr(p.snd)};"
+                      else ""
+                    ,
+                    redSubs
+                  )
+                )
               else ""
               )
               ++
               (
               if output
               then
-              s"\"output: ${evalExpr(red)}\";"
+              s"\n  ${evalOut(assign)} += ${evalExpr(red)};"
               else ""
               )
               ++
@@ -1214,6 +1224,16 @@ function list_reduceDeeper
       list_reduceDeeper_helper(ex, var, remain, 0).fst;
 }
 
+function list_reducedSubs
+[Pair<String TensorExpr>] ::= ex::TensorExpr remain::[String]
+{
+  return
+    if null(remain)
+    then []
+    else
+      list_reducedSubs_helper(ex, remain, 0).fst;
+}
+
 function reduceDeeper_helper
 Pair<TensorExpr Integer> ::= ex::TensorExpr var::String remain::[String] idx::Integer
 {
@@ -1298,6 +1318,41 @@ Pair<[String] Integer> ::= ex::TensorExpr var::String remain::[String] idx::Inte
       end;
 }
 
+function list_reducedSubs_helper
+Pair<[Pair<String TensorExpr>] Integer> ::= expr::TensorExpr remain::[String] idx::Integer
+{
+  expr.remaining = remain;
+
+  return
+    if expr.isAvail
+    then pair([], idx)
+    else
+      case expr of
+      | tensorBaseExpr(_, _) ->
+        pair([], idx)
+      | tensorAccess(_, _, _, _) ->
+        pair(
+          [pair(s"t${head(remain)}${toString(idx)}", expr)],
+          idx+1
+        )
+      | tensorAdd(ex, l, r, en) ->
+        list_reducedSubs_function(
+          remain, idx, ex, en, l, r, expr
+        )
+      | tensorSub(ex, l, r, en) ->
+        list_reducedSubs_function(
+          remain, idx, ex, en, l, r, expr
+        )
+      | tensorMul(ex, l, r, en) ->
+        list_reducedSubs_function(
+          remain, idx, ex, en, l, r, expr
+        )
+      | tensorDiv(ex, l, r, en) ->
+        list_reducedSubs_function(
+          remain, idx, ex, en, l, r, expr
+        )
+      end;
+}
 
 function reduceDeeper_function
 Pair<TensorExpr Integer> ::= 
@@ -1453,6 +1508,67 @@ Pair<[String] Integer> ::=
       );
 }
 
+function list_reducedSubs_function
+Pair<[Pair<String TensorExpr>] Integer> ::=
+  remain::[String] idx::Integer ex::Expr env::Decorated Env
+  l::TensorExpr r::TensorExpr exp::TensorExpr
+{
+  return
+    if anyAvail(l, remain) && anyAvail(r, remain)
+    then
+      let lSub::Pair<[Pair<String TensorExpr>] Integer> =
+        list_reducedSubs_helper(l, remain, idx)
+      in
+      let rSub::Pair<[Pair<String TensorExpr>] Integer> =
+        list_reducedSubs_helper(r, remain, lSub.snd)
+      in
+      pair(
+        lSub.fst ++ rSub.fst,
+        rSub.snd
+      )
+      end
+      end
+    else if anyAvail(l, remain)
+    then
+      let lSub::Pair<[Pair<String TensorExpr>] Integer> =
+        list_reducedSubs_helper(l, remain, idx)
+      in
+      let rSub::Pair<[Pair<String TensorExpr>] Integer> =
+        pair(
+          [pair(s"t${head(remain)}${toString(lSub.snd)}", l)],
+          lSub.snd+1
+        )
+      in
+      pair(
+        lSub.fst ++ rSub.fst,
+        rSub.snd
+      )
+      end
+      end
+    else if anyAvail(r, remain)
+    then
+      let lSub::Pair<[Pair<String TensorExpr>] Integer> =
+        pair(
+          [pair(s"t${head(remain)}${toString(idx)}", l)],
+          idx+1
+        )
+      in
+      let rSub::Pair<[Pair<String TensorExpr>] Integer> =
+        list_reducedSubs_helper(r, remain, lSub.snd)
+      in
+      pair(
+        lSub.fst ++ rSub.fst,
+        rSub.snd
+      )
+      end
+      end
+      else
+        pair(
+          [pair(s"t${head(remain)}${toString(idx)}", exp)],
+          idx+1
+        );
+}
+
 function anyAvail
 Boolean ::= ex::TensorExpr remain::[String]
 {
@@ -1471,5 +1587,76 @@ Boolean ::= ex::TensorExpr remain::[String]
     | tensorDiv(_, l, r, _) ->
       anyAvail(l, remain) || anyAvail(r, remain)
     | _ -> false
+    end;
+}
+
+function exprContained
+Boolean ::= top::TensorExpr pc::TensorExpr
+{
+  return
+    if exprEqual(top, pc)
+    then true
+    else 
+      case top of
+      | tensorBaseExpr(_, _) -> false
+      | tensorAccess(_, _, _, _) -> false
+      | tensorAdd(_, l, r, _) ->
+        exprContained(l, pc) 
+        ||
+        exprContained(r, pc)
+      | tensorSub(_, l, r, _) ->
+        exprContained(l, pc)
+        ||
+        exprContained(r, pc)
+      | tensorMul(_, l, r, _) ->
+        exprContained(l, pc)
+        ||
+        exprContained(r, pc)
+      | tensorDiv(_, l, r, _) ->
+        exprContained(l, pc)
+        ||
+        exprContained(r, pc)
+      end;
+}
+
+function exprEqual
+Boolean ::= a::TensorExpr b::TensorExpr
+{
+  return
+    case a, b of
+    | tensorBaseExpr(e1, _), tensorBaseExpr(e2, _) ->
+      a.exprName == b.exprName
+    | tensorAccess(_, _, _, _), tensorAccess(_, _, _, _) ->
+      a.tensorName == b.tensorName
+      &&
+      lstEqual(head(a.accesses), head(b.accesses))
+    | tensorAdd(_, l1, r1, _), tensorAdd(_, l2, r2, _) ->
+      exprEqual(l1, l2)
+      &&
+      exprEqual(r1, r2)
+    | tensorSub(_, l1, r1, _), tensorSub(_, l2, r2, _) ->
+      exprEqual(l1, l2)
+      &&
+      exprEqual(r1, r2)
+    | tensorMul(_, l1, r1, _), tensorMul(_, l2, r2, _) ->
+      exprEqual(l1, l2)
+      && 
+      exprEqual(r1, r2)
+    | tensorDiv(_, l1, r1, _), tensorDiv(_, l2, r2, _) ->
+      exprEqual(l1, l2)
+      &&
+      exprEqual(r1, r2)
+    | _, _ -> false
+    end;
+}
+
+function lstEqual
+Boolean ::= l1::[String] l2::[String]
+{
+  return
+    case l1, l2 of
+    | [], [] -> true
+    | h1::t1, h2::t2 -> h1 == h2 && lstEqual(t1, t2)
+    | _, _ -> false
     end;
 }
