@@ -3,6 +3,7 @@ A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compi
 
 ## Todo
 * Handle duplicate tensor use in tensor expressions.
+* Extend test-suite to test correctness of code gen
 * Fix tensor computation in assignment to scalar.
 * Implement sparse and dense functions over tensor accesses for tensor expressions
 * Investigate and implement loop parallelization where possible
