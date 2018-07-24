@@ -24,6 +24,8 @@ LatticePoint ::=
   assign::TensorExpr fmts::tm:Map<String TensorFormat> value::TensorExpr
   var::String loc::Location env::Decorated Env loop::Boolean
 {
+  value.fmts = fmts;
+
   return
     case value of
     | tensorBaseExpr(_, _) -> latticePoint([], value, allCond(var))
@@ -258,6 +260,8 @@ function generateCond
 TensorCond ::= 
   expr::TensorExpr var::String loc::Location fmts::tm:Map<String TensorFormat> loop::Boolean
 {
+  expr.fmts = fmts;
+
   return
     case expr of
     | tensorBaseExpr(_, _) -> allCond(var)

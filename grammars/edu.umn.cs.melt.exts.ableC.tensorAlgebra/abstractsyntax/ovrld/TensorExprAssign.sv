@@ -33,7 +33,9 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
   local tensorFormats::[TensorFormat] =
     map(
-      getTensorFormat(_),
+      \ e::TensorExpr ->
+        getTensorFormat(e, tm:empty(compareString))
+      ,
       tensors
     );
 
@@ -93,6 +95,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   local invalidLeftVar::Boolean =
     !null(leftOnly);
 
+  out.fmts = fmts;
+  ex.fmts = fmts;
   local order::Maybe<[String]> =
     mergeOrder(out.accesses ++ ex.accesses);
 
@@ -139,10 +143,10 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     );
 
   local fmtNm::String =
-    getTensorFormat(outNew).proceduralName;
+    getTensorFormat(outNew, fmts).proceduralName;
 
   local outOrder::Integer = 
-    getTensorFormat(outNew).dimensions;
+    getTensorFormat(outNew, fmts).dimensions;
 
   local assembleStmt::Stmt =
     parseStmt(
@@ -154,7 +158,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       ++
       "unsigned long count = 1;\n"
       ++
-      generateMakeBody(getTensorFormat(outNew).storage)
+      generateMakeBody(getTensorFormat(outNew, fmts).storage)
       ++
       graph.asmbl
       ++
@@ -170,7 +174,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       struct tensor_tree_s** temp_tree;
       unsigned long total, dimSize, index, newChildren;
 
-      ${generatePackBody_Assemble(getTensorFormat(outNew).storage)}
+      ${generatePackBody_Assemble(getTensorFormat(outNew, fmts).storage)}
 
       t->data = GC_malloc(sizeof(double) * numChildren);
       for(unsigned long i = 0; i < numChildren; i++) {
@@ -194,7 +198,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           | declRefExpr(name(_)) -> nothing()
           | _ -> 
             let fmt::TensorFormat =
-              getTensorFormat(e)
+              getTensorFormat(e, fmts)
             in
             let nm::String =
               getTensorName(e)
@@ -291,7 +295,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     map(
       \ e::TensorExpr ->
         parseStmt(
-          generateTensorVals(e)
+          generateTensorVals(e, fmts)
         )
       ,
       exNew.tensors
@@ -310,7 +314,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     map(
       \ e::TensorExpr ->
         parseStmt(
-          generateTensorVals(e)
+          generateTensorVals(e, fmts)
         )
       ,
       outNew.tensors
@@ -338,7 +342,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       \ s1::Stmt e::TensorExpr ->
         seqStmt(s1,
           let fmt::String =
-            getTensorFormat(e).proceduralName
+            getTensorFormat(e, fmts).proceduralName
           in
           parseStmt(
             s"tensor_pack_${fmt}(&${e.tensorName});"
@@ -359,7 +363,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
             nullStmt()
           else
             parseStmt(
-              s"struct tensor_${fmtNm} ${pr.snd.fst} = ${pr.snd.snd};"
+              s"struct tensor_${pr.fst} ${pr.snd.fst} = ${pr.snd.snd};"
             )
         )
       ,
@@ -399,12 +403,12 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           __tensor_pack;
           __tensor_prep;
           __check_dims;
-          if(${checkFormats(exprToString(exNew), exNew.tensors ++ outNew.tensors)}) {
+          if(${checkFormats(exprToString(exNew, fmts), exNew.tensors ++ outNew.tensors)}) {
             {__assemble;}
           }
           __out_prep;
           __compute;
-          ${setFormats(exprToString(exNew), exNew.tensors ++ outNew.tensors)}
+          ${setFormats(exprToString(exNew, fmts), exNew.tensors ++ outNew.tensors)}
           ${outNew.tensorName};
         })
         """)
@@ -439,6 +443,7 @@ top::Expr ::= output::Expr expr::Expr
   local ex::TensorExpr =
     expr.tensorExp;
 
+  ex.fmts = tm:empty(compareString); -- TODO: Fix
   local order::Maybe<[String]> =
     mergeOrder(ex.accesses);
 

@@ -17,14 +17,18 @@ String ::= e::TensorExpr
 }
 
 function getTensorFormat
-TensorFormat ::= e::TensorExpr
+TensorFormat ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
 {
   return
     case e of
     | tensorAccess(_, ex, _, _) ->
       case decorate ex with {env=e.envr; returnType=nothing();}.typerep of
       | tensorType(_, f, _) -> new(f.tensorFormat)
-      | _ -> errorTensorFormat()
+      | _ -> 
+        case tm:lookup(e.tensorName, fmts) of
+        | [] -> errorTensorFormat()
+        | x::_ -> x
+        end
       end
     | _ -> errorTensorFormat()
     end;
@@ -41,10 +45,10 @@ String ::= e::Expr env::Decorated Env
 }
 
 function generateTensorVals
-String ::= ex::TensorExpr
+String ::= ex::TensorExpr fmts::tm:Map<String TensorFormat>
 {
   local fmt::TensorFormat =
-    getTensorFormat(ex);
+    getTensorFormat(ex, fmts);
   local nm::String =
     getTensorName(ex);
 

@@ -61,10 +61,7 @@ top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
   top.exprs = [];
 
   local fmt::TensorFormat =
-    case tensor.typerep of
-    | tensorType(_, f, _) -> new(f.tensorFormat)
-    | _ -> errorTensorFormat()
-    end;
+    getTensorFormat(top, top.fmts);
 
   top.tensorName = getTensorName(top);
 
@@ -250,18 +247,20 @@ function getAccess
 }
 
 function exprToString
-String ::= e::TensorExpr
+String ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
 {
+  e.fmts = fmts;
+
   return
     case e of
     | tensorAdd(_, l, r, _) ->
-      "(" ++ exprToString(l) ++ "+" ++ exprToString(r) ++ ")"
+      "(" ++ exprToString(l, fmts) ++ "+" ++ exprToString(r, fmts) ++ ")"
     | tensorSub(_, l, r, _) ->
-      "(" ++ exprToString(l) ++ "-" ++ exprToString(r) ++ ")"
+      "(" ++ exprToString(l, fmts) ++ "-" ++ exprToString(r, fmts) ++ ")"
     | tensorMul(_, l, r, _) ->
-      "(" ++ exprToString(l) ++ "*" ++ exprToString(r) ++ ")"
+      "(" ++ exprToString(l, fmts) ++ "*" ++ exprToString(r, fmts) ++ ")"
     | tensorDiv(_, l, r, _) ->
-      "(" ++ exprToString(l) ++ "/" ++ exprToString(r) ++ ")"
+      "(" ++ exprToString(l, fmts) ++ "/" ++ exprToString(r, fmts) ++ ")"
     | tensorBaseExpr(ex, _) -> 
       show(100, ex.pp)
     | tensorAccess(_, t, i, _) ->
