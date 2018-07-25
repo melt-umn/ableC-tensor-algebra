@@ -1030,6 +1030,13 @@ String ::=
     | _ -> false
     end;
 
+  local doesOut::Boolean =
+    case assign of
+    | tensorAccess(_, _, _, _) ->
+      !null(assign.dense ++ assign.sparse)
+    | _ -> false
+    end;
+
   local above :: Boolean =
     !output && !below;
 
@@ -1142,9 +1149,17 @@ String ::=
       )
     )
     ++
-    s"idx[${toString(oC-1)}] = ${v};\n"
-    {-++
-    s"tensor_insertBuff_mid_${fmtNm}(&(${assign.tensorName}.buffer), idx, ${toString(oC)});"-}
+    (
+    if doesOut 
+    then
+      s"\nidx[${toString(oC-1)}] = ${v};\n"
+      {-++
+      if !output
+      then
+        s"tensor_insertBuff_mid_${fmtNm}(&(${assign.tensorName}.buffer), idx, ${toString(oC)});"
+      else ""-}
+    else ""
+    )
     ++
     "\n  "
     ++
@@ -1317,22 +1332,22 @@ Pair<TensorExpr Integer> ::=
       | tensorAdd(ex, l, r, en) ->
         reduceDeeper_function(
           tensorAdd(_, _, _, _, location=_), var, remain, 
-          idx, ex, en, l, r, fmts
+          idx, ex, en, l, r, fmts, true
         )
       | tensorSub(ex, l, r, en) ->
         reduceDeeper_function(
           tensorSub(_, _, _, _, location=_), var, remain,
-          idx, ex, en, l, r, fmts
+          idx, ex, en, l, r, fmts, true
         )
       | tensorMul(ex, l, r, en) ->
         reduceDeeper_function(
           tensorMul(_, _, _, _, location=_), var, remain, 
-          idx, ex, en, l, r, fmts
+          idx, ex, en, l, r, fmts, false
         )
       | tensorDiv(ex, l, r, en) ->
         reduceDeeper_function(
           tensorDiv(_, _, _, _, location=_), var, remain,
-          idx, ex, en, l, r, fmts
+          idx, ex, en, l, r, fmts, false
         )
       end;
 }
@@ -1359,19 +1374,19 @@ Pair<[Pair<String TensorExpr>] Integer> ::=
         )
       | tensorAdd(ep, l, r, en) ->
         list_reduceDeeper_function(
-          remain, idx, ep, en, l, r, ex, fmts
+          remain, idx, ep, en, l, r, ex, fmts, true
         )
       | tensorSub(ep, l, r, en) ->
         list_reduceDeeper_function(
-          remain, idx, ep, en, l, r, ex, fmts
+          remain, idx, ep, en, l, r, ex, fmts, true
         )
       | tensorMul(ep, l, r, en) ->
         list_reduceDeeper_function(
-          remain, idx, ep, en, l, r, ex, fmts
+          remain, idx, ep, en, l, r, ex, fmts, false
         )
       | tensorDiv(ep, l, r, en) ->
         list_reduceDeeper_function(
-          remain, idx, ep, en, l, r, ex, fmts
+          remain, idx, ep, en, l, r, ex, fmts, false
         )
       end;
 }
@@ -1421,52 +1436,103 @@ Pair<TensorExpr Integer> ::=
   prod::(TensorExpr ::= Expr TensorExpr TensorExpr Decorated Env Location)
   var::String remain::[String] idx::Integer ex::Expr en::Decorated Env
   l::TensorExpr r::TensorExpr fmts::tm:Map<String TensorFormat>
+  addSub::Boolean
 {
+  l.remaining = remain;
+  l.fmts = fmts;
+  r.remaining = remain;
+  r.fmts = fmts;
+  
   return
-    if anyAvail(l, remain, fmts) && anyAvail(r, remain, fmts)
-    then
-      let lSub::Pair<TensorExpr Integer> =
-        reduceDeeper_helper(l, var, remain, idx, fmts)
-      in
-      let rSub::Pair<TensorExpr Integer> =
-        reduceDeeper_helper(r, var, remain, lSub.snd, fmts)
-      in
-      pair(
-        prod(ex, lSub.fst, rSub.fst, en, ex.location),
-        rSub.snd
-      )
-      end
-      end
-    else if anyAvail(l, remain, fmts)
-    then
-      let lSub::Pair<TensorExpr Integer> =
-        reduceDeeper_helper(l, var, remain, idx, fmts)
-      in
-      let rSub::Pair<TensorExpr Integer> =
+    if addSub
+    then -- add / sub
+      if anyAvail(l, remain, fmts) && anyAvail(r, remain, fmts)
+      then
+        let lSub::Pair<TensorExpr Integer> =
+          reduceDeeper_helper(l, var, remain, idx, fmts)
+        in
+        let rSub::Pair<TensorExpr Integer> =
+          reduceDeeper_helper(r, var, remain, lSub.snd, fmts)
+        in
+        pair(
+          prod(ex, lSub.fst, rSub.fst, en, ex.location),
+          rSub.snd
+        )
+        end
+        end
+      else if anyAvail(l, remain, fmts)
+      then
+        let lSub::Pair<TensorExpr Integer> =
+          reduceDeeper_helper(l, var, remain, idx, fmts)
+        in
+        let rSub::Pair<TensorExpr Integer> =
+          pair(
+            tensorBaseExpr(
+              declRefExpr(
+                name(
+                  s"t${head(remain)}${toString(lSub.snd)}",
+                  location=ex.location
+                ),
+                location=ex.location
+              ),
+              en,
+              location=ex.location
+            ),
+            lSub.snd+1
+          )
+        in
+        pair(
+          prod(ex, lSub.fst, rSub.fst, en, ex.location),
+          rSub.snd
+        )
+        end
+        end
+      else if anyAvail(r, remain, fmts)
+      then 
+        let lSub::Pair<TensorExpr Integer> =
+          pair(
+            tensorBaseExpr(
+              declRefExpr(
+                name(
+                  s"t${head(remain)}${toString(idx)}",
+                  location=ex.location
+                ),
+                location=ex.location
+              ),
+              en,
+              location=ex.location
+            ),
+            idx+1
+          )
+        in
+        let rSub::Pair<TensorExpr Integer> =
+          reduceDeeper_helper(r, var, remain, lSub.snd, fmts)
+        in
+        pair(
+          prod(ex, lSub.fst, rSub.fst, en, ex.location),
+          rSub.snd
+        )
+        end
+        end
+      else
         pair(
           tensorBaseExpr(
             declRefExpr(
               name(
-                s"t${head(remain)}${toString(lSub.snd)}",
+                s"t${head(remain)}${toString(idx)}",
                 location=ex.location
               ),
               location=ex.location
             ),
             en,
             location=ex.location
-          ),
-          lSub.snd+1
-        )
-      in
-      pair(
-        prod(ex, lSub.fst, rSub.fst, en, ex.location),
-        rSub.snd
+          )
+          ,
+          idx+1
       )
-      end
-      end
-    else if anyAvail(r, remain, fmts)
-    then 
-      let lSub::Pair<TensorExpr Integer> =
+    else
+      if l.isAvail && !availSimul(r, remain, fmts)
+      then
         pair(
           tensorBaseExpr(
             declRefExpr(
@@ -1481,32 +1547,57 @@ Pair<TensorExpr Integer> ::=
           ),
           idx+1
         )
-      in
-      let rSub::Pair<TensorExpr Integer> =
-        reduceDeeper_helper(r, var, remain, lSub.snd, fmts)
-      in
-      pair(
-        prod(ex, lSub.fst, rSub.fst, en, ex.location),
-        rSub.snd
-      )
-      end
-      end
-    else
-      pair(
-        tensorBaseExpr(
-          declRefExpr(
-            name(
-              s"t${head(remain)}${toString(idx)}",
+      else if l.isAvail
+      then
+        let rSub::Pair<TensorExpr Integer> =
+          reduceDeeper_helper(r, var, remain, idx, fmts)
+        in
+        pair(
+          prod(ex, l, rSub.fst, en, ex.location),
+          rSub.snd
+        )
+        end
+      else if r.isAvail && !availSimul(l, remain, fmts)
+      then
+        pair(
+          tensorBaseExpr(
+            declRefExpr(
+              name(
+                s"t${head(remain)}${toString(idx)}",
+                location=ex.location
+              ),
               location=ex.location
             ),
+            en,
             location=ex.location
           ),
-          en,
-          location=ex.location
+          idx+1
         )
-        ,
-        idx+1
-      );
+      else if r.isAvail
+      then
+        let lSub::Pair<TensorExpr Integer> =
+          reduceDeeper_helper(l, var, remain, idx, fmts)
+        in
+        pair(
+          prod(ex, lSub.fst, r, en, ex.location),
+          lSub.snd
+        )
+        end
+      else
+        pair(
+          tensorBaseExpr(
+            declRefExpr(
+              name(
+                s"t${head(remain)}${toString(idx)}",
+                location=ex.location
+              ),
+              location=ex.location
+            ),
+            en,
+            location=ex.location
+          ),
+          idx+1
+        );
 }
 
 function list_reduceDeeper_function
@@ -1514,61 +1605,109 @@ Pair<[Pair<String TensorExpr>] Integer> ::=
   remain::[String] idx::Integer ex::Expr
   env::Decorated Env l::TensorExpr r::TensorExpr
   expr::TensorExpr fmts::tm:Map<String TensorFormat>
+  addSub::Boolean
 {
+  l.remaining = remain;
+  l.fmts = fmts;
+  r.remaining = remain;
+  r.fmts = fmts;
+ 
   return
-    if anyAvail(l, remain, fmts) && anyAvail(r, remain, fmts)
-    then
-      let lSub::Pair<[Pair<String TensorExpr>] Integer> =
-        list_reduceDeeper_helper(l, remain, idx, fmts)
-      in
-      let rSub::Pair<[Pair<String TensorExpr>] Integer> =
-        list_reduceDeeper_helper(r, remain, lSub.snd, fmts)
-      in
-      pair(
-        lSub.fst ++ rSub.fst,
-        rSub.snd
-      )
-      end
-      end
-    else if anyAvail(l, remain, fmts)
-    then
-      let lSub::Pair<[Pair<String TensorExpr>] Integer> =
-        list_reduceDeeper_helper(l, remain, idx, fmts)
-      in
-      let rSub::Pair<[Pair<String TensorExpr>] Integer> =
+    if addSub
+    then -- add / sub
+      if anyAvail(l, remain, fmts) && anyAvail(r, remain, fmts)
+      then
+        let lSub::Pair<[Pair<String TensorExpr>] Integer> =
+          list_reduceDeeper_helper(l, remain, idx, fmts)
+        in
+        let rSub::Pair<[Pair<String TensorExpr>] Integer> =
+          list_reduceDeeper_helper(r, remain, lSub.snd, fmts)
+        in
         pair(
-          [pair(s"t${head(remain)}${toString(lSub.snd)}", r)],
-          lSub.snd+1
+          lSub.fst ++ rSub.fst,
+          rSub.snd
         )
-      in
-      pair(
-        lSub.fst ++ rSub.fst,
-        rSub.snd
-      )
-      end
-      end
-    else if anyAvail(r, remain, fmts)
-    then
-      let lSub::Pair<[Pair<String TensorExpr>] Integer> =
+        end
+        end
+      else if anyAvail(l, remain, fmts)
+      then
+        let lSub::Pair<[Pair<String TensorExpr>] Integer> =
+          list_reduceDeeper_helper(l, remain, idx, fmts)
+        in
+        let rSub::Pair<[Pair<String TensorExpr>] Integer> =
+          pair(
+            [pair(s"t${head(remain)}${toString(lSub.snd)}", r)],
+            lSub.snd+1
+          )
+        in
         pair(
-          [pair(s"t${head(remain)}${toString(idx)}", l)],
+          lSub.fst ++ rSub.fst,
+          rSub.snd
+        )
+        end
+        end
+      else if anyAvail(r, remain, fmts)
+      then
+        let lSub::Pair<[Pair<String TensorExpr>] Integer> =
+          pair(
+            [pair(s"t${head(remain)}${toString(idx)}", l)],
+            idx+1
+          )
+        in
+        let rSub::Pair<[Pair<String TensorExpr>] Integer> =
+          list_reduceDeeper_helper(r, remain, lSub.snd, fmts)
+        in
+        pair(
+          lSub.fst ++ rSub.fst,
+          rSub.snd
+        )
+        end
+        end
+      else
+        pair(
+          [pair(s"t${head(remain)}${toString(idx)}", expr)],
           idx+1
         )
-      in
-      let rSub::Pair<[Pair<String TensorExpr>] Integer> =
-        list_reduceDeeper_helper(r, remain, lSub.snd, fmts)
-      in
-      pair(
-        lSub.fst ++ rSub.fst,
-        rSub.snd
-      )
-      end
-      end
+    else -- mul / div
+      if l.isAvail && !availSimul(r, remain, fmts)
+      then
+        pair(
+          [pair(s"t${head(remain)}${toString(idx)}", expr)],
+          idx+1
+        )
+      else if l.isAvail
+      then
+        list_reduceDeeper_helper(r, remain, idx, fmts)
+      else if r.isAvail && !availSimul(l, remain, fmts)
+      then
+        pair(
+          [pair(s"t${head(remain)}${toString(idx)}", expr)],
+          idx+1
+        )
+      else if r.isAvail
+      then
+        list_reduceDeeper_helper(l, remain, idx, fmts)
+      else
+        pair(
+          [pair(s"t${head(remain)}${toString(idx)}", expr)],
+          idx+1
+        );
+}
+
+function availSimul
+Boolean ::= 
+  ex::TensorExpr remain::[String] fmts::tm:Map<String TensorFormat>
+{
+  ex.remaining = remain;
+  ex.fmts = fmts;
+
+  return
+    if ex.isAvail
+    then true
+    else if anyAvail(ex, remain, fmts)
+    then false
     else
-      pair(
-        [pair(s"t${head(remain)}${toString(idx)}", expr)],
-        idx+1
-      );
+      availSimul(ex, tail(remain), fmts);
 }
 
 function list_reducedSubs_function
