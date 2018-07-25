@@ -651,6 +651,9 @@ String ::=
     | _ -> nothing()
     end;
 
+  local next_sparse :: Maybe<Pair<String Integer>> =
+    assign.next_sparse;
+
   local topAll::Boolean =
     case c of
     | allCond(_) -> true
@@ -687,7 +690,10 @@ String ::=
     then
       case outSparse of
       | just(pair(s, d)) ->
-        s"unsigned long p${s}${toString(d+1)} = ${s}${toString(d+1)}_pos[${if d == 0 then "0" else s"p${s}${toString(d)}"}];"
+        --if d == 0 TODO: New as well
+        --then
+          s"unsigned long p${s}${toString(d+1)} = ${s}${toString(d+1)}_pos[${if d == 0 then "0" else s"p${s}${toString(d)}"}];"
+        --else ""
       | nothing() -> ""
       end
     else ""
@@ -760,7 +766,20 @@ String ::=
       s"unsigned long p${s}${toString(d+1)} = ${if d == 0 then "0" else s"(p${s}${toString(d)} * ${s}${toString(d+1)}_size)"} + ${v};"
     | nothing() -> ""
     end
-    ++
+    ++ -- TODO: Below is New
+    {-case outDense, outSparse of
+    | nothing(), nothing() -> ""
+    | _, _ -> 
+      if next_sparse.isJust
+      then
+        let s::String = next_sparse.fromJust.fst
+        in let d::Integer = next_sparse.fromJust.snd
+        in
+        s"unsigned long p${s}${toString(d+1)} = ${s}${toString(d+1)}_pos[${if d == 0 then "0" else s"p${s}${toString(d)}"}];"
+        end end
+      else ""
+    end
+    ++-}
     (
     if above
     then
@@ -847,7 +866,24 @@ String ::=
                         in
                         s"${p.fst} += ${evalExpr(sb, fmts)};"
                         end
-                      else ""
+                      else
+                        let possible::[TensorExpr] =
+                          exprCanZero(p.snd)
+                        in
+                        let i::Integer =
+                          positionBy(
+                            \ ex::TensorExpr ->
+                              exprContained(e, ex, fmts)
+                            ,
+                            possible
+                          )
+                        in
+                        if i != -1
+                        then
+                          s"${p.fst} += ${evalExpr(getElem(possible, i).fromJust, fmts)};"
+                        else ""
+                        end
+                        end
                     ,
                     redSubs
                   )
@@ -1821,6 +1857,64 @@ Boolean ::= top::TensorExpr pc::TensorExpr fmts::tm:Map<String TensorFormat>
         ||
         exprContained(r, pc, fmts)
       end;
+}
+
+function exprCanZero
+[TensorExpr] ::= ex::TensorExpr
+{
+  return
+    case ex of
+    | tensorBaseExpr(_, _) -> [ex]
+    | tensorAccess(_, _, _, _) -> [ex]
+    | tensorAdd(e, l, r, n) ->
+      ex :: exprCanZero(l) ++ exprCanZero(r)
+      ++
+      flatMap(
+        \ eL::TensorExpr ->
+          map(
+            \ eR::TensorExpr ->
+              tensorAdd(e, eL, eR, n, location=ex.location)
+            ,
+            exprCanZero(r)
+          ),
+        exprCanZero(l)
+      )
+    | tensorSub(e, l, r, n) ->
+      ex :: exprCanZero(l) ++ exprCanZero(r)
+      ++
+      flatMap(
+        \ eL::TensorExpr ->
+          map(
+            \ eR::TensorExpr ->
+              tensorSub(e, eL, eR, n, location=ex.location)
+            ,
+            exprCanZero(r)
+          ),
+        exprCanZero(l)
+      )
+    | tensorMul(e, l, r, n) ->
+      flatMap(
+        \ eL::TensorExpr ->
+          map(
+            \ eR::TensorExpr ->
+              tensorMul(e, eL, eR, n, location=ex.location)
+            ,
+            exprCanZero(r)
+          ),
+        exprCanZero(l)
+      )
+    | tensorDiv(e, l, r, n) ->
+      flatMap(
+        \ eL::TensorExpr ->
+          map(
+            \ eR::TensorExpr ->
+              tensorDiv(e, eL, eR, n, location=ex.location)
+            ,
+            exprCanZero(r)
+          ),
+        exprCanZero(l)
+      )
+    end;
 }
 
 function exprEqual

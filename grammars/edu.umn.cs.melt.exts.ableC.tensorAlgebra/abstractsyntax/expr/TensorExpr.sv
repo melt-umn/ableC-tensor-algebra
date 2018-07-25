@@ -22,12 +22,13 @@ synthesized attribute sparse :: [Pair<String Integer>];
 synthesized attribute dense :: [Pair<String Integer>];
 synthesized attribute sparse_r :: [Pair<String Integer>];
 synthesized attribute dense_r :: [Pair<String Integer>];
+synthesized attribute next_sparse :: Maybe<Pair<String Integer>>;
 
 nonterminal TensorExpr with
   exprName, tensorName, accesses, tensorExpr, envr, 
   tensors, exprs, accessOrder, remaining, isAvail, 
   variable, fmts, sparse, dense, sparse_r, dense_r,
-  location;
+  next_sparse, location;
 
 abstract production tensorBaseExpr
 top::TensorExpr ::= ex::Expr env::Decorated Env
@@ -49,6 +50,7 @@ top::TensorExpr ::= ex::Expr env::Decorated Env
   top.sparse_r = [];
   top.dense = [];
   top.dense_r = [];
+  top.next_sparse = nothing();
 }
 
 abstract production tensorAccess
@@ -137,6 +139,18 @@ top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
       if type == storeDense
       then [pair(top.tensorName, prs.fromJust.snd.fst)]
       else [];
+
+  top.next_sparse =
+    let dNext::Maybe<Pair<Integer Pair<Integer Integer>>> =
+      getElem(f.storage, dim+1)
+    in
+    if !dNext.isJust
+    then nothing()
+    else
+      if dNext.fromJust.snd.snd == storeSparse
+      then just(pair(top.tensorName, dim+1))
+      else nothing()
+    end;
 }
 
 abstract production tensorAdd
@@ -159,6 +173,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
   top.sparse_r = l.sparse_r ++ r.sparse_r;
   top.dense = l.dense ++ r.dense;
   top.dense_r = l.dense_r ++ r.dense_r;
+  top.next_sparse = nothing();
 }
 
 abstract production tensorSub
@@ -181,6 +196,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
   top.sparse_r = l.sparse_r ++ r.sparse_r;
   top.dense = l.dense ++ r.dense;
   top.dense_r = l.dense_r ++ r.dense_r;
+  top.next_sparse = nothing();
 }
 
 abstract production tensorMul
@@ -203,6 +219,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
   top.sparse_r = l.sparse_r ++ r.sparse_r;
   top.dense = l.dense ++ r.dense;
   top.dense_r = l.dense_r ++ r.dense_r;
+  top.next_sparse = nothing();
 }
 
 abstract production tensorDiv
@@ -225,6 +242,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
   top.sparse_r = l.sparse_r ++ r.sparse_r;
   top.dense = l.dense ++ r.dense;
   top.dense_r = l.dense_r ++ r.dense_r;
+  top.next_sparse = nothing();
 }
 
 function getAccess

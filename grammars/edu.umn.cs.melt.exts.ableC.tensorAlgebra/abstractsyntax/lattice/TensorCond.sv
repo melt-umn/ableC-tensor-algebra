@@ -128,10 +128,7 @@ TensorCond ::= l::TensorCond r::TensorCond loop::Boolean
       else if isAllCond(r)
       then l
       else if isDenseCond(l) && isDenseCond(r)
-      then 
-        case l of
-        | denseAccess(_, _, v) -> allCond(v)
-        end
+      then l
       else if isDenseCond(l)
       then r
       else if isDenseCond(r)
