@@ -10,6 +10,12 @@ top::Expr ::=
   top.tensorExp = tensorBaseExpr(top, top.env, location=top.location);
 }
 
+aspect production parenExpr
+top::Expr ::= e::Expr
+{
+  top.tensorExp = e.tensorExp;
+}
+
 global emptyAccess :: Expr =
   parseExpr(s"""
   ({
