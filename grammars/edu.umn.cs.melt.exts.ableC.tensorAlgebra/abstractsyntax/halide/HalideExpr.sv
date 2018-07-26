@@ -2,11 +2,15 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:halide;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
-function halideSetup
-(Stmt ::= Stmt) ::= tensor::Expr idx::Expr value::Expr env::Decorated Env
+abstract production halideSetup
+top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
 {
+  propagate substituted;
+  top.pp = text("// Halide Tensor Expr Setup");
+  top.functionDefs := [];
+
   local out::TensorExpr =
-    tensorAccess(tensor, tensor, idx, env, location=tensor.location);
+    tensorAccess(tensor, tensor, idx, top.env, location=tensor.location);
   local ex::TensorExpr =
     value.tensorExp;
 
@@ -117,15 +121,15 @@ function halideSetup
   local exprInit :: [Maybe<Pair<String Expr>>] =
     map(
       \ e::Expr ->
-        case decorate e with {env=env; returnType=nothing();} of
+        case decorate e with {env=top.env; returnType=nothing();} of
         | declRefExpr(name(_)) -> nothing()
         | _ ->
           let nm::String =
-            getExprName(e, env)
+            getExprName(e, top.env)
           in
           just(
             pair(
-              s"doubel ${nm} = __expr_sub;",
+              s"double ${nm} = __expr_sub;",
               e
             )
           )
@@ -216,8 +220,23 @@ function halideSetup
       halide_check_dims(out, exNew, access, fmts)
     );
 
-  return
-    \ stmt::Stmt ->
+  local initData :: Stmt =
+    foldl(
+      \ s1::Stmt t::String ->
+        seqStmt(
+         s1,
+         parseStmt(s"double* ${t}_data = ${t}.data;")
+        )
+      ,
+      nullStmt(),
+      newNames
+    );
+
+  local zeroOut :: Stmt =
+    parseStmt(s"memset(${outNew.tensorName}.data, 0, ${outNew.tensorName}.dataLen * sizeof(double));");
+
+  local fwrd::Stmt =
+    compoundStmt(
       seqStmt(
         tensorDecl,
         seqStmt(
@@ -226,12 +245,26 @@ function halideSetup
             exprDecl,
             seqStmt(
               checkDims,
-              stmt
+              seqStmt(
+                initData,
+                seqStmt(
+                  zeroOut,
+                  inner
+                )
+              )
             )
           )
         )
-      );
+      )
+    );
 
+  fwrd.env = top.env;
+  fwrd.returnType = top.returnType;
+
+  forwards to
+    if !null(fwrd.errors)
+    then warnStmt(fwrd.errors)
+    else fwrd;
 }
 
 function halide_check_dims
@@ -280,7 +313,7 @@ String ::=
       let dim::String =
         toString(h.snd)
       in
-      "unsigned long ${var}_dimensions = ${nm}.dims[${dim}];"
+      s"unsigned long ${var}_dimension = ${nm}.dims[${dim}];"
       ++
       "\n"
       ++
@@ -618,22 +651,16 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
       topLoop
       ,
       seqIterStmt(
-        stmtIterStmt(
-          parseStmt(s"${outNew.tensorName}_data[${outAcc}] = 0.0;")
-        )
-        ,
-        seqIterStmt(
-          innerLoops,
-          if topExpr.isJust
-          then
-            stmtIterStmt(
-              parseStmt(s"""
-                ${outNew.tensorName}_data[${outAcc}] += ${denseExprEval(topExpr, fmts, accesses)};
-              """)
-            )
-          else
-            nullIterStmt()
-        )
+        innerLoops,
+        if topExpr.isJust
+        then
+          stmtIterStmt(
+            parseStmt(s"""
+              ${outNew.tensorName}_data[${outAcc}] += ${denseExprEval(topExpr, fmts, accesses)};
+            """)
+          )
+        else
+          nullIterStmt()
       )
     );
 

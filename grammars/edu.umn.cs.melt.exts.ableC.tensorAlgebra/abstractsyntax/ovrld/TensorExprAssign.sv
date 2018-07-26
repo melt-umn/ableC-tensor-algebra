@@ -149,6 +149,11 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     getTensorFormat(outNew, fmts).dimensions;
 
   local assembleStmt::Stmt =
+    if allDense(getTensorFormat(outNew, fmts))
+    then parseStmt(
+      s"memset(${outNew.tensorName}.data, 0, ${outNew.tensorName}.dataLen * sizeof(double));"
+    )
+    else
     parseStmt(
       s"unsigned long* idx = GC_malloc(sizeof(unsigned long) * ${toString(listLength(head(out.accesses)))});\n"
       ++
@@ -405,6 +410,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           __check_dims;
           if(${checkFormats(exprToString(exNew, fmts), exNew.tensors ++ outNew.tensors)}) {
             {__assemble;}
+          } else {
+            memset(${outNew.tensorName}.data, 0, ${outNew.tensorName}.dataLen * sizeof(double));
           }
           __out_prep;
           __compute;

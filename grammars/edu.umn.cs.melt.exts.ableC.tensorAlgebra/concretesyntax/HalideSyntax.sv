@@ -14,9 +14,6 @@ top::Stmt_c ::=
       ts.ast
     );
 
-  top.ast = 
-    halideSetup(ten.ast, index.ast, value.ast, iter.env)
-    (
-      iter
-    );
+  top.ast =
+    halideSetup(ten.ast, index.ast, value.ast, iter);
 }

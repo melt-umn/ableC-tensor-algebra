@@ -31,6 +31,9 @@ top::ComputeGraph ::=
 {
   assign.fmts = fmts;
 
+  local outDense :: Boolean =
+    allDense(getTensorFormat(assign, fmts));
+
   local isBelowOut::Boolean =
     !containsAny(
       stringEq,
@@ -213,7 +216,9 @@ top::ComputeGraph ::=
     );
 
   top.asmbl =
-    if null(top.conds)
+    if outDense
+    then ""
+    else if null(top.conds)
     then ""
     else
       generateAssemble(head(top.conds), head(exs), head(top.exprs), head(top.ifCnd), head(top.frthr), head(vars), fmts, listLength(top.conds) == 1, assign, tail(vars), true)

@@ -33,3 +33,16 @@ function formStorage
        end
     end;
 }
+
+function allDense
+Boolean ::= fmt::TensorFormat
+{
+  return
+    foldl(
+      \ b::Boolean p::Pair<Integer Pair<Integer Integer>> ->
+        b && p.snd.snd == storeDense
+      ,
+      true,
+      fmt.storage
+    );
+}

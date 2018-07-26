@@ -40,7 +40,7 @@ Decl ::= fmt::TensorFormat
         t->buffer.children = 0;
         
         t->form = "";
-        t->dataLen = 0;
+        t->dataLen = count;
       }
     """);
 }

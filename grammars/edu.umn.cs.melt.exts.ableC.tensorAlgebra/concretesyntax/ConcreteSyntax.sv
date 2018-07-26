@@ -34,11 +34,11 @@ concrete productions top::AssignExpr_c
 concrete productions top::UnaryExpr_c
 | 'orderof' '(' tp::TypeName_c ')'
   {
-    top.ast = orderof((decorate tp.ast with {returnType = nothing();}).typerep, location=top.location);
+    top.ast = orderofType(tp.ast, location=top.location);
   }
 | 'orderof' '(' tn::Expr_c ')'
   {
-    top.ast = orderof((decorate tn.ast with {returnType = nothing();}).typerep, location=top.location);
+    top.ast = orderofExpr(tn.ast, location=top.location);
   }
 | 'dimenof' '(' tn::Expr_c ')'
   {

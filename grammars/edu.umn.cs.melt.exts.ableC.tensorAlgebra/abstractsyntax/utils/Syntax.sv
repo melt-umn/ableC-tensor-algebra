@@ -2,6 +2,34 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:utils;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+abstract production orderofType
+top::Expr ::= tp::TypeName
+{
+  propagate substituted;
+  top.pp = 
+    ppConcat([
+      text("orderof("),
+      tp.pp,
+      text(")")
+    ]);
+
+  forwards to orderof(tp.typerep, location=top.location);
+}
+
+abstract production orderofExpr
+top::Expr ::= e::Expr
+{
+  propagate substituted;
+  top.pp = 
+    ppConcat([
+      text("orderof("),
+      e.pp,
+      text(")")
+    ]);
+
+  forwards to orderof(e.typerep, location=top.location);
+}
+
 abstract production orderof
 top::Expr ::= tp::Type
 {
