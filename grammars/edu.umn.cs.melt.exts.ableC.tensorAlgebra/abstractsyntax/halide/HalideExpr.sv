@@ -2,11 +2,311 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:halide;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
-abstract production halideSetup
-top::Stmt ::= tensor::Expr idx::Expr value::Expr
+function halideSetup
+(Stmt ::= Stmt) ::= tensor::Expr idx::Expr value::Expr env::Decorated Env
 {
-  propagate substituted;
-  top.pp = text("// Halide Tensor Expression Setup");
+  local out::TensorExpr =
+    tensorAccess(tensor, tensor, idx, env, location=tensor.location);
+  local ex::TensorExpr =
+    value.tensorExp;
+
+  local tensors::[TensorExpr] =
+    ex.tensors ++ out.tensors;
+
+  local tensorNames::[String] =
+    map(
+      getTensorName,
+      tensors
+    );
+
+  local tensorFormats::[TensorFormat] =
+    map(
+      \ e::TensorExpr ->
+        getTensorFormat(e, tm:empty(compareString))
+      ,
+      tensors
+    );
+
+  local newNames::[String] =
+    mapWithTail(
+      \ n::String o::[String] ->
+        let c::Integer = 
+          count(stringEq, n, o)
+        in
+        if c > 0
+        then n ++ toString(c) ++ "_"
+        else n
+        end
+      ,
+      tensorNames
+    );
+
+  local outNew :: TensorExpr =
+    modifyNames(
+      drop(
+        listLength(ex.tensors),
+        newNames
+      ),
+      out
+    );
+
+  local exNew :: TensorExpr =
+    modifyNames(
+      take(
+        listLength(ex.tensors),
+        newNames
+      ),
+      ex
+    );
+
+  out.fmts = fmts;
+  ex.fmts = fmts;
+  outNew.fmts = fmts;
+  exNew.fmts = fmts;
+
+  local order::Maybe<[String]> =
+    mergeOrder(out.accesses ++ ex.accesses);
+
+  local access::[String] =
+    case order of
+    | nothing() -> []
+    | just(l) -> l
+    end;
+
+  local fmts::tm:Map<String TensorFormat> =
+    tm:add(
+      zipWith(
+        pair,
+        newNames,
+        tensorFormats
+      ),
+      tm:empty(compareString)
+    );
+
+  exNew.accessOrder = access;
+
+  local tensorInit :: [Maybe<Pair<String Expr>>] =
+    map(
+      \ e::TensorExpr ->
+        case e of
+        | tensorAccess(_, ex, _, _) ->
+          case decorate ex with {env=e.envr; returnType=nothing();} of
+          | declRefExpr(name(_)) -> nothing()
+          | _ ->
+            let fmt::TensorFormat =
+              getTensorFormat(e, fmts)
+            in
+            let nm::String = 
+              getTensorName(e)
+            in
+            just(
+              pair(
+                s"struct tensor_${fmt.proceduralName} ${nm} = __tensor_sub;",
+                ex
+              )
+            )
+            end
+            end
+          end
+        | _ -> nothing()
+        end
+      ,
+      exNew.tensors
+    );
+
+  local exprInit :: [Maybe<Pair<String Expr>>] =
+    map(
+      \ e::Expr ->
+        case decorate e with {env=env; returnType=nothing();} of
+        | declRefExpr(name(_)) -> nothing()
+        | _ ->
+          let nm::String =
+            getExprName(e, env)
+          in
+          just(
+            pair(
+              s"doubel ${nm} = __expr_sub;",
+              e
+            )
+          )
+          end
+        end
+      ,
+      exNew.exprs
+    );
+
+  local tensorDecls :: [Stmt] =
+    map(
+      \ m::Maybe<Pair<String Expr>> ->
+        case m of
+        | just(pair(s, ex)) ->
+          substStmt(
+            [declRefSubstitution("__tensor_sub", ex)]
+            ,
+            parseStmt(s)
+          )
+        | nothing() -> nullStmt()
+        end
+      ,
+      tensorInit
+    );
+
+  local exprDecls :: [Stmt] =
+    map(
+      \ m::Maybe<Pair<String Expr>> -> 
+        case m of
+        | just(pair(s, ex)) ->
+          substStmt(
+            [declRefSubstitution("__expr_sub", ex)]
+            ,
+            parseStmt(s)
+          )
+        | nothing() -> nullStmt()
+        end
+      ,
+      exprInit
+    );
+
+  local tensorDecl :: Stmt =
+    foldl(
+      \ s1::Stmt s2::Stmt ->
+        seqStmt(s1, s2)
+      ,
+      nullStmt(),
+      tensorDecls
+    );
+
+  local exprDecl :: Stmt =
+    foldl(
+      \ s1::Stmt s2::Stmt ->
+        seqStmt(s1, s2)
+      ,
+      nullStmt(),
+      exprDecls
+    );
+
+  local tensorNameSub :: Stmt =
+    foldl(
+      \ s1::Stmt pr::Pair<String Pair<String String>> ->
+        seqStmt(s1,
+          if pr.snd.fst == pr.snd.snd
+          then
+            nullStmt()
+          else
+            parseStmt(
+              s"struct tensor_${pr.fst} ${pr.snd.fst} = ${pr.snd.snd};"
+            )
+        )
+      ,
+      nullStmt(),
+      zipWith(
+        pair,
+        map(
+          \ f::TensorFormat ->
+            f.proceduralName
+          ,
+          tensorFormats
+        ),
+        zipWith(pair, newNames, tensorNames)
+      )
+    );
+
+  local checkDims :: Stmt =
+    parseStmt(
+      halide_check_dims(out, exNew, access, fmts)
+    );
+
+  return
+    \ stmt::Stmt ->
+      seqStmt(
+        tensorDecl,
+        seqStmt(
+          tensorNameSub,
+          seqStmt(
+            exprDecl,
+            seqStmt(
+              checkDims,
+              stmt
+            )
+          )
+        )
+      );
+
+}
+
+function halide_check_dims
+String ::= 
+  out::TensorExpr ex::TensorExpr acc::[String] 
+  fmts::tm:Map<String TensorFormat>
+{
+  return
+    "char error = 0;"
+    ++
+    "\n"
+    ++
+    implode("\n",
+      map(
+        halide_check_var(out, ex, _, fmts),
+        acc
+      )
+    )
+    ++
+    "if(error) exit(1);";
+}
+
+function halide_check_var
+String ::=
+  out::TensorExpr ex::TensorExpr var::String
+  fmts::tm:Map<String TensorFormat>
+{
+  out.variable = var;
+  ex.variable = var;
+  out.fmts = fmts;
+  ex.fmts = fmts;
+
+  local acc::[Pair<String Integer>] =
+    out.sparse_r ++ out.dense_r ++ ex.sparse_r ++ ex.dense_r;
+
+  return
+    if null(acc) 
+    then ""
+    else
+      let h::Pair<String Integer> = 
+        head(acc)
+      in
+      let nm::String =
+        h.fst
+      in
+      let dim::String =
+        toString(h.snd)
+      in
+      "unsigned long ${var}_dimensions = ${nm}.dims[${dim}];"
+      ++
+      "\n"
+      ++
+      implode("\n",
+        map(
+          \ p::Pair<String Integer> ->
+            s"if(${nm}.dims[${dim}] != ${p.fst}.dims[${toString(p.snd)}]) {"
+            ++
+            "\n"
+            ++
+            s"  fprintf(stderr, \"Tensor ${nm} and ${p.fst} do not have the same dimensionality for ${var}.\\n\");"
+            ++
+            "\n"
+            ++
+            "  error = 1;"
+            ++
+            "\n"
+            ++
+            "}"
+          ,
+          tail(acc)
+        )
+      )
+      end
+      end
+      end;
 }
 
 abstract production halideTensorExpr
@@ -338,12 +638,9 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
     );
 
   forwards to
-    stmtIterStmt(
-      if !null(localErrors)
-      then warnStmt(localErrors)
-      else 
-        fwrd
-    );
+    if !null(localErrors)
+    then stmtIterStmt(warnStmt(localErrors))
+    else fwrd;
 }
 
 function denseReduce

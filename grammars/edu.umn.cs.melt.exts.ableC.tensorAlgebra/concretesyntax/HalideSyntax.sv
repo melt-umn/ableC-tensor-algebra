@@ -8,12 +8,15 @@ top::Stmt_c ::=
     ten::PostfixExpr_c '[' index::Expr_c ']' '=' value::Expr_c ';'
   '}' 'by' '{' ts::Transformations_c '}'
 {
+  local iter::Stmt =
+    iterateStmt(
+      halideTensorExpr(ten.ast, index.ast, value.ast),
+      ts.ast
+    );
+
   top.ast = 
-    seqStmt(
-      halideSetup(ten.ast, index.ast, value.ast),
-      iterateStmt(
-        halideTensorExpr(ten.ast, index.ast, value.ast),
-        ts.ast
-      )
+    halideSetup(ten.ast, index.ast, value.ast, iter.env)
+    (
+      iter
     );
 }
