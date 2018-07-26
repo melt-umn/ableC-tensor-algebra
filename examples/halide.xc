@@ -42,13 +42,14 @@ int main() {
 
   fprintf(stderr, "Performing matrix multiplication... ");
   gettimeofday(&start, NULL);
-  {
+  
   tensor transform {
     C0[i,j] = A[i,k] * B[k,j];
   } by {
-    parallelize i into (NUM_THREADS) threads;
+    //order loops i, j, k;
+    parallelize i;
   }
-  }
+
   gettimeofday(&end, NULL);
   fprintf(stderr, "%f seconds\n", 
       (double)(end.tv_usec - start.tv_usec) / 1000000 +
@@ -56,13 +57,11 @@ int main() {
   
   fprintf(stderr, "Performing reference multiplication... ");
   gettimeofday(&start, NULL);
-  {
+  
   tensor transform {
     C1[i,j] = A[i,k] * B[k,j];
-  } by {
-    
-  }
-  }
+  } by {}
+
   gettimeofday(&end, NULL);
   fprintf(stderr, "%f seconds\n", 
       (double)(end.tv_usec - start.tv_usec) / 1000000 +

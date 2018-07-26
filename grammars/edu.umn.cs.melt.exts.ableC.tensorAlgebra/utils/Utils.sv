@@ -216,3 +216,25 @@ Integer ::= f::(Boolean ::= a a) i::a lst::[a]
       then 1 + count(f, i, tail(lst))
       else count(f, i, tail(lst));
 }
+
+function lastIndexOf
+Integer ::= f::(Boolean ::= a a) elems::[a] lst::[a]
+{
+  return lastIndexOf_helper(f, elems, lst, -1);
+}
+
+function lastIndexOf_helper
+Integer ::= f::(Boolean ::= a a) elems::[a] lst::[a] idx::Integer
+{
+  return
+    if null(elems)
+    then idx
+    else 
+      let i::Integer =
+        positionOf(f, head(elems), lst)
+      in
+      if i > idx
+      then lastIndexOf_helper(f, tail(elems), lst, i)
+      else lastIndexOf_helper(f, tail(elems), lst, idx)
+      end;
+}

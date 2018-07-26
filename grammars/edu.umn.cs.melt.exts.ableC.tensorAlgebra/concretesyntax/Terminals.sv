@@ -13,3 +13,5 @@ terminal Dense_t 'dense';
 terminal Sparse_t 'sparse';
 terminal Format_t 'format';
 
+terminal Order_t 'order';
+terminal Loops_t 'loops';

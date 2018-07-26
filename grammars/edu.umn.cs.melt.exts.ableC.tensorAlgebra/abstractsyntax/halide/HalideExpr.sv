@@ -670,6 +670,330 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
     else fwrd;
 }
 
+abstract production halideTensorExprOrder
+top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
+{
+  propagate substituted;
+  top.pp =
+    ppConcat([
+      tensor.pp,
+      text("["),
+      idx.pp,
+      text("] = "),
+      value.pp
+    ]);
+
+  local out::TensorExpr =
+    tensorAccess(tensor, tensor, idx, top.env, location=tensor.location);
+  local ex::TensorExpr =
+    value.tensorExp;
+
+  local tensors::[TensorExpr] =
+    ex.tensors ++ out.tensors;
+
+  local tensorNames :: [String] =
+    map(
+      getTensorName,
+      tensors
+    );
+
+  local tensorFormats::[TensorFormat] =
+    map(
+      getTensorFormat(_, tm:empty(compareString)),
+      tensors
+    );
+
+  local accessCalc :: [String] =
+    map(
+      \ e::TensorExpr ->
+        let acc::[String] =
+          head((decorate e with {fmts=fmts;}).accesses)
+        in
+        foldl(
+          \ res::String v::String ->
+            if length(res) == 0
+            then v
+            else s"((${res}) * ${v}_dimension) + ${v}"
+          ,
+          "",
+          acc
+        )
+        end
+      ,
+      tensors
+    );
+
+  local accesses :: tm:Map<String String> =
+    tm:add(
+      zipWith(
+        pair,
+        newNames,
+        accessCalc
+      ),
+      tm:empty(compareString)
+    );
+
+  local newNames :: [String] =
+    mapWithTail(
+      \ n::String o::[String] ->
+        let c::Integer =
+          count(stringEq, n, o)
+        in
+        if c > 0
+        then n ++ toString(c) ++ "_"
+        else n
+        end
+      ,
+      tensorNames
+    );
+
+  local outNew :: TensorExpr =
+    modifyNames(
+      drop(
+        listLength(ex.tensors),
+        newNames
+      ),
+      out
+    );
+
+  local exNew :: TensorExpr =
+    modifyNames(
+      take(
+        listLength(ex.tensors),
+        newNames
+      ),
+      ex
+    );
+
+  local leftOnly :: [String] =
+    let lAcc::[String] = 
+      nubBy(
+        stringEq,
+        flatMap(\l::[String] -> l, outNew.accesses)
+      )
+    in
+    let rAcc::[String] =
+      nubBy(
+        stringEq,
+        flatMap(\l::[String] -> l, exNew.accesses)
+      )
+    in
+    filter(
+      \ v::String -> !containsBy(stringEq, v, rAcc)
+      ,
+      lAcc
+    )
+    end
+    end;
+
+  local invalidLeftVar::Boolean =
+    !null(leftOnly);
+
+  out.fmts = fmts;
+  ex.fmts = fmts;
+  outNew.fmts = fmts;
+  exNew.fmts = fmts;
+
+  local allVars :: [String] =
+    nubBy(
+      stringEq,
+      flatMap(\l::[String] -> l, outNew.accesses ++ exNew.accesses)
+    );
+
+  local missingVar :: Boolean =
+    !containsAll(stringEq, allVars, access)
+    ||
+    !containsAll(stringEq, access, allVars);
+
+  local fmts::tm:Map<String TensorFormat> =
+    tm:add(
+      zipWith(
+        pair,
+        newNames,
+        tensorFormats
+      ),
+      tm:empty(compareString)
+    );
+
+  exNew.accessOrder = access;
+
+  local allDense :: [Boolean] =
+    map(
+      \ fmt::TensorFormat ->
+        case fmt of
+        | tensorFormat(specs, _, _) ->
+          !containsBy(
+            integerEqual,
+            storeSparse,
+            specs
+          )
+        | _ -> false
+        end
+      ,
+      tensorFormats
+    );
+
+  local localErrors :: [Message] =
+    foldl(
+      \ lst::[Message] fmt::Pair<TensorExpr Boolean> ->
+        if fmt.snd
+        then lst
+        else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
+      ,
+      [],
+      zipWith(pair, tensors, allDense)
+    )
+    ++
+    tensor.errors
+    ++
+    idx.errors
+    ++
+    value.errors
+    ++
+    if invalidLeftVar
+    then [err(tensor.location, s"Cannot generate code for this tensor expression because the variable(s) ${implode(", ", leftOnly)} only occur on the left-hand side.")]
+    else []
+    ++
+    if missingVar
+    then [err(tensor.location, s"Specified order for the loops cannot be used, as some dimensions are missing.")]
+    else [];
+
+  local topVars :: [String] =
+   let i::Integer =
+     lastIndexOf(
+       stringEq,
+       head(out.accesses),
+       access
+      )
+    in
+    take(i+1, access)
+    end;
+
+  local topExpr :: Maybe<TensorExpr> =
+    let i::Integer =
+      lastIndexOf(
+        stringEq,
+        head(out.accesses),
+        access
+      )
+    in
+    denseReduce(
+      exNew,
+      getElem(access, i).fromJust,
+      drop(i+1, access),
+      fmts
+    )
+    end;
+
+  local innerVars :: [Pair<String Maybe<TensorExpr>>] =
+    let i::Integer =
+      lastIndexOf(
+        stringEq,
+        head(out.accesses),
+        access
+      )
+    in
+    mapWithTail(
+      \ v::String rm::[String] ->
+        pair(v, denseReduce(exNew, v, rm, fmts))
+      ,
+      drop(i+1, access)
+    )
+    end;
+
+  local topLoop :: IterVars =
+    foldr(
+      \ s::String var::IterVars ->
+        consIterVar(
+          builtinTypeExpr(
+            nilQualifier(),
+            unsignedType(
+              longType()
+            )
+          ),
+          baseTypeExpr(),
+          name(s, location=value.location),
+          declRefExpr(
+            name(s"${s}_dimension", location=value.location),
+            location=value.location
+          ),
+          var
+        )
+      ,
+      nilIterVar(),
+      topVars
+    );
+
+  local innerLoops :: IterStmt =
+    foldl(
+      \ iter::IterStmt p::Pair<String Maybe<TensorExpr>> ->
+        multiForIterStmt(
+          consIterVar(
+            builtinTypeExpr(
+              nilQualifier(),
+              unsignedType(
+                longType()
+              )
+            ),
+            baseTypeExpr(),
+            name(p.fst, location=value.location),
+            declRefExpr(
+              name(s"${p.fst}_dimension", location=value.location),
+              location=value.location
+            ),
+            nilIterVar()
+          ),
+          if p.snd.isJust
+          then
+            seqIterStmt(
+              iter,
+              stmtIterStmt(
+                parseStmt(s"""
+                  ${outNew.tensorName}_data[${outAcc}] += ${denseExprEval(p.snd, fmts, accesses)};
+                """)
+              )
+            )
+          else
+            nullIterStmt()
+        )
+      ,
+      nullIterStmt(),
+      innerVars
+    );
+
+  local outAcc::String =
+    getElem(
+      accessCalc,
+      positionOf(
+        stringEq,
+        outNew.tensorName,
+        newNames
+      )
+    ).fromJust;
+
+  local fwrd::IterStmt =
+    multiForIterStmt(
+      topLoop,
+      seqIterStmt(
+        innerLoops,
+        if topExpr.isJust
+        then
+          stmtIterStmt(
+            parseStmt(s"""
+              ${outNew.tensorName}_data[${outAcc}] += ${denseExprEval(topExpr, fmts, accesses)};
+            """)
+          )
+        else
+          nullIterStmt()
+      )
+    );
+
+  forwards to
+    if !null(localErrors)
+    then stmtIterStmt(warnStmt(localErrors))
+    else fwrd;
+}
+
 function denseReduce
 Maybe<TensorExpr> ::= 
   ex::TensorExpr var::String remain::[String] 
