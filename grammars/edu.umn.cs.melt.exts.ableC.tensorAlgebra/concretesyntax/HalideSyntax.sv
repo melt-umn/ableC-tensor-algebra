@@ -9,8 +9,11 @@ top::Stmt_c ::=
   '}' 'by' '{' ts::Transformations_c '}'
 {
   top.ast = 
-    iterateStmt(
-      halideTensorExpr(ten.ast, index.ast, value.ast),
-      ts.ast
+    seqStmt(
+      halideSetup(ten.ast, index.ast, value.ast),
+      iterateStmt(
+        halideTensorExpr(ten.ast, index.ast, value.ast),
+        ts.ast
+      )
     );
 }

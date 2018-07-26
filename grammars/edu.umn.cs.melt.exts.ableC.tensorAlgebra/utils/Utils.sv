@@ -121,6 +121,16 @@ function mapTail
       :: mapTail(f, tail(lst));
 }
 
+function mapWithTail
+[a] ::= f::(a ::= b [b]) lst::[b]
+{
+  return
+    if null(lst)
+    then []
+    else f(head(lst), tail(lst))
+      :: mapWithTail(f, tail(lst));
+}
+
 function containsAny
 Boolean ::= eq::(Boolean ::= a a) items::[a] array::[a]
 {
@@ -167,18 +177,6 @@ function filterHead
         makeList(integerCompare, inc, 0, listLength(lst))
       )
     );
-}
-
-function mapWithTail
-[a] ::= f::(a ::= b [b]) lst::[b]
-{
-  return
-    if null(lst)
-    then []
-    else
-      f(head(lst), tail(lst))
-      ::
-      mapWithTail(f, tail(lst));
 }
 
 function filterHead_helper

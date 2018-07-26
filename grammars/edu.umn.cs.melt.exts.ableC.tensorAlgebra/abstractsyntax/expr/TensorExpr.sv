@@ -245,6 +245,17 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
   top.next_sparse = nothing();
 }
 
+abstract production nullTensorExpr
+top::TensorExpr ::= env::Decorated Env
+{
+  forwards to
+    tensorBaseExpr(
+      mkIntConst(0, top.location),
+      env,
+      location=top.location
+    );
+}
+
 function getAccess
 [String] ::= idx::Expr env::Decorated Env
 {

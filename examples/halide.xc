@@ -22,7 +22,7 @@ int main() {
   // setup tesnors
 
   tensor transform {
-    A[i,j] = B[i,k] * C[i,j] * D[k,l];
+    C[i,j] = A[i,k] * B[j,k];
   } by {
     
   }
