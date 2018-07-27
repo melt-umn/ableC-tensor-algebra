@@ -540,6 +540,16 @@ String ::= c::TensorCond e::TensorExpr var::String fmts::tm:Map<String TensorFor
     end;
 }
 
+function generateForCondition
+String ::= c::TensorCond e::TensorExpr var::String fmts::tm:Map<String TensorFormat>
+{
+  e.fmts = fmts;
+  e.variable = var;
+
+  return
+    c.condition;
+}
+
 function generateCode
 String ::= 
   c::TensorCond ex::TensorExpr e::[TensorExpr] ic::[TensorCond] 
@@ -550,6 +560,30 @@ String ::=
   local subs::[Pair<String TensorExpr>] =
     listSubs(ex, v, remain, fmts);
 
+  {-local parallelEmit :: String =
+    case lookupValue(emitParallel, ex.envr) of
+    | [] -> ""
+    | _::_ -> 
+      case lookupValue(emitThreads, ex.envr) of
+      | [] -> "#pragma omp parallel for"
+      | v::_ -> 
+        case v of
+        | declaratorValueItem(
+            declarator(_, _, _, 
+              justInitializer(
+                exprInitializer(
+                  realConstant(
+                    integerConstant(n, _, _)
+                  )
+                )
+              )
+            )
+          )-> s"#pragma omp parallel for num_threads(${n})"
+        | _ -> "#pragma omp parallel for"
+        end
+      end
+    end;-}
+
   --local redSubs :: [Pair<String TensorExpr>] =
   --  list_reducedSubs(ex, v::remain);
 
@@ -557,8 +591,8 @@ String ::=
     canEmitFor 
     &&
     case c of
-    | allCond(_) -> true
-    | denseAccess(_, _, _) -> true
+    | allCond(_) -> null(ex.sparse)
+    | denseAccess(_, _, _) -> null(ex.sparse)
     | sparseAccess(_, _, _) -> true
     | _ -> false
     end;
@@ -718,7 +752,8 @@ String ::=
     (
     if forLoop
     then
-      s"for(${forInit}; ${generateFullCondition(c, ex, v, fmts)}; ${forVar}++) {"
+      "__parallel_emit;\n" ++
+      s"for(${forInit}; ${generateForCondition(c, ex, v, fmts)}; ${forVar}++) {"
     else
       s"while(${generateFullCondition(c, ex, v, fmts)}) {"
     )

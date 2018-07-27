@@ -10,7 +10,7 @@ nonterminal TensorCond with condition, ifCond;
 abstract production allCond
 top::TensorCond ::= v::String
 {
-  top.condition = s"(${v} < ${v}_dimensions)";
+  top.condition = s"${v} < ${v}_dimensions";
   top.ifCond = "1";
 }
 
@@ -24,14 +24,14 @@ top::TensorCond ::=
 abstract production sparseAccess
 top::TensorCond ::= tNm::String dim::Integer var::String
 {
-  top.condition = s"(p${tNm}${toString(dim+1)} < ${tNm}${toString(dim+1)}_pos[${if dim == 0 then "1" else s"p${tNm}${toString(dim)} + 1"}])";
-  top.ifCond = s"(${var}${tNm} == ${var})";
+  top.condition = s"p${tNm}${toString(dim+1)} < ${tNm}${toString(dim+1)}_pos[${if dim == 0 then "1" else s"p${tNm}${toString(dim)} + 1"}]";
+  top.ifCond = s"${var}${tNm} == ${var}";
 }
 
 abstract production denseAccess
 top::TensorCond ::= tNm::String dim::Integer var::String
 {
-  top.condition = s"(${var} < ${tNm}${toString(dim+1)}_size)";
+  top.condition = s"${var} < ${tNm}${toString(dim+1)}_size";
   top.ifCond = "1";
 }
 
@@ -56,8 +56,8 @@ TensorCond ::= tNm::String dim::Integer var::String fmt::TensorFormat
 abstract production andCond
 top::TensorCond ::= l::TensorCond r::TensorCond
 {
-  top.condition = s"(${l.condition} && ${r.condition})";
-  top.ifCond = s"(${l.ifCond} && ${r.ifCond})";
+  top.condition = s"(${l.condition}) && (${r.condition})";
+  top.ifCond = s"(${l.ifCond}) && (${r.ifCond})";
 }
 
 function condAnd
