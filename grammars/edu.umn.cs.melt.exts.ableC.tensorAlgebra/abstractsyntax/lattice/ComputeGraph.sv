@@ -370,9 +370,9 @@ Pair<TensorExpr Integer> ::=
     else
       case e of
       | tensorAdd(ex, l, r, en) ->
-        if l.isAvail && {-!isExpr(l) &&-} isBelowOut
+        if l.isAvail && isBelowOut
         then pair(r, idx+1)
-        else if r.isAvail && {-!isExpr(r) &&-} isBelowOut
+        else if r.isAvail && isBelowOut
         then pair(l, idx+1)
         else 
           let sL::Pair<TensorExpr Integer> =
@@ -384,9 +384,9 @@ Pair<TensorExpr Integer> ::=
           end
           end
       | tensorSub(ex, l, r, en) ->
-        if l.isAvail && {-!isExpr(l) &&-} isBelowOut
+        if l.isAvail && isBelowOut
         then pair(r, idx+1)
-        else if r.isAvail && {-!isExpr(r) &&-} isBelowOut
+        else if r.isAvail && isBelowOut
         then pair(l, idx+1)
         else
           let sL::Pair<TensorExpr Integer> =
@@ -560,33 +560,6 @@ String ::=
   local subs::[Pair<String TensorExpr>] =
     listSubs(ex, v, remain, fmts);
 
-  {-local parallelEmit :: String =
-    case lookupValue(emitParallel, ex.envr) of
-    | [] -> ""
-    | _::_ -> 
-      case lookupValue(emitThreads, ex.envr) of
-      | [] -> "#pragma omp parallel for"
-      | v::_ -> 
-        case v of
-        | declaratorValueItem(
-            declarator(_, _, _, 
-              justInitializer(
-                exprInitializer(
-                  realConstant(
-                    integerConstant(n, _, _)
-                  )
-                )
-              )
-            )
-          )-> s"#pragma omp parallel for num_threads(${n})"
-        | _ -> "#pragma omp parallel for"
-        end
-      end
-    end;-}
-
-  --local redSubs :: [Pair<String TensorExpr>] =
-  --  list_reducedSubs(ex, v::remain);
-
   local forLoop::Boolean =
     canEmitFor 
     &&
@@ -729,10 +702,7 @@ String ::=
     then
       case outSparse of
       | just(pair(s, d)) ->
-        --if d == 0 TODO: New as well
-        --then
           s"unsigned long p${s}${toString(d+1)} = ${s}${toString(d+1)}_pos[${if d == 0 then "0" else s"p${s}${toString(d)}"}];"
-        --else ""
       | nothing() -> ""
       end
     else ""
@@ -806,20 +776,7 @@ String ::=
       s"unsigned long p${s}${toString(d+1)} = ${if d == 0 then "0" else s"(p${s}${toString(d)} * ${s}${toString(d+1)}_size)"} + ${v};"
     | nothing() -> ""
     end
-    ++ -- TODO: Below is New
-    {-case outDense, outSparse of
-    | nothing(), nothing() -> ""
-    | _, _ -> 
-      if next_sparse.isJust
-      then
-        let s::String = next_sparse.fromJust.fst
-        in let d::Integer = next_sparse.fromJust.snd
-        in
-        s"unsigned long p${s}${toString(d+1)} = ${s}${toString(d+1)}_pos[${if d == 0 then "0" else s"p${s}${toString(d)}"}];"
-        end end
-      else ""
-    end
-    ++-}
+    ++ 
     (
     if above
     then
@@ -1229,11 +1186,6 @@ String ::=
     if doesOut 
     then
       s"\nidx[${toString(oC-1)}] = ${v};\n"
-      {-++
-      if !output
-      then
-        s"tensor_insertBuff_mid_${fmtNm}(&(${assign.tensorName}.buffer), idx, ${toString(oC)});"
-      else ""-}
     else ""
     )
     ++
