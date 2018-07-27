@@ -3,7 +3,6 @@ A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compi
 
 ## Todo
 * Add support for scalar equations when using halide transform.
-* Investigate and implement loop parallelization where possible
 * Fix error in code-gen causing test 15 to fail. Solution is to move declaration of pA2 to below pA1 computation instead of right before inner loop.
 * Extend test-suite to test correctness of code gen
 * Implement sparse and dense functions over tensor accesses for tensor expressions
