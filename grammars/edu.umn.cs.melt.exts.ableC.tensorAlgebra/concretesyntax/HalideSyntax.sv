@@ -29,3 +29,16 @@ concrete productions top::Stmt_c
   top.ast =
     halideSetup(ten.ast, index.ast, value.ast, iter);
 }
+| tnTrns::TensorTransform_t '{'
+    assign::Identifier_t '=' expr::Expr_c ';'
+  '}' 'by' '{' ts::Transformations_c '}'
+{
+  local iter::Stmt =
+    iterateStmt(
+      halideScalarTensorExpr(fromId(assign), expr.ast),
+      ts.ast
+    );
+
+  top.ast =
+    halideScalarSetup(fromId(assign), expr.ast, iter);
+}

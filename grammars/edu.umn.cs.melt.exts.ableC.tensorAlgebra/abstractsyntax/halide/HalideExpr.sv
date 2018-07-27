@@ -267,6 +267,484 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     else fwrd;
 }
 
+abstract production halideScalarTensorExpr
+top::IterStmt ::= output::Name expr::Expr
+{
+  propagate substituted;
+  top.pp = expr.pp;
+
+  local out::TensorExpr =
+    tensorBaseExpr(
+      declRefExpr(
+        name(
+          "__out__",
+          location=ex.location
+        ),
+        location=ex.location
+      ),
+      top.env,
+      location=ex.location
+    );
+
+  local ex::TensorExpr =
+    expr.tensorExp;
+
+  local tensors::[TensorExpr] =
+    ex.tensors;
+
+  local tensorNames::[String] =
+    map(
+      getTensorName,
+      tensors
+    );
+
+  local tensorFormats::[TensorFormat] =
+    map(
+      \ e::TensorExpr ->
+        getTensorFormat(e, tm:empty(compareString))
+      ,
+      tensors
+    );
+
+  local accessCalc :: [String] =
+    map(
+      \ e::TensorExpr ->
+        let acc::[String] =
+          head((decorate e with {fmts=fmts;}).accesses)
+        in
+        foldl(
+          \ res::String v::String ->
+            if length(res) == 0
+            then v
+            else s"((${res}) * ${v}_dimension) + ${v}"
+          ,
+          "",
+          acc
+        )
+        end
+      ,
+      tensors
+    );
+
+  local accesses :: tm:Map<String String> =
+    tm:add(
+      zipWith(
+        pair,
+        newNames,
+        accessCalc
+      ),
+      tm:empty(compareString)
+    );
+
+  local newNames::[String] =
+    mapWithTail(
+      \ n::String o::[String] ->
+        let c::Integer =
+          count(stringEq, n, o)
+        in
+        if c > 0
+        then n ++ toString(c) ++ "_"
+        else n
+        end
+      ,
+      tensorNames
+    );
+
+  local exNew::TensorExpr =
+    modifyNames(
+      newNames, 
+      ex
+    );
+  
+  out.fmts = fmts;
+  ex.fmts = fmts;
+  exNew.fmts = fmts;
+
+  local order::Maybe<[String]> =
+    mergeOrder(ex.accesses);
+
+  local access::[String] =
+    case order of
+    | nothing() -> []
+    | just(l) -> l
+    end;
+
+  local fmts::tm:Map<String TensorFormat> =
+    tm:add(
+      zipWith(
+        \ s::String f::TensorFormat ->
+          pair(s, f)
+        ,
+        newNames,
+        tensorFormats
+      ),
+      tm:empty(compareString)
+    );
+
+  exNew.accessOrder = access;
+
+  local allDense::[Boolean] =
+    map(
+      \ fmt::TensorFormat ->
+        case fmt of
+        | tensorFormat(specs, _, _) ->
+          !containsBy(
+            integerEqual,
+            storeSparse,
+            specs
+          )
+        | _ -> false
+        end
+      ,
+      tensorFormats
+    );
+
+  local localErrors :: [Message] =
+    foldl(
+      \ lst::[Message] fmt::Pair<TensorExpr Boolean> ->
+        if fmt.snd
+        then lst
+        else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
+      ,
+      [],
+      zipWith(pair, tensors, allDense)
+    )
+    ++
+    expr.errors
+    ++
+    case order of
+    | nothing() -> [err(expr.location, "Cannot generate code for this tensor expression due to cyclical access patterns")]
+    | just(_) -> []
+    end;
+
+  local innerVars :: [Pair<String Maybe<TensorExpr>>] =
+    mapWithTail(
+      \ v::String rm::[String] ->
+        pair(v, denseReduce(exNew, v, rm, fmts))
+      ,
+      access
+    );
+
+  local innerLoops :: IterStmt =
+    foldl(
+      \ iter::IterStmt p::Pair<String Maybe<TensorExpr>> ->
+        multiForIterStmt(
+          consIterVar(
+            builtinTypeExpr(
+              nilQualifier(),
+              unsignedType(
+                longType()
+              )
+            ),
+            baseTypeExpr(),
+            name(p.fst, location=expr.location),
+            declRefExpr(
+              name(s"${p.fst}_dimension", location=expr.location),
+              location=expr.location
+            ),
+            nilIterVar()
+          ),
+          if p.snd.isJust
+          then
+            seqIterStmt(
+              iter,
+              stmtIterStmt(
+                parseStmt(s"""
+                  __result += ${denseExprEval(p.snd, fmts, accesses)};
+                """)
+              )
+            )
+          else
+            iter
+        )
+      ,
+      nullIterStmt(),
+      innerVars
+    );
+
+  forwards to
+    if !null(localErrors)
+    then stmtIterStmt(warnStmt(localErrors))
+    else innerLoops;
+}
+
+abstract production halideScalarSetup
+top::Stmt ::= output::Name expr::Expr inner::Stmt
+{
+  propagate substituted;
+  top.pp = text("// Halide Tensor Expr Setup");
+  top.functionDefs := [];
+
+  local ex::TensorExpr =
+    expr.tensorExp;
+
+  local tensors::[TensorExpr] =
+    ex.tensors;
+
+  local tensorNames::[String] =
+    map(
+      getTensorName,
+      tensors
+    );
+
+  local tensorFormats::[TensorFormat] =
+    map(
+      getTensorFormat(_, tm:empty(compareString)),
+      tensors
+    );
+
+  local newNames::[String] =
+    mapWithTail(
+      \ n::String o::[String] ->
+        let c::Integer =
+          count(stringEq, n, o)
+        in
+        if c > 0
+        then n ++ toString(c) ++ "_"
+        else n
+        end
+      ,
+      tensorNames
+    );
+
+  local exNew :: TensorExpr =
+    modifyNames(
+      newNames,
+      ex
+    );
+
+  ex.fmts = fmts;
+  exNew.fmts = fmts;
+
+  local out::TensorExpr =
+    tensorBaseExpr( 
+      declRefExpr(
+        name(
+          "__out__",
+          location=expr.location
+        ),
+        location=expr.location
+      ),
+      top.env,
+      location=expr.location
+    );
+
+  local order::Maybe<[String]> =
+    mergeOrder(ex.accesses);
+
+  local access::[String] =
+    case order of
+    | nothing() -> []
+    | just(l) -> l
+    end;
+
+  local fmts::tm:Map<String TensorFormat> =
+    tm:add(
+      zipWith(
+        pair,
+        newNames,
+        tensorFormats
+      ),
+      tm:empty(compareString)
+    );
+
+  exNew.accessOrder = access;
+
+  local tensorInit :: [Maybe<Pair<String Expr>>] =
+    map(
+      \ e::TensorExpr ->
+        case e of
+        | tensorAccess(_, ex, _, _) ->
+          case decorate ex with {env=e.envr; returnType=nothing();} of
+          | declRefExpr(name(_)) -> nothing()
+          | _ ->
+            let fmt::TensorFormat =
+              getTensorFormat(e, fmts)
+            in
+            let nm::String = 
+              getTensorName(e)
+            in
+            just(
+              pair(
+                s"struct tensor_${fmt.proceduralName} ${nm} = __tensor_sub;",
+                ex
+              )
+            )
+            end
+            end
+          end
+        | _ -> nothing()
+        end
+      ,
+      exNew.tensors
+    );
+
+  local exprInit :: [Maybe<Pair<String Expr>>] =
+    map(
+      \ e::Expr ->
+        case decorate e with {env=top.env; returnType=nothing();} of
+        | declRefExpr(name(_)) -> nothing()
+        | _ ->
+          let nm::String =
+            getExprName(e, top.env)
+          in
+          just(
+            pair(
+              s"double ${nm} = __expr_sub;",
+              e
+            )
+          )
+          end
+        end
+      ,
+      exNew.exprs
+    );
+
+  local tensorDecls :: [Stmt] =
+    map(
+      \ m::Maybe<Pair<String Expr>> ->
+        case m of
+        | just(pair(s, ex)) ->
+          substStmt(
+            [declRefSubstitution("__tensor_sub", ex)]
+            ,
+            parseStmt(s)
+          )
+        | nothing() -> nullStmt()
+        end
+      ,
+      tensorInit
+    );
+
+  local exprDecls :: [Stmt] =
+    map(
+      \ m::Maybe<Pair<String Expr>> ->
+        case m of
+        | just(pair(s, ex)) ->
+          substStmt(
+            [declRefSubstitution("__expr_sub", ex)]
+            ,
+            parseStmt(s)
+          )
+        | nothing() -> nullStmt()
+        end
+      ,
+      exprInit
+    );
+
+  local tensorDecl :: Stmt =
+    foldl(
+      \ s1::Stmt s2::Stmt ->
+        seqStmt(s1, s2)
+      ,
+      nullStmt(),
+      tensorDecls
+    );
+
+  local exprDecl :: Stmt =
+    foldl(
+      \ s1::Stmt s2::Stmt ->
+        seqStmt(s1, s2)
+      ,
+      nullStmt(),
+      exprDecls
+    );
+
+  local tensorNameSub :: Stmt =
+    foldl(
+      \ s1::Stmt pr::Pair<String Pair<String String>> ->
+        seqStmt(s1,
+          if pr.snd.fst == pr.snd.snd
+          then nullStmt()
+          else
+            parseStmt(
+              s"struct tensor_${pr.fst} ${pr.snd.fst} = ${pr.snd.snd};"
+            )
+        )
+      ,
+      nullStmt(),
+      zipWith(
+        pair,
+        map(
+          \ f::TensorFormat ->
+            f.proceduralName
+          ,
+          tensorFormats
+        ),
+        zipWith(pair, newNames, tensorNames)
+      )
+    );
+
+  local initData :: Stmt =
+    foldl(
+      \ s1::Stmt t::String ->
+        seqStmt(
+          s1,
+          parseStmt(s"double* ${t}_data = ${t}.data;")
+        )
+      ,
+      nullStmt(),
+      newNames
+    );
+
+  local checkDims :: Stmt =
+    parseStmt(
+      halide_check_dims(out, exNew, access, fmts)
+    );
+
+  local fwrd::Expr =
+    stmtExpr(
+      compoundStmt(
+        seqStmt(
+          tensorDecl,
+          seqStmt(
+            tensorNameSub,
+            seqStmt(
+              exprDecl,
+              seqStmt(
+                checkDims,
+                seqStmt(
+                  initData,
+                  inner
+                )
+              )
+            )
+          )
+        )
+      ),
+      declRefExpr(
+        name("__result", location=expr.location),
+        location=expr.location
+      ),
+      location=expr.location
+    );
+
+  local finalFwrd :: Stmt =
+    exprStmt(
+      eqExpr(
+        declRefExpr(
+          output,
+          location=output.location
+        ),
+        stmtExpr(
+          parseStmt("double __result = 0.0;"),
+          fwrd,
+          location=expr.location
+        ),
+        location=expr.location
+      )
+    );
+
+  finalFwrd.returnType = top.returnType;
+  finalFwrd.env = top.env;
+
+  forwards to
+    if !null(finalFwrd.errors)
+    then warnStmt(finalFwrd.errors)
+    else finalFwrd;
+
+}
+
 function halide_check_dims
 String ::= 
   out::TensorExpr ex::TensorExpr acc::[String] 

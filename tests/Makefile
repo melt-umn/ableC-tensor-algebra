@@ -40,14 +40,14 @@ override XCFLAGS+=$(addprefix -I,/home/counc009/gc/include)
 override JAVAFLAGS+=-Xss6M
 
 # Flags passed to the C compiler, e.g. to enable various compiler extensions
-override CFLAGS+=
+override CFLAGS+=-fopenmp
 
 # All directories contining extension libraries that may be linked
 LIB_DIRS=$(wildcard $(EXTS_BASE)/*/lib)
 # Flags passed to the linker specifying the appropriate directories
 override LDFLAGS+=$(addprefix -L,$(LIB_DIRS))
 # Flags passed to the linker specifying libraries to link
-LDLIBS=/home/counc009/gc/lib/libgc.a -lm
+LDLIBS=/home/counc009/gc/lib/libgc.a -lm -lgomp
 
 # All directories contining extension library sources
 SRC_DIRS=$(wildcard $(EXTS_BASE)/*/src)
