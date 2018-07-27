@@ -674,6 +674,8 @@ top::Expr ::= output::Expr expr::Expr
     in
     if null(tail(lst))
     then head(lst)
+    else if !isParallel
+    then implode("", lst)
     else
     let res::String =
       head(lst) ++ "__parallel_emit" ++
@@ -745,7 +747,7 @@ top::Expr ::= output::Expr expr::Expr
         else ""
         )
         ++
-        graph.compute
+        graphCode
       )
     );
 
