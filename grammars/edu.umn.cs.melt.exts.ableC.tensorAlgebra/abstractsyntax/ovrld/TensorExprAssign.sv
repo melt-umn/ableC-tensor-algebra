@@ -140,11 +140,21 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   local isParallel :: Boolean =
     case lookupValue(emitParallel, top.env) of
     | [] -> false
-    | _::_ -> true
+    | _::_ ->
+      foldl(
+        \ b::Boolean p::Pair<String String> ->
+          b && p.fst == p.snd
+        ,
+        true,
+        zipWith(pair, head(outNew.accesses), access)
+      )
     end;
 
   local parallelEmit :: Stmt =
     txtStmt(
+      if !isParallel
+      then ""
+      else
       case lookupValue(emitParallel, top.env) of
       | [] -> ""
       | _::_ ->
@@ -639,11 +649,14 @@ top::Expr ::= output::Expr expr::Expr
   local isParallel :: Boolean =
     case lookupValue(emitParallel, top.env) of
     | [] -> false
-    | _::_ -> true
+    | _::_ -> false
     end;
   
   local parallelEmit :: Stmt =
     txtStmt(
+      if !isParallel
+      then ""
+      else
       case lookupValue(emitParallel, top.env) of
       | [] -> ""
       | _::_ ->
