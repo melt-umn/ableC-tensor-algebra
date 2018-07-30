@@ -1107,7 +1107,7 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
               )
             )
           else
-            nullIterStmt()
+            iter
         )
       ,
       nullIterStmt(),
@@ -1432,7 +1432,7 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
               )
             )
           else
-            nullIterStmt()
+            iter
         )
       ,
       nullIterStmt(),
