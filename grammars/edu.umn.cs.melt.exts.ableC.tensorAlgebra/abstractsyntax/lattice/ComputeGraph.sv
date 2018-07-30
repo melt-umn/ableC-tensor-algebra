@@ -570,6 +570,9 @@ String ::=
     | _ -> false
     end;
 
+  local canParallel :: Boolean =
+    forLoop && !outSparse.isJust;
+
   local forVar::String =
     case c of
     | allCond(v) -> v
@@ -722,7 +725,11 @@ String ::=
     (
     if forLoop
     then
-      "__parallel_emit;\n" ++
+      (
+      if canParallel
+      then "__parallel_emit;\n" 
+      else ""
+      ) ++
       s"for(${forInit}; ${generateForCondition(c, ex, v, fmts)}; ${forVar}++) {"
     else
       s"while(${generateFullCondition(c, ex, v, fmts)}) {"

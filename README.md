@@ -2,7 +2,6 @@
 A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compiler* by Fredrik Kjolstad, et. al.
 
 ## Todo
-* OpenMP code generated for tests 5, 8, 10, 17 fail. Output is sparse in that dimension
 * Fix scalar equations when using halide transform, code is emitted too early.
 * Fix error in code-gen causing test 15 to fail. Solution is to move declaration of pA2 to below pA1 computation instead of right before inner loop.
 * Extend test-suite to test correctness of code gen
