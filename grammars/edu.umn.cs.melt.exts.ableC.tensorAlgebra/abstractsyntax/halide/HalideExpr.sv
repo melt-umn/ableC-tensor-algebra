@@ -426,8 +426,8 @@ top::IterStmt ::= output::Name expr::Expr
     );
 
   local innerLoops :: IterStmt =
-    foldl(
-      \ iter::IterStmt p::Pair<String Maybe<TensorExpr>> ->
+    foldr(
+      \ p::Pair<String Maybe<TensorExpr>> iter::IterStmt ->
         multiForIterStmt(
           consIterVar(
             builtinTypeExpr(
@@ -1078,8 +1078,8 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
     );
 
   local innerLoops :: IterStmt =
-    foldl(
-      \ iter::IterStmt p::Pair<String Maybe<TensorExpr>> ->
+    foldr(
+      \ p::Pair<String Maybe<TensorExpr>> iter::IterStmt ->
         multiForIterStmt(
           consIterVar(
             builtinTypeExpr(
@@ -1403,8 +1403,8 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
     );
 
   local innerLoops :: IterStmt =
-    foldl(
-      \ iter::IterStmt p::Pair<String Maybe<TensorExpr>> ->
+    foldr(
+      \ p::Pair<String Maybe<TensorExpr>> iter::IterStmt ->
         multiForIterStmt(
           consIterVar(
             builtinTypeExpr(
