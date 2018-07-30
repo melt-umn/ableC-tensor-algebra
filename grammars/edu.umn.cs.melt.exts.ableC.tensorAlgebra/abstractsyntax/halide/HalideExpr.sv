@@ -468,6 +468,204 @@ top::IterStmt ::= output::Name expr::Expr
     else innerLoops;
 }
 
+abstract production halideScalarExprOrder
+top::IterStmt ::= output::Name expr::Expr access::[String]
+{
+  propagate substituted;
+  top.pp = expr.pp;
+
+  local out::TensorExpr =
+    tensorBaseExpr(
+      declRefExpr(
+        name(
+          "__out__",
+          location=ex.location
+        ),
+        location=ex.location
+      ),
+      top.env,
+      location=ex.location
+    );
+
+  local ex::TensorExpr =
+    expr.tensorExp;
+
+  local tensors::[TensorExpr] =
+    ex.tensors;
+
+  local tensorNames::[String] = 
+    map(
+      getTensorName,
+      tensors
+    );
+
+  local tensorFormats::[TensorFormat] =
+    map(
+      getTensorFormat(_, tm:empty(compareString)),
+      tensors
+    );
+
+  local accessCalc :: [String] =
+    map(
+      \ e::TensorExpr ->
+        let acc::[String] =
+          head((decorate e with {fmts=fmts;}).accesses)
+        in
+        foldl(
+          \ res::String v::String ->
+            if length(res) == 0
+            then v
+            else s"((${res}) * ${v}_dimension) + ${v}"
+          ,
+          "",
+          acc
+        )
+        end
+      ,
+      tensors
+    );
+
+  local accesses :: tm:Map<String String> =
+    tm:add(
+      zipWith(
+        pair,
+        newNames,
+        accessCalc
+      ),
+      tm:empty(compareString)
+    );
+
+  local newNames :: [String] =
+    mapWithTail(
+      \ n::String o::[String] ->
+        let c::Integer =
+          count(stringEq, n, o)
+        in
+        if c > 0
+        then n ++ toString(c) ++ "_"
+        else n
+        end
+      ,
+      tensorNames
+    );
+
+  local exNew :: TensorExpr =
+    modifyNames(
+      newNames,
+      ex
+    );
+
+  out.fmts = fmts;
+  ex.fmts = fmts;
+  exNew.fmts = fmts;
+
+  local allVars :: [String] =
+    nubBy(
+      stringEq,
+      flatMap(\l::[String] -> l, exNew.accesses)
+    );
+
+  local missingVar :: Boolean =
+    !containsAll(stringEq, allVars, access)
+    ||
+    !containsAll(stringEq, access, allVars);
+
+  local fmts :: tm:Map<String TensorFormat> =
+    tm:add(
+      zipWith(
+        pair,
+        newNames,
+        tensorFormats
+      ),
+      tm:empty(compareString)
+    );
+
+  exNew.accessOrder = access;
+
+  local allDense :: [Boolean] =
+    map(
+      \ fmt::TensorFormat ->
+        case fmt of
+        | tensorFormat(specs, _, _) ->
+          !containsBy(
+            integerEqual,
+            storeSparse,
+            specs
+          )
+        | _ -> false
+        end
+      ,
+      tensorFormats
+    );
+
+  local localErrors :: [Message] =
+    foldl(
+      \ lst::[Message] fmt::Pair<TensorExpr Boolean> ->
+        if fmt.snd
+        then lst
+        else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
+      ,
+      [],
+      zipWith(pair, tensors, allDense)
+    )
+    ++
+    expr.errors
+    ++
+    if missingVar
+    then [err(expr.location, s"Specified order for the loops cannot be used as some dimensions are missing.")]
+    else [];
+
+  local innerVars :: [Pair<String Maybe<TensorExpr>>] =
+    mapWithTail(
+      \ v::String rm::[String] ->
+        pair(v, denseReduce(exNew, v, rm, fmts))
+      ,
+      access
+    );
+
+  local innerLoops :: IterStmt =
+    foldr(
+      \ p::Pair<String Maybe<TensorExpr>> iter::IterStmt ->
+        multiForIterStmt(
+          consIterVar(
+            builtinTypeExpr(
+              nilQualifier(),
+              unsignedType(
+                longType()
+              )
+            ),
+            baseTypeExpr(),
+            name(p.fst, location=expr.location),
+            declRefExpr(
+              name(s"${p.fst}_dimension", location=expr.location),
+              location=expr.location
+            ),
+            nilIterVar()
+          ),
+          if p.snd.isJust
+          then 
+            seqIterStmt(
+              iter,
+              stmtIterStmt(
+                parseStmt(s"""
+                  __result += ${denseExprEval(p.snd, fmts, accesses)};
+                """)
+              )
+            )
+          else
+            iter
+        )
+      ,
+      nullIterStmt(),
+      innerVars
+    );
+
+  forwards to
+    if !null(localErrors)
+    then stmtIterStmt(warnStmt(localErrors))
+    else innerLoops;
+}
+
 abstract production halideScalarSetup
 top::Stmt ::= output::Name expr::Expr inner::Stmt
 {
