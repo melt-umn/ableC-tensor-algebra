@@ -127,7 +127,7 @@ top::Expr ::= type::TypeName data::TensorConstant
   forwards to mkErrorCheck(lErrors, fwrd);
 }
 
-abstract production build
+abstract production buildTensorExpr
 top::Expr ::= type::TypeName args::[Expr]
 {
   local dims::Expr = head(args);
