@@ -571,7 +571,7 @@ String ::=
     end;
 
   local canParallel :: Boolean =
-    forLoop && !outSparse.isJust;
+    forLoop && !outSparse.isJust && outDense.isJust;
 
   local forVar::String =
     case c of
