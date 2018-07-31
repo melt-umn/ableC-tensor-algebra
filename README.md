@@ -4,7 +4,7 @@ A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compi
 ## Todo
 * OpenMP code generation needs to be tested more.
 * Extend test-suite to test correctness of code gen
-* Implement sparse and dense functions over tensor accesses for tensor expressions
 * Add check for including tensors.xh header file
 * Find nice examples
 * Implement string show using string extension
+* Implement sparse and dense functions over tensor accesses for tensor expressions
