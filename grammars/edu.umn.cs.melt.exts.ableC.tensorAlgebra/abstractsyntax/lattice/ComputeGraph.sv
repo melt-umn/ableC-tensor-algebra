@@ -767,6 +767,16 @@ String ::=
     ++
     "\n  "
     ++
+    case outSparse of
+    | just(pair(s, d)) -> 
+      s"while(${s}${toString(d+1)}_idx[p${s}${toString(d+1)}] < ${v}) "
+      ++
+      s"p${s}${toString(d+1)}++;"
+    | nothing() -> ""
+    end
+    ++
+    "\n  "
+    ++
     implode("\n  ",
       map(
         \ p::Pair<String Integer> ->
