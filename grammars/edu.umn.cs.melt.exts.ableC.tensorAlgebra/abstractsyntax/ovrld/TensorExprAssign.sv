@@ -137,17 +137,51 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       top.location, top.env
     );
 
+  local maybeVar :: Maybe<String> =
+    let parts::[String] =
+      explode("__parallel_emit", graph.compute)
+    in
+    if null(tail(parts))
+    then nothing()
+    else
+      let str::String = head(tail(parts)) in
+      let start::Integer = indexOf("for", str) in
+      let stop::Integer = indexOf("{", str) in
+      let loop::String = substring(start, stop, str) in
+        just(
+          substring(
+            18,
+            indexOf("=", loop) - 1,
+            loop
+          )
+        )
+      end end end end
+    end;
+
   local isParallel :: Boolean =
     case lookupValue(emitParallel, top.env) of
     | [] -> false
     | _::_ ->
+      maybeVar.isJust
+      &&
+      let vars::[String] =
+        take(
+          positionOf(
+            stringEq, 
+            maybeVar.fromJust,
+            access
+          ),
+          access
+        )
+      in
       foldl(
         \ b::Boolean p::Pair<String String> ->
           b && p.fst == p.snd
         ,
         true,
-        zipWith(pair, head(outNew.accesses), access)
+        zipWith(pair, head(outNew.accesses), vars)
       )
+      end
     end;
 
   local parallelEmit :: Stmt =

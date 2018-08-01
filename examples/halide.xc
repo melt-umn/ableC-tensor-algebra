@@ -46,7 +46,7 @@ int main() {
   tensor transform {
     C0[i,j] = A[i,k] * B[k,j];
   } by {
-    //order loops i, j, k;
+    order loops i, j, k;
     parallelize i;
   }
 

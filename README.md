@@ -2,9 +2,9 @@
 A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compiler* by Fredrik Kjolstad, et. al.
 
 ## Todo
-* OpenMP code generation needs to be tested more.
-* Extend test-suite to test correctness of code gen
 * Add check for including tensors.xh header file
+* Test OpenMP code generation more
+* Extend test-suite to test correctness of code gen
+* Add user guide to README
 * Find nice examples
-* Implement string show using string extension
 * Implement sparse and dense functions over tensor accesses for tensor expressions

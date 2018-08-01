@@ -8,9 +8,9 @@
 #define UNROLL_SIZE 5
 #define VECTOR_SIZE 8
 
-#define M 3000
-#define N 5000
-#define P 7000
+#define M 300
+#define N 500
+#define P 700
 
 tensor format mat ({dense, dense});
 
@@ -24,12 +24,12 @@ int main() {
   tensor<mat> C = build(tensor<mat>)({M, N});
   tensor<mat> D = build(tensor<mat>)({M, N});
 
-  for(int c = 0; c < 100000; c++) {
+  for(int c = 0; c < 1000; c++) {
     int i = rand() % M;
     int k = rand() % P;
     A[i,k] = ((double)rand()) / RAND_MAX;
   }
-  for(int c = 0; c < 100000; c++) {
+  for(int c = 0; c < 1000; c++) {
     int k = rand() % P;
     int j = rand() % N;
     B[k,j] = ((double)rand()) / RAND_MAX;
