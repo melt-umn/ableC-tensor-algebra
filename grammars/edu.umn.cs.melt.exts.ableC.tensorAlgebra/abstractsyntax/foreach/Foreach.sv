@@ -5,6 +5,18 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production tensorForEach
 top::Stmt ::= var::Name bounds::Expr body::Stmt
 {
+  top.functionDefs := [];
+  top.pp =
+    ppConcat([
+      text("foreach ("),
+      text("double "),
+      var.pp,
+      text(" : "),
+      bounds.pp,
+      text(")\n"),
+      body.pp
+   ]);
+
   bounds.env = top.env;
 
   local tensor :: TensorExpr =
