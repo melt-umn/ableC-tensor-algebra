@@ -17,19 +17,6 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
     end;
 
 
-  local allIndexVars::Boolean =
-    foldl(
-      \ b::Boolean t::Type
-      -> b &&
-         case t of
-         | indexVarType(_) -> true
-         | _ -> false
-         end
-      ,
-      true,
-      getTypereps(idx, env)
-    );
-  
   local anyIndexVars::Boolean =
     foldl(
       \ b::Boolean t::Type
@@ -42,9 +29,6 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
       false,
       getTypereps(idx, env)
     );
-
-  local indexVarErr::Boolean =
-    anyIndexVars && !allIndexVars;
 
   local lErrors::[Message] = tensor.errors ++ idx.errors;
   
@@ -80,7 +64,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
            ]);
 
   local fwrd::Expr =
-    if allIndexVars
+    if anyIndexVars
     then
       emptyAccess
     else
@@ -117,10 +101,6 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
       then
         sErrors
       else []
-    else []
-    ++
-    if indexVarErr
-    then [err(top.location, "Some dimensions of the tensor were accessed using index variables, others were not. This is not supported.")]
     else [];
   
   forwards to

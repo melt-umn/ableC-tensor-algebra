@@ -13,6 +13,7 @@ synthesized attribute exprs :: [Expr];
 synthesized attribute envr :: Decorated Env;
 
 autocopy attribute accessOrder :: [String];
+synthesized attribute iterAccess :: [Either<Expr String>];
 
 autocopy attribute remaining :: [String];
 synthesized attribute isAvail :: Boolean;
@@ -28,13 +29,14 @@ nonterminal TensorExpr with
   exprName, tensorName, accesses, tensorExpr, envr, 
   tensors, exprs, accessOrder, remaining, isAvail, 
   variable, fmts, sparse, dense, sparse_r, dense_r,
-  next_sparse, location;
+  iterAccess, next_sparse, location;
 
 abstract production tensorBaseExpr
 top::TensorExpr ::= ex::Expr env::Decorated Env
 {
   top.tensorName = "__none";
   top.accesses = [];
+  top.iterAccess = [];
   
   top.exprName = getExprName(ex, env);
   top.exprs = [ex];
@@ -78,10 +80,22 @@ top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
       )
     );
 
+  local iterAcc :: [Either<Expr String>] =
+    orderList(
+      getIterAccess(idx, env),
+      map(
+        \ p::Pair<Integer Pair<Integer Integer>>
+        -> p.snd.fst
+        ,
+        fmt.storage
+      )
+    );
+
   top.tensorExpr = ex;
   top.envr = env;
   
   top.accesses = [access];
+  top.iterAccess = iterAcc;
 
   top.tensors = [top];
 
@@ -158,6 +172,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__none";
   top.accesses = l.accesses ++ r.accesses;
+  top.iterAccess = [];
 
   top.exprName = "__none";
   top.exprs = l.exprs ++ r.exprs;
@@ -181,6 +196,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__none";
   top.accesses = l.accesses ++ r.accesses;
+  top.iterAccess = [];
 
   top.exprName = "__none";
   top.exprs = l.exprs ++ r.exprs;
@@ -204,6 +220,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__none";
   top.accesses = l.accesses ++ r.accesses;
+  top.iterAccess = [];
 
   top.exprName = "__none";
   top.exprs = l.exprs ++ r.exprs;
@@ -227,6 +244,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__none";
   top.accesses = l.accesses ++ r.accesses;
+  top.iterAccess = [];
 
   top.exprName = "__none";
   top.exprs = l.exprs ++ r.exprs;
@@ -272,6 +290,41 @@ function getAccess
        end
     | declRefExpr(name(i)) -> i :: []
     | _ -> "__error" :: []
+    end;
+}
+
+function getIterAccess
+[Either<Expr String>] ::= idx::Expr env::Decorated Env
+{
+  idx.env = env;
+  idx.returnType = nothing();
+
+  return
+    case idx of
+    | commaExpr(l, r) ->
+      case l.typerep of
+      | indexVarType(_) ->
+        case l of
+        | declRefExpr(name(i)) -> 
+          right(i) :: getIterAccess(r, env)
+        | _ -> 
+          left(l) :: getIterAccess(r, env)
+        end
+      | _ -> 
+        left(l) :: getIterAccess(r, env)
+      end
+    | _ -> 
+      case idx.typerep of
+      | indexVarType(_) -> 
+        case idx of
+        | declRefExpr(name(i)) ->
+          right(i) :: []
+        | _ -> 
+          left(idx) :: []
+        end
+      | _ ->
+        left(idx) :: []
+      end
     end;
 }
 

@@ -6,6 +6,9 @@ marking terminal Indexvar_t 'indexvar' lexer classes {Ckeyword};
 
 marking terminal TensorTransform_t /tensor[\ \t\r\n\f]+transform/ lexer classes {Ckeyword};
 
+marking terminal ForEach_t 'foreach' lexer classes {Ckeyword};
+terminal In_t 'in';
+
 marking terminal Orderof_t 'orderof' lexer classes {Ckeyword};
 marking terminal Dimensof_t 'dimenof' lexer classes {Ckeyword};
 
