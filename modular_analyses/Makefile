@@ -25,11 +25,11 @@ mwda: $(MWDA_JAR)
 
 $(MDA_JAR): $(GRAMMAR_SOURCES)
 	touch $(wildcard $(MDA_ARTIFACT)/*.sv)
-	silver -o $(MDA_JAR) $(SVFLAGS) $(MDA_ARTIFACT)
+	silver-ableC -o $(MDA_JAR) $(SVFLAGS) $(MDA_ARTIFACT)
 
 $(MWDA_JAR): $(GRAMMAR_SOURCES)
 	touch $(wildcard $(MWDA_ARTIFACT)/*.sv)
-	silver -o $(MWDA_JAR) $(SVFLAGS) --clean --warn-all --warn-error $(MWDA_ARTIFACT)
+	silver-ableC -o $(MWDA_JAR) $(SVFLAGS) --clean --warn-all --warn-error $(MWDA_ARTIFACT)
 
 clean:
 	rm -f *~ *.jar *.copperdump.html build.xml

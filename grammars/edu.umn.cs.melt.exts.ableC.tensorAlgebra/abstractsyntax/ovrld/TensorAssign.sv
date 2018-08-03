@@ -18,7 +18,21 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
     | tensorType(_, f, _) -> new(f.tensorFormat)
     | _ -> errorTensorFormat()
     end;
-  
+
+  local arrayAccess :: Boolean =
+    case idx.typerep of
+    | pointerType(_, _) -> true
+    | arrayType(_, _, _, _) -> true
+    | _ -> false
+    end;
+
+  local arrType :: Type =
+    case idx.typerep of
+    | pointerType(_, t) -> t
+    | arrayType(e, _, _, _) -> e
+    | _ -> idx.typerep
+    end;
+
   local access::[String] =
     orderList(
       getAccess(idx, env),
@@ -69,15 +83,23 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
   local lErrors::[Message] = tensor.errors ++ idx.errors;
 
   local tErrors::[Message] =
-    flatMap(
-      \ t::Type
-      -> t.errors
-         ++
-         if listLength(t.errors) != 0 || t.isIntegerType
-         then []
-         else [err(tensor.location, s"Expected integer type, got ${showType(t)}")]
-      ,
-      getTypereps(idx, env)
+    (
+    if arrayAccess
+    then
+      if arrType.isIntegerType
+      then []
+      else [err(idx.location, s"Expected an integer array, instead got ${showType(arrType)} array.")]
+    else
+      flatMap(
+        \ t::Type
+        -> t.errors
+           ++
+           if listLength(t.errors) != 0 || t.isIntegerType
+           then []
+           else [err(tensor.location, s"Expected integer type, got ${showType(t)}")]
+        ,
+        getTypereps(idx, env)
+      )
     )
     ++
     case tensor.typerep of
@@ -86,7 +108,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
     end;
 
   local sErrors::[Message] =
-    if getCount(idx, env) != fmt.dimensions
+    if !arrayAccess && getCount(idx, env) != fmt.dimensions
     then [err(tensor.location, s"Number of dimensions specified does not match, expected ${toString(fmt.dimensions)}, got ${toString(getCount(idx, env))}.")]
     else [];
 
@@ -107,6 +129,26 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
            ]);
 
   local fwrd::Expr =
+    if arrayAccess
+    then
+      op(
+        ableC_Expr {
+          *({
+            struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+            $BaseTypeExpr{idx.typerep.baseTypeExpr}* __idx = $Expr{idx};
+            unsigned long* _idx = malloc(sizeof(unsigned long) * $intLiteralExpr{fmt.dimensions});
+            for(unsigned long __d = 0; __d < $intLiteralExpr{fmt.dimensions}; __d++) {
+              _idx[__d] = __idx[__d];
+            }
+            double* res = $name{s"tensor_getPointer_${fmtNm}"}(_tensor, _idx);
+            free(_idx);
+            res;
+          })
+        },
+        right,
+        top.location
+      )
+    else
     if rightTensorExpr
     then
       if allIndexVars
@@ -120,14 +162,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
           declRefSubstitution("__tensor", tensor)
           :: generateExprsSubs(idx, 0, env),
           parseExpr(
-            if fmt.dimensions == 0
-            then s"""
-              *({
-                struct tensor_scalar* _tensor = &(__tensor);
-                _tensor->data;
-              })
-            """
-            else s"""
+            s"""
               *({
                 struct tensor_${fmtNm}* _tensor = &(__tensor);
                 unsigned long __index[] = { ${generateExprsArray(idx, 0, env)} };
