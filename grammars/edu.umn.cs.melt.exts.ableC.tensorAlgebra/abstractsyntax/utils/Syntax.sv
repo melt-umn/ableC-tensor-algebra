@@ -91,17 +91,14 @@ top::Expr ::= tensor::Expr
   local dimens::String = toString(fmt.dimensions);
   
   local fwrd::Expr =
-    substExpr(
-      declRefSubstitution("__tensor", tensor) :: [],
-      parseExpr(s"""
+    ableC_Expr {
       ({
-        struct tensor_${fmtNm}* _tensor = &(__tensor);
-        unsigned long* dims = GC_malloc(sizeof(unsigned long) * ${dimens});
-        memcpy(dims, _tensor->dims, sizeof(unsigned long) * ${dimens});
+        struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+        unsigned long* dims = GC_malloc(sizeof(unsigned long) * $intLiteralExpr{fmt.dimensions});
+        memcpy(dims, _tensor->dims, sizeof(unsigned long) * $intLiteralExpr{fmt.dimensions});
         dims;
       })
-      """)
-    );
+    };
   
   forwards to
     mkErrorCheck(

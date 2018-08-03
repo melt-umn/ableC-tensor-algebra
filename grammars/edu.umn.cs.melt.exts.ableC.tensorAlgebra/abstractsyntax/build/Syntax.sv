@@ -110,7 +110,17 @@ top::Expr ::= type::TypeName data::TensorConstant
   local fmtNm::String = fmt.proceduralName;
   
   local fwrd::Expr =
-    substExpr(
+    ableC_Expr {
+      ({
+        double __tensor_data[] = {$Expr{data.tensor_asExpr}};
+        unsigned long __tensor_dims[] = {$Expr{data.tensor_dimExpr}};
+
+        struct $name{s"tensor_${fmtNm}"} _tensor;
+        $name{s"tensor_makeFilled_${fmtNm}"}(&_tensor, __tensor_dims, __tensor_data);
+        _tensor;
+      })
+    };
+    {-substExpr(
       data.tensor_substs,
       parseExpr(s"""
       ({
@@ -122,7 +132,7 @@ top::Expr ::= type::TypeName data::TensorConstant
         _tensor;
       })
       """)
-    );
+    );-}
   
   forwards to mkErrorCheck(lErrors, fwrd);
 }
@@ -186,24 +196,19 @@ top::Expr ::= type::TypeName args::[Expr]
     end;
   
   local fwrd::Expr =
-    substExpr(
-      declRefSubstitution(s"__dimens", dims) ::
-        typedefSubstitution("__dim_type__", directTypeExpr(dimType)) ::
-        [],
-      parseExpr(s"""
+    ableC_Expr {
       ({
-        proto_typedef __dim_type__;
-        __dim_type__ _dimens = __dimens;
-        unsigned long* __tensor_arr = GC_malloc(sizeof(unsigned long) * ${toString(dimens)});
-        for(unsigned long i = 0; i < ${toString(dimens)}; i++) {
+        $BaseTypeExpr{dims.typerep.baseTypeExpr}* _dimens = $Expr{dims};
+        unsigned long* __tensor_arr = malloc(sizeof(unsigned long) * $intLiteralExpr{dimens});
+        for(unsigned long i = 0; i < $intLiteralExpr{dimens}; i++) {
           __tensor_arr[i] = _dimens[i];
         }
-        struct tensor_${fmtNm} _tensor;
-        tensor_make_${fmtNm}(&_tensor, __tensor_arr);
+        struct $name{s"tensor_${fmtNm}"} _tensor;
+        $name{s"tensor_make_${fmtNm}"}(&_tensor, __tensor_arr);
+        free(__tensor_arr);
         _tensor;
       })
-      """)
-    );
+    };
 
   forwards to mkErrorCheck(lErrors, fwrd);
 }

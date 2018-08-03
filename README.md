@@ -2,6 +2,8 @@
 A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compiler* by Fredrik Kjolstad, et. al.
 
 ## Todo
+* Fix expression generation in TensorConstant, want to be able to use to create an array. 
+* Move off of parseXXX and move to ableC\_XXX.
 * Add check for including tensors.xh header file
 * Test OpenMP code generation more
 * Extend test-suite to test correctness of code gen

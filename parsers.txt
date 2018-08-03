@@ -1,0 +1,65 @@
+utils/Syntax.sv:96:      parseExpr(s"""
+build/Syntax.sv:58:      parseExpr(s"""
+build/Syntax.sv:115:      parseExpr(s"""
+build/Syntax.sv:193:      parseExpr(s"""
+ovrld/TensorAccess.sv:113:        parseExpr(
+ovrld/TensorAssign.sv:164:          parseExpr(
+ovrld/TensorExpr.sv:20:  parseExpr(s"""
+ovrld/TensorExprAssign.sv:290:      parseStmt(
+ovrld/TensorExprAssign.sv:309:    then parseStmt(
+ovrld/TensorExprAssign.sv:313:    parseStmt(
+ovrld/TensorExprAssign.sv:411:            parseStmt(s)
+ovrld/TensorExprAssign.sv:428:            parseStmt(s)
+ovrld/TensorExprAssign.sv:458:        parseStmt(
+ovrld/TensorExprAssign.sv:477:        parseStmt(
+ovrld/TensorExprAssign.sv:494:    parseStmt(
+ovrld/TensorExprAssign.sv:508:          parseStmt(
+ovrld/TensorExprAssign.sv:526:            parseStmt(
+ovrld/TensorExprAssign.sv:559:        parseExpr(s"""
+ovrld/TensorExprAssign.sv:790:      parseStmt(
+ovrld/TensorExprAssign.sv:859:            parseStmt(s)
+ovrld/TensorExprAssign.sv:875:            parseStmt(s)
+ovrld/TensorExprAssign.sv:904:        parseStmt(
+ovrld/TensorExprAssign.sv:921:    parseStmt(
+ovrld/TensorExprAssign.sv:934:          parseStmt(
+ovrld/TensorExprAssign.sv:952:            parseStmt(
+ovrld/TensorExprAssign.sv:985:          parseExpr(s"""
+foreach/Foreach.sv:45:                parseStmt(
+foreach/Foreach.sv:61:                parseStmt(
+foreach/Foreach.sv:82:                parseStmt(
+foreach/Foreach.sv:100:                parseStmt(
+foreach/Foreach.sv:133:        parseStmt(s"double ${var.name} = data[p${toString(fmt.dimensions)}];"),
+foreach/Foreach.sv:175:          parseStmt(s"struct tensor_${fmt.proceduralName} _tensor_${toString(ex.location.line)}_${toString(ex.location.column)} = __expr;")
+foreach/Foreach.sv:181:    parseStmt(s"tensor_pack_${fmt.proceduralName}(&${nm});")
+foreach/Foreach.sv:183:    parseStmt(s"double* data = ${nm}.data;")
+foreach/Foreach.sv:189:          [parseStmt(s"unsigned long size_${toString(p.fst+1)} = ${nm}.indices[${toString(p.snd.fst)}][0][0];")]
+foreach/Foreach.sv:191:          parseStmt(s"unsigned long* pos_${toString(p.fst+1)} = ${nm}.indices[${toString(p.snd.fst)}][0];") ::
+foreach/Foreach.sv:192:          parseStmt(s"unsigned long* idx_${toString(p.fst+1)} = ${nm}.indices[${toString(p.snd.fst)}][1];") :: []
+decls/DeclPack.sv:33:  return parseDecl(s"""
+decls/DeclPack.sv:149:  return parseDecl(s"""
+decls/DeclMakeFilled.sv:22:  return parseDecl(s"""
+decls/DeclMake.sv:24:    parseDecl(s"""
+decls/DeclInsert.sv:38:    parseDecl(s"""
+decls/DeclInsert.sv:99:  return parseDecl(s"""
+decls/DeclInsert.sv:163:  return parseDecl(s"""
+decls/DeclGet.sv:33:    parseDecl(s"""
+decls/DeclGet.sv:95:    parseDecl(s"""
+decls/DeclStruct.sv:13:      parseDecl(
+halide/HalideExpr.sv:150:            parseStmt(s)
+halide/HalideExpr.sv:166:            parseStmt(s)
+halide/HalideExpr.sv:200:            parseStmt(
+halide/HalideExpr.sv:219:    parseStmt(
+halide/HalideExpr.sv:228:         parseStmt(s"double* ${t}_data = ${t}.data;")
+halide/HalideExpr.sv:236:    parseStmt(s"memset(${outNew.tensorName}.data, 0, ${outNew.tensorName}.dataLen * sizeof(double));");
+halide/HalideExpr.sv:452:                parseStmt(s"""
+halide/HalideExpr.sv:650:                parseStmt(s"""
+halide/HalideExpr.sv:809:            parseStmt(s)
+halide/HalideExpr.sv:825:            parseStmt(s)
+halide/HalideExpr.sv:858:            parseStmt(
+halide/HalideExpr.sv:881:          parseStmt(s"double* ${t}_data = ${t}.data;")
+halide/HalideExpr.sv:889:    parseStmt(
+halide/HalideExpr.sv:928:          parseStmt("double __result = 0.0;"),
+halide/HalideExpr.sv:1302:                parseStmt(s"""
+halide/HalideExpr.sv:1334:            parseStmt(s"""
+halide/HalideExpr.sv:1627:                parseStmt(s"""
+halide/HalideExpr.sv:1658:            parseStmt(s"""

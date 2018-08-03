@@ -8,7 +8,10 @@ synthesized attribute tensor_dimArray::String;
 synthesized attribute tensor_substs::[Substitution];
 inherited attribute tensor_pos::String;
 
-nonterminal TensorConstant with location, pp, errors, env, tensor_dims, tensor_size, tensor_data, tensor_asArray, tensor_dimArray, tensor_substs, tensor_pos;
+synthesized attribute tensor_asExpr :: Expr;
+synthesized attribute tensor_dimExpr :: Expr;
+
+nonterminal TensorConstant with location, pp, errors, env, tensor_dims, tensor_size, tensor_data, tensor_asArray, tensor_dimArray, tensor_substs, tensor_pos, tensor_asExpr, tensor_dimExpr;
 
 abstract production tensor_higher
 t::TensorConstant ::= sub::[TensorConstant]
@@ -57,6 +60,21 @@ t::TensorConstant ::= sub::[TensorConstant]
   t.tensor_dimArray = toString(t.tensor_size) ++ ", " ++ head(sub).tensor_dimArray;
   t.tensor_substs = combineSubsts(t.tensor_pos, head(sub), tail(sub), 0);
   
+  t.tensor_asExpr = 
+    foldr(
+      \ con::TensorConstant e::Expr ->
+        commaExpr(con.tensor_asExpr, e, location=t.location)
+      ,
+      last(sub).tensor_asExpr,
+      init(sub)
+    );
+  t.tensor_dimExpr =
+    commaExpr(
+      mkIntConst(t.tensor_size, t.location), 
+      head(sub).tensor_dimExpr, 
+      location=t.location
+    );
+
   t.tensor_data = left(sub);
 }
 
@@ -89,6 +107,17 @@ t::TensorConstant ::= sub::[Expr]
   t.tensor_dimArray = toString(t.tensor_size);
   t.tensor_substs = generateSubstsExprs(t.tensor_pos, sub, 0);
   
+  t.tensor_asExpr =
+    foldr(
+      \ sb::Expr e::Expr ->
+        commaExpr(sb, e, location=t.location)
+      ,
+      last(sub),
+      init(sub)
+    );
+  t.tensor_dimExpr =
+    mkIntConst(t.tensor_size, t.location);
+
   t.tensor_data = right(sub);
 }
 
@@ -151,7 +180,9 @@ function errorChecking
     else h.errors
     )
     ++
-    errorChecking(head(tl), tail(tl), env);
+    if null(tl)
+    then []
+    else errorChecking(head(tl), tail(tl), env);
 }
 
 function generateSubstsExprs
