@@ -15,9 +15,9 @@ int main() {
   A[2,100] = 6.0;
   A[15, 2] = 7.0;
 
-  int j = 2;
+  unsigned long j = 2;
   foreach(double v : A[j, i]) {
-    printf("%3lu ", i);
+    printf("(%3lu, %3lu) = %1.1f\n", j, i, v);
   }
   printf("\n");
 

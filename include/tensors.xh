@@ -114,12 +114,14 @@ char** _read_line(char* file) {
 }
 
 template<a>
-a _read_rb(char* file) {
-  
+a* _read_rb(char* file) {
+  fprintf(stderr, "Read RB is not currently supported.\n");
+  exit(1);
+  return 0;
 }
 
 template<a>
-a _read_mtx(char* file) {
+a* _read_mtx(char* file) {
   char** lines = _read_line(file);
   char* header = lines[0];
   file = lines[1];
@@ -197,9 +199,9 @@ a _read_mtx(char* file) {
         return 0;
       }
     
-      value (res)(r-1, c-1) = elem_d;
+      res[r-1, c-1] = elem_d;
       if(formatType == 1) {
-        value (res)(c-1, r-1) = elem_d;
+        res[c-1, r-1] = elem_d;
       }
     } else {
       if(sscanf(line, "%lu %lu %ld", &r, &c, &elem_i) != 3) {
@@ -207,19 +209,23 @@ a _read_mtx(char* file) {
         return 0;
       }
       
-      value (res)(r-1, c-1) = elem_i;
+      res[r-1, c-1] = elem_i;
       if(formatType == 1) {
-        value (res)(c-1, r-1) = elem_i;
+        res[c-1, r-1] = elem_i;
       }
     }
   }
   
-  return res;
+  a* pnt = GC_malloc(sizeof(a));
+  memcpy(pnt, &res, sizeof(a));
+  return pnt;
 }
 
 template <a>
-a _read_tns(char* file) {
-
+a* _read_tns(char* file) {
+  fprintf(stderr, "Read TNS is currently not supported.\n");
+  exit(1);
+  return 0;
 }
 
 template<a>
@@ -233,7 +239,7 @@ a read(char* fileName) {
   int size = stat_buf.st_size;
   char *file = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
   
-  a res;
+  a* res;
   if(_eq_str(ext, "rb", 2)) {
     res = inst _read_rb<a>(file);
   } if(_eq_str(ext, "mtx", 3) || _eq_str(ext, "ttx", 3)) {
@@ -242,13 +248,13 @@ a read(char* fileName) {
     res = inst _read_tns<a>(file);
   } else {
     fprintf(stderr, "Unknown file extension for tensor: %s\n", ext);
-    return 0;
+    exit(1);
   }
   
   munmap(file, size);
   close(fd);
 
-  return res;
+  return *res;
 }
 
 #endif
