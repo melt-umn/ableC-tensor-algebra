@@ -1,10 +1,4 @@
-utils/Syntax.sv:96:      parseExpr(s"""
-build/Syntax.sv:58:      parseExpr(s"""
-build/Syntax.sv:115:      parseExpr(s"""
-build/Syntax.sv:193:      parseExpr(s"""
-ovrld/TensorAccess.sv:113:        parseExpr(
-ovrld/TensorAssign.sv:164:          parseExpr(
-ovrld/TensorExpr.sv:20:  parseExpr(s"""
+ovrld/TensorAssign.sv:177:          parseExpr(
 ovrld/TensorExprAssign.sv:290:      parseStmt(
 ovrld/TensorExprAssign.sv:309:    then parseStmt(
 ovrld/TensorExprAssign.sv:313:    parseStmt(
@@ -33,8 +27,6 @@ foreach/Foreach.sv:175:          parseStmt(s"struct tensor_${fmt.proceduralName}
 foreach/Foreach.sv:181:    parseStmt(s"tensor_pack_${fmt.proceduralName}(&${nm});")
 foreach/Foreach.sv:183:    parseStmt(s"double* data = ${nm}.data;")
 foreach/Foreach.sv:189:          [parseStmt(s"unsigned long size_${toString(p.fst+1)} = ${nm}.indices[${toString(p.snd.fst)}][0][0];")]
-foreach/Foreach.sv:191:          parseStmt(s"unsigned long* pos_${toString(p.fst+1)} = ${nm}.indices[${toString(p.snd.fst)}][0];") ::
-foreach/Foreach.sv:192:          parseStmt(s"unsigned long* idx_${toString(p.fst+1)} = ${nm}.indices[${toString(p.snd.fst)}][1];") :: []
 decls/DeclPack.sv:33:  return parseDecl(s"""
 decls/DeclPack.sv:149:  return parseDecl(s"""
 decls/DeclMakeFilled.sv:22:  return parseDecl(s"""

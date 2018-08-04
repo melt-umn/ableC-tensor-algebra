@@ -52,18 +52,32 @@ top::Expr ::= type::TypeName dims::[Expr]
   
   local fmtNm::String = fmt.proceduralName;
   
+  local dimInit :: Initializer =
+    objectInitializer(
+      foldr(
+        \ e::Expr lst::InitList ->
+          consInit(
+            positionalInit(
+              exprInitializer(e)
+            )
+            ,
+            lst
+          )
+        ,
+        nilInit(),
+        dims
+      )
+    );
+
   local fwrd::Expr =
-    substExpr(
-      generateSubstitutions(dims, 0),
-      parseExpr(s"""
+    ableC_Expr {
       ({
-        unsigned long __tensor_arr[] = {${generateArray(dims, 0)}};
-        struct tensor_${fmtNm} _tensor;
-        tensor_make_${fmtNm}(&_tensor, __tensor_arr);
+        unsigned long __tensor_arr[] = $Initializer{dimInit};
+        struct $name{s"tensor_${fmtNm}"} _tensor;
+        $name{s"tensor_make_${fmtNm}"}(&_tensor, __tensor_arr);
         _tensor;
       })
-      """)
-    );
+    };
 
   forwards to mkErrorCheck(lErrors, fwrd);
 }
@@ -112,27 +126,14 @@ top::Expr ::= type::TypeName data::TensorConstant
   local fwrd::Expr =
     ableC_Expr {
       ({
-        double __tensor_data[] = {$Expr{data.tensor_asExpr}};
-        unsigned long __tensor_dims[] = {$Expr{data.tensor_dimExpr}};
+        double __tensor_data[] = $Initializer{data.tensor_asExpr};
+        unsigned long __tensor_dims[] = $Initializer{data.tensor_dimExpr};
 
         struct $name{s"tensor_${fmtNm}"} _tensor;
         $name{s"tensor_makeFilled_${fmtNm}"}(&_tensor, __tensor_dims, __tensor_data);
         _tensor;
       })
     };
-    {-substExpr(
-      data.tensor_substs,
-      parseExpr(s"""
-      ({
-        double __tensor_data[] = {${data.tensor_asArray}};
-        unsigned long __tensor_dims[] = {${data.tensor_dimArray}};
-        
-        struct tensor_${fmtNm} _tensor;
-        tensor_makeFilled_${fmtNm}(&_tensor, __tensor_dims, __tensor_data);
-        _tensor;
-      })
-      """)
-    );-}
   
   forwards to mkErrorCheck(lErrors, fwrd);
 }

@@ -8,8 +8,8 @@ synthesized attribute tensor_dimArray::String;
 synthesized attribute tensor_substs::[Substitution];
 inherited attribute tensor_pos::String;
 
-synthesized attribute tensor_asExpr :: Expr;
-synthesized attribute tensor_dimExpr :: Expr;
+synthesized attribute tensor_asExpr :: Initializer;
+synthesized attribute tensor_dimExpr :: Initializer;
 
 nonterminal TensorConstant with location, pp, errors, env, tensor_dims, tensor_size, tensor_data, tensor_asArray, tensor_dimArray, tensor_substs, tensor_pos, tensor_asExpr, tensor_dimExpr;
 
@@ -61,21 +61,67 @@ t::TensorConstant ::= sub::[TensorConstant]
   t.tensor_substs = combineSubsts(t.tensor_pos, head(sub), tail(sub), 0);
   
   t.tensor_asExpr = 
-    foldr(
-      \ con::TensorConstant e::Expr ->
-        commaExpr(con.tensor_asExpr, e, location=t.location)
-      ,
-      last(sub).tensor_asExpr,
-      init(sub)
+    objectInitializer(
+      let lsts :: [InitList] =
+        map(
+          \ c::TensorConstant ->
+            case 
+              decorate 
+                (decorate c with {env=t.env;}).tensor_asExpr 
+              with 
+              {env=t.env; returnType=nothing();} 
+            of
+            | objectInitializer(l) -> l
+            end
+          ,
+          sub
+        )
+      in
+      concatInitList(lsts)
+      end
     );
   t.tensor_dimExpr =
-    commaExpr(
-      mkIntConst(t.tensor_size, t.location), 
-      head(sub).tensor_dimExpr, 
-      location=t.location
+    objectInitializer(
+      consInit(
+        positionalInit(
+          exprInitializer(
+            mkIntConst(t.tensor_size, t.location)
+          )
+        ),
+        case 
+          decorate 
+            (decorate head(sub) with {env=t.env;}).tensor_dimExpr 
+          with 
+          {env=t.env; returnType=nothing();} 
+        of
+        | objectInitializer(l) -> l
+        end
+      )
     );
 
   t.tensor_data = left(sub);
+}
+
+function concatInitList
+InitList ::= lst::[InitList]
+{
+  return
+    case lst of
+    | [] -> nilInit()
+    | i::[] -> i
+    | h::tl -> appendInitList(h, concatInitList(tl))
+    end;
+}
+
+function appendInitList
+InitList ::= a::InitList b::InitList
+{
+  return
+    case a of
+    | nilInit() -> b
+    | consInit(i, tl) ->
+      consInit(i, appendInitList(tl, b))
+    end;
 }
 
 abstract production tensor_base
@@ -108,15 +154,31 @@ t::TensorConstant ::= sub::[Expr]
   t.tensor_substs = generateSubstsExprs(t.tensor_pos, sub, 0);
   
   t.tensor_asExpr =
-    foldr(
-      \ sb::Expr e::Expr ->
-        commaExpr(sb, e, location=t.location)
-      ,
-      last(sub),
-      init(sub)
+    objectInitializer(
+      foldr(
+        \ sb::Expr lst::InitList ->
+          consInit(
+            positionalInit(
+              exprInitializer(sb)
+            ),
+            lst
+          )
+        ,
+        nilInit(),
+        sub
+      )
     );
   t.tensor_dimExpr =
-    mkIntConst(t.tensor_size, t.location);
+    objectInitializer(
+      consInit(
+        positionalInit(
+          exprInitializer(
+            mkIntConst(t.tensor_size, t.location)
+          )
+        ),
+        nilInit()
+      )
+    );
 
   t.tensor_data = right(sub);
 }

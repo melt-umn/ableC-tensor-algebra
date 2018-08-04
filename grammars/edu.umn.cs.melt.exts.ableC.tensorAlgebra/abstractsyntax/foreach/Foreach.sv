@@ -188,8 +188,13 @@ function tensorVals
         then
           [parseStmt(s"unsigned long size_${toString(p.fst+1)} = ${nm}.indices[${toString(p.snd.fst)}][0][0];")]
         else
-          parseStmt(s"unsigned long* pos_${toString(p.fst+1)} = ${nm}.indices[${toString(p.snd.fst)}][0];") ::
-          parseStmt(s"unsigned long* idx_${toString(p.fst+1)} = ${nm}.indices[${toString(p.snd.fst)}][1];") :: []
+          ableC_Stmt {
+            unsigned long* $name{s"pos_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0];
+          } ::
+          ableC_Stmt { 
+            unsigned long* $name{s"idx_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][1];
+          }
+          :: []
       ,
       fmt.storage
     );

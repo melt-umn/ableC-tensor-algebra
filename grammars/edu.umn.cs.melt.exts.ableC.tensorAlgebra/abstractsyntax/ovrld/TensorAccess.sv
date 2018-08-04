@@ -85,6 +85,11 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
              text(")")
            ]);
 
+  local idxInitializer :: Initializer =
+    objectInitializer(
+      generateInitList(idx, env)
+    );
+
   local fwrd::Expr =
     if arrayAccess
     then
@@ -107,20 +112,14 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
     then
       emptyAccess
     else
-      substExpr(
-        declRefSubstitution("__tensor", tensor)
-        :: generateExprsSubs(idx, 0, env),
-        parseExpr(
-          s"""
-          ({
-            struct tensor_${fmtNm}* _tensor = &(__tensor);
-            unsigned long __index[] = { ${generateExprsArray(idx, 0, env)} };
-            tensor_pack_${fmtNm}(_tensor);
-            tensor_get_${fmtNm}(_tensor, __index);
-          })
-          """
-        )
-      );
+      ableC_Expr {
+        ({
+          struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+          unsigned long __index[] = $Initializer{idxInitializer};
+          $name{s"tensor_pack_${fmtNm}"}(_tensor);
+          $name{s"tensor_get_${fmtNm}"}(_tensor, __index);
+        })
+      };
   
   local allErrors :: [Message] = 
     lErrors 
@@ -140,6 +139,31 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
       allErrors,
       fwrd
     );
+}
+
+function generateInitList
+InitList ::= ex::Expr env::Decorated Env
+{
+  ex.env = env;
+  ex.returnType = nothing();
+
+  return
+    case ex of
+    | commaExpr(l, r) ->
+      consInit(
+        positionalInit(
+          exprInitializer(l)
+        ),
+        generateInitList(r, env)
+      )
+    | _ ->
+      consInit(
+        positionalInit(
+          exprInitializer(ex)
+        ),
+        nilInit()
+      )
+    end;
 }
 
 function getTypereps

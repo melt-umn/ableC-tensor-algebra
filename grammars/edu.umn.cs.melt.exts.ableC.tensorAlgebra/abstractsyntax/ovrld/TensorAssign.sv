@@ -128,6 +128,11 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
              text("]")
            ]);
 
+  local idxInit :: Initializer =
+    objectInitializer(
+      generateInitList(idx, env)
+    );
+
   local fwrd::Expr =
     if arrayAccess
     then
@@ -158,6 +163,14 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
         errorExpr([err(top.location, "This should not occur")], location=top.location)
     else -- x[i] = a
       op(
+        ableC_Expr {
+          *({
+            struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+            unsigned long __index[] = $Initializer{idxInit};
+            $name{s"tensor_getPointer_${fmtNm}"}(_tensor, __index);
+          })
+        }
+        {-
         substExpr(
           declRefSubstitution("__tensor", tensor)
           :: generateExprsSubs(idx, 0, env),
@@ -169,12 +182,12 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
                 tensor_getPointer_${fmtNm}(_tensor, __index);
               })
             """
-        )
-      )
-      ,
-      right,
-      top.location
-    );
+          )
+        )-}
+        ,
+        right,
+        top.location
+      );
 
   local allErrors :: [Message] =
     lErrors

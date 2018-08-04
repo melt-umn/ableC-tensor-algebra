@@ -17,9 +17,9 @@ top::Expr ::= e::Expr
 }
 
 global emptyAccess :: Expr =
-  parseExpr(s"""
-  ({
-    struct tensor_acc x;
-    x;
-  })
-  """);
+  ableC_Expr {
+    ({
+      struct tensor_acc x;
+      x;
+    })
+  };
