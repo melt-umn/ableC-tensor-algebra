@@ -39,78 +39,90 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
           if e.fst.isLeft
           then
             \ bd::Stmt ->
-              substStmt(
-                declRefSubstitution("__expr", e.fst.fromLeft) ::
-                stmtSubstitution("__stmt", bd) :: [],
-                parseStmt(
-                  -- The following error check should be performed.
-                  --s"if(__expr >= size_${toString(e.snd.fst+1)}) { fprintf(stderr, \"Size out of bounds in foreach loop.\"); exit(1); }" ++
-                  (
-                  if e.snd.fst == 0
-                  then s"unsigned long p${toString(e.snd.fst+1)} = __expr;"
-                  else s"unsigned long p${toString(e.snd.fst+1)} = (p${toString(e.snd.fst)} * size_${toString(e.snd.fst+1)}) + __expr;"
-                  )
-                  ++
-                  "__stmt;"
-                )
-              )
+              if e.snd.fst == 0
+              then
+                ableC_Stmt {
+                  unsigned long $name{s"p${toString(e.snd.fst+1)}"};
+                  {
+                    unsigned long temp = $Expr{e.fst.fromLeft};
+                    if(temp >= $name{s"size_${toString(e.snd.fst+1)}"}) {
+                      fprintf(stderr, $stringLiteralExpr{"Size out of bounds in foreach loop."});
+                      exit(1);
+                    }
+                    $name{s"p${toString(e.snd.fst+1)}"} = temp;
+                  }
+                  $Stmt{bd};
+                }
+              else
+                ableC_Stmt {
+                  unsigned long $name{s"p${toString(e.snd.fst+1)}"};
+                  {
+                    unsigned long temp = $Expr{e.fst.fromLeft};
+                    if(temp >= $name{s"size_${toString(e.snd.fst+1)}"}) {
+                      fprintf(stderr, $stringLiteralExpr{"Size out of bounds in foreach loop."});
+                      exit(1);
+                    }
+                    $name{s"p${toString(e.snd.fst+1)}"} = ($name{s"p${toString(e.snd.fst)}"} * $name{s"size_${toString(e.snd.fst+1)}"}) + temp;
+                  }
+                  $Stmt{bd};
+                }
           else
             \ bd::Stmt ->
-              substStmt(
-                stmtSubstitution("__stmt", bd) :: [],
-                parseStmt(
-                s"for(unsigned long ${e.fst.fromRight} = 0; ${e.fst.fromRight} < size_${toString(e.snd.fst+1)}; ${e.fst.fromRight}++) {"
-                ++
-                (
-                if e.snd.fst == 0
-                then s"unsigned long p${toString(e.snd.fst+1)} = ${e.fst.fromRight};"
-                else s"unsigned long p${toString(e.snd.fst+1)} = (p${toString(e.snd.fst)} * size_${toString(e.snd.fst+1)}) + ${e.fst.fromRight};"
-                )
-                ++
-                "__stmt;"
-                ++
-                "}"
-                )
-              )
+              if e.snd.fst == 0
+              then
+                ableC_Stmt {
+                  for(unsigned long $name{e.fst.fromRight} = 0; $name{e.fst.fromRight} < $name{s"size_${toString(e.snd.fst+1)}"}; $name{e.fst.fromRight}++) {
+                    unsigned long $name{s"p${toString(e.snd.fst+1)}"} = $name{e.fst.fromRight};
+                    $Stmt{bd};
+                  }
+                }
+              else 
+                ableC_Stmt {
+                  for(unsigned long $name{e.fst.fromRight} = 0; $name{e.fst.fromRight} < $name{s"size_${toString(e.snd.fst+1)}"}; $name{e.fst.fromRight}++) {
+                    unsigned long $name{s"p${toString(e.snd.fst+1)}"} = ($name{s"p${toString(e.snd.fst)}"} * $name{s"size_${toString(e.snd.fst+1)}"}) + $name{e.fst.fromRight};
+                    $Stmt{bd};
+                  }
+                }
         else
           if e.fst.isLeft
           then
             \ bd::Stmt ->
-              substStmt(
-                declRefSubstitution("__expr", e.fst.fromLeft) ::
-                stmtSubstitution("__stmt", bd) :: [],
-                parseStmt(
-                (
-                if e.snd.fst == 0
-                then s"for(unsigned long p1 = pos_1[0]; p1 < pos_1[1]; p1++) {"
-                else s"for(unsigned long p${toString(e.snd.fst+1)} = pos_${toString(e.snd.fst+1)}[p${toString(e.snd.fst)}]; p${toString(e.snd.fst+1)} < pos_${toString(e.snd.fst+1)}[p${toString(e.snd.fst)}+1]; p${toString(e.snd.fst+1)}++) {"
-                )
-                ++
-                s"if(idx_${toString(e.snd.fst+1)}[p${toString(e.snd.fst+1)}] == __expr) {"
-                ++
-                "__stmt; break;"
-                ++
-                "} }"
-                )
-              )
+              if e.snd.fst == 0
+              then
+                ableC_Stmt {
+                  for(unsigned long p1 = pos_1[0]; p1 < pos_1[1]; p1++) {
+                    if($name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}] == $Expr{e.fst.fromLeft}) {
+                      $Stmt{bd};
+                      break;
+                    }
+                  }
+                }
+              else
+                ableC_Stmt {
+                  for(unsigned long $name{s"p${toString(e.snd.fst+1)}"} = $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}]; $name{s"p${toString(e.snd.fst+1)}"} < $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}+1]; $name{s"p${toString(e.snd.fst+1)}"}++) {
+                    if($name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}] == $Expr{e.fst.fromLeft}){
+                      $Stmt{bd};
+                      break;
+                    }
+                  }
+                }
           else
             \ bd::Stmt ->
-              substStmt(
-                stmtSubstitution("__stmt", bd) :: [],
-                parseStmt(
-                (
-                if e.snd.fst == 0
-                then s"for(unsigned long p1 = pos_1[0]; p1 < pos_1[1]; p1++) {"
-                else s"for(unsigned long p${toString(e.snd.fst+1)} = pos_${toString(e.snd.fst+1)}[p${toString(e.snd.fst)}]; p${toString(e.snd.fst+1)} < pos_${toString(e.snd.fst+1)}[p${toString(e.snd.fst)}+1]; p${toString(e.snd.fst+1)}++) {"
-                )
-                ++
-                s"unsigned long ${e.fst.fromRight} = idx_${toString(e.snd.fst+1)}[p${toString(e.snd.fst+1)}];"
-                ++
-                "__stmt;"
-                ++
-                "}"
-                )
-              )
+              if e.snd.fst == 0
+              then
+                ableC_Stmt {
+                  for(unsigned long p1 = pos_1[0]; p1 < pos_1[1]; p1++) {
+                    unsigned long $name{e.fst.fromRight} = $name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}];
+                    $Stmt{bd};
+                  }
+                }
+              else
+                ableC_Stmt {
+                  for(unsigned long $name{s"p${toString(e.snd.fst+1)}"} = $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}]; $name{s"p${toString(e.snd.fst+1)}"} < $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}+1]; $name{s"p${toString(e.snd.fst+1)}"}++) {
+                    unsigned long $name{e.fst.fromRight} = $name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}];
+                    $Stmt{bd};
+                  }
+                }
       ,
       zipWith(
         pair,
@@ -130,7 +142,9 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
         fnc(s)
       ,
       seqStmt(
-        parseStmt(s"double ${var.name} = data[p${toString(fmt.dimensions)}];"),
+        ableC_Stmt {
+          double $name{var.name} = data[$name{s"p${toString(fmt.dimensions)}"}];
+        },
         body
       ),
       stmts
@@ -170,23 +184,28 @@ function tensorVals
       case decorate e with {env=env; returnType=nothing();} of
       | declRefExpr(name(_)) -> nullStmt()
       | _ -> 
-        substStmt(
-          [declRefSubstitution("__expr", e)],
-          parseStmt(s"struct tensor_${fmt.proceduralName} _tensor_${toString(ex.location.line)}_${toString(ex.location.column)} = __expr;")
-        )
+        ableC_Stmt {
+          struct $name{s"tensor_${fmt.proceduralName}"} $name{s"_tensor_${toString(ex.location.line)}_${toString(e.location.column)}"} = $Expr{e};
+        }
       end
     | _ -> nullStmt()
     end
     ::
-    parseStmt(s"tensor_pack_${fmt.proceduralName}(&${nm});")
+    ableC_Stmt {
+      $name{s"tensor_pack_${fmt.proceduralName}"}(&$name{nm});
+    }
     ::
-    parseStmt(s"double* data = ${nm}.data;")
+    ableC_Stmt {
+      double* data = $name{nm}.data;
+    }
     ::
     flatMap(
       \ p::Pair<Integer Pair<Integer Integer>> ->
         if p.snd.snd == storeDense
         then
-          [parseStmt(s"unsigned long size_${toString(p.fst+1)} = ${nm}.indices[${toString(p.snd.fst)}][0][0];")]
+          ableC_Stmt {
+            unsigned long $name{s"size_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0][0];
+          } :: []
         else
           ableC_Stmt {
             unsigned long* $name{s"pos_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0];

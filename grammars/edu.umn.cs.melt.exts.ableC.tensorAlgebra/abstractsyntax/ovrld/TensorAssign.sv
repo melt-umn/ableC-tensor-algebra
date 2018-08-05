@@ -169,22 +169,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
             unsigned long __index[] = $Initializer{idxInit};
             $name{s"tensor_getPointer_${fmtNm}"}(_tensor, __index);
           })
-        }
-        {-
-        substExpr(
-          declRefSubstitution("__tensor", tensor)
-          :: generateExprsSubs(idx, 0, env),
-          parseExpr(
-            s"""
-              *({
-                struct tensor_${fmtNm}* _tensor = &(__tensor);
-                unsigned long __index[] = { ${generateExprsArray(idx, 0, env)} };
-                tensor_getPointer_${fmtNm}(_tensor, __index);
-              })
-            """
-          )
-        )-}
-        ,
+        },
         right,
         top.location
       );

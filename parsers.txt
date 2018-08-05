@@ -1,4 +1,3 @@
-ovrld/TensorAssign.sv:177:          parseExpr(
 ovrld/TensorExprAssign.sv:290:      parseStmt(
 ovrld/TensorExprAssign.sv:309:    then parseStmt(
 ovrld/TensorExprAssign.sv:313:    parseStmt(
@@ -18,15 +17,6 @@ ovrld/TensorExprAssign.sv:921:    parseStmt(
 ovrld/TensorExprAssign.sv:934:          parseStmt(
 ovrld/TensorExprAssign.sv:952:            parseStmt(
 ovrld/TensorExprAssign.sv:985:          parseExpr(s"""
-foreach/Foreach.sv:45:                parseStmt(
-foreach/Foreach.sv:61:                parseStmt(
-foreach/Foreach.sv:82:                parseStmt(
-foreach/Foreach.sv:100:                parseStmt(
-foreach/Foreach.sv:133:        parseStmt(s"double ${var.name} = data[p${toString(fmt.dimensions)}];"),
-foreach/Foreach.sv:175:          parseStmt(s"struct tensor_${fmt.proceduralName} _tensor_${toString(ex.location.line)}_${toString(ex.location.column)} = __expr;")
-foreach/Foreach.sv:181:    parseStmt(s"tensor_pack_${fmt.proceduralName}(&${nm});")
-foreach/Foreach.sv:183:    parseStmt(s"double* data = ${nm}.data;")
-foreach/Foreach.sv:189:          [parseStmt(s"unsigned long size_${toString(p.fst+1)} = ${nm}.indices[${toString(p.snd.fst)}][0][0];")]
 decls/DeclPack.sv:33:  return parseDecl(s"""
 decls/DeclPack.sv:149:  return parseDecl(s"""
 decls/DeclMakeFilled.sv:22:  return parseDecl(s"""
