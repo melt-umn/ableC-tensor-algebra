@@ -90,8 +90,9 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
               if e.snd.fst == 0
               then
                 ableC_Stmt {
+                  unsigned long target = $Expr{e.fst.fromLeft};
                   for(unsigned long p1 = pos_1[0]; p1 < pos_1[1]; p1++) {
-                    if($name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}] == $Expr{e.fst.fromLeft}) {
+                    if($name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}] == target) {
                       $Stmt{bd};
                       break;
                     }
@@ -99,8 +100,9 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                 }
               else
                 ableC_Stmt {
+                  unsigned long target = $Expr{e.fst.fromLeft};
                   for(unsigned long $name{s"p${toString(e.snd.fst+1)}"} = $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}]; $name{s"p${toString(e.snd.fst+1)}"} < $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}+1]; $name{s"p${toString(e.snd.fst+1)}"}++) {
-                    if($name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}] == $Expr{e.fst.fromLeft}){
+                    if($name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}] == target){
                       $Stmt{bd};
                       break;
                     }
