@@ -94,9 +94,10 @@ top::Expr ::= tensor::Expr
     ableC_Expr {
       ({
         struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
-        unsigned long* dims = GC_malloc(sizeof(unsigned long) * $intLiteralExpr{fmt.dimensions});
-        memcpy(dims, _tensor->dims, sizeof(unsigned long) * $intLiteralExpr{fmt.dimensions});
-        dims;
+        _tensor->dims;
+        //unsigned long* dims = GC_malloc(sizeof(unsigned long) * $intLiteralExpr{fmt.dimensions});
+        //memcpy(dims, _tensor->dims, sizeof(unsigned long) * $intLiteralExpr{fmt.dimensions});
+        //dims;
       })
     };
   

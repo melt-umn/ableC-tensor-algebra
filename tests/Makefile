@@ -14,7 +14,6 @@ GRAMMAR_DIRS=$(ABLEC_BASE)/grammars $(wildcard $(EXTS_BASE)/*/grammars)
 GRAMMAR_SOURCES=$(shell find $(GRAMMAR_DIRS) -name *.sv -print0 | xargs -0)
 # Flags passed to silver including the appropriate directories
 override SVFLAGS+=$(addprefix -I ,$(GRAMMAR_DIRS))
-override SVFLAGS+=$(addprefix -I ,/home/counc009/gc/include)
 
 # All extended C files to compile
 XC_FILES=$(wildcard translate_error/*.xc) $(wildcard runtime_error/*.xc) $(wildcard positive/*.xc)
@@ -35,7 +34,6 @@ XC_INCLUDE_DIRS=$(wildcard $(EXTS_BASE)/*/include)
 XC_INCLUDE_SOURCES=$(foreach dir,$(XC_INCLUDE_DIRS),$(wildcard $(dir)/*.*h))
 # Flags passed to ableC including the appropriate directories
 override XCFLAGS+=$(addprefix -I,$(XC_INCLUDE_DIRS))
-override XCFLAGS+=$(addprefix -I,/home/counc009/gc/include)
 # Flags passed to Java when invoking ableC
 override JAVAFLAGS+=-Xss6M
 
@@ -47,7 +45,7 @@ LIB_DIRS=$(wildcard $(EXTS_BASE)/*/lib)
 # Flags passed to the linker specifying the appropriate directories
 override LDFLAGS+=$(addprefix -L,$(LIB_DIRS))
 # Flags passed to the linker specifying libraries to link
-LDLIBS=/home/counc009/gc/lib/libgc.a -lm -lgomp
+LDLIBS=-lm -lgomp
 
 # All directories contining extension library sources
 SRC_DIRS=$(wildcard $(EXTS_BASE)/*/src)

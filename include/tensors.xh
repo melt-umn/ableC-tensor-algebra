@@ -2,7 +2,6 @@
 #define _TENSORS_XH_
 
 #include <stdlib.h>
-#include "gc.h"
 #include <string.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -75,7 +74,7 @@ char _is_newline(char c) {
 }
 
 char** _read_line(char* file) {
-  char** res = GC_malloc(sizeof(char*) * 2);
+  char** res = malloc(sizeof(char*) * 2);
   if(file == 0) {
     res[0] = 0;
     res[1] = 0;
@@ -100,7 +99,7 @@ char** _read_line(char* file) {
   }
   
   if(file[length] != '\0') {
-    char* temp = GC_malloc(sizeof(char) * (length - start + 1));
+    char* temp = malloc(sizeof(char) * (length - start + 1));
     memcpy(temp, res[0], sizeof(char) * (length - start));
     res[0] = temp;
     res[0][length - start] = '\0';
@@ -216,7 +215,7 @@ a* _read_mtx(char* file) {
     }
   }
   
-  a* pnt = GC_malloc(sizeof(a));
+  a* pnt = malloc(sizeof(a));
   memcpy(pnt, &res, sizeof(a));
   return pnt;
 }

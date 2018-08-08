@@ -53,7 +53,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
       if type == storeDense
       then s"""
         index = 0;
-        temp = GC_malloc(sizeof(struct tensor_tree_s) * count * dims[${toString(dim)}]);
+        temp = malloc(sizeof(struct tensor_tree_s) * count * dims[${toString(dim)}]);
         for(unsigned long i = 0; i < count; i++) {
           unsigned long oldSize = tree[i].numChildren;
           struct tensor_tree_s*  oldChildren = tree[i].children;
@@ -83,7 +83,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
       if type == storeDense
       then s"""
         index = 0;
-        temp = GC_malloc(sizeof(struct tensor_tree_s) * count * dims[${toString(dim)}]);
+        temp = malloc(sizeof(struct tensor_tree_s) * count * dims[${toString(dim)}]);
         for(unsigned long i = 0; i < count; i++) {
           unsigned long oldSize = tree[i].numChildren;
           struct tensor_tree_s* oldChildren = tree[i].children;
@@ -120,7 +120,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
           cTemp += tree[i].numChildren;
         }
         
-        temp = GC_malloc(sizeof(struct tensor_tree_s) * cTemp);
+        temp = malloc(sizeof(struct tensor_tree_s) * cTemp);
         index = 0;
         
         for(unsigned long i = 0; i < count; i++) {
@@ -158,7 +158,7 @@ Decl ::= fmt::TensorFormat
         ${generatePackBody_Tree(fmt.storage, fmtNm, fmt.dimensions, 1)}
         tensor_packTree_${fmtNm}(buffer, dims);
         
-        t->indices = GC_malloc(sizeof(unsigned long**) * ${toString(order)});
+        t->indices = malloc(sizeof(unsigned long**) * ${toString(order)});
         unsigned long numChildren = 1;
         struct tensor_tree_s** trees = &buffer;
         
@@ -167,7 +167,7 @@ Decl ::= fmt::TensorFormat
         
         ${generatePackBody_Assemble(fmt.storage)}
         
-        t->data = GC_malloc(sizeof(double) * numChildren);
+        t->data = malloc(sizeof(double) * numChildren);
         for(unsigned long i = 0; i < numChildren; i++) {
           t->data[i] = trees[i]->val;
         }
@@ -233,7 +233,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
       for(unsigned long j = 0; j < numChildren; j++) {
         newChildren += trees[j]->numChildren;
       }
-      temp_tree = GC_malloc(sizeof(struct tensor_tree_s*) * newChildren);
+      temp_tree = malloc(sizeof(struct tensor_tree_s*) * newChildren);
       index = 0;
       for(unsigned long j = 0; j < numChildren; j++) {
         unsigned long end = trees[j]->numChildren;
@@ -245,14 +245,14 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
       
       ${if type == storeDense
         then s"""
-          t->indices[${dim}] = GC_malloc(sizeof(unsigned long*));
-          t->indices[${dim}][0] = GC_malloc(sizeof(unsigned long));
+          t->indices[${dim}] = malloc(sizeof(unsigned long*));
+          t->indices[${dim}][0] = malloc(sizeof(unsigned long));
           t->indices[${dim}][0][0] = dimSize;
         """
         else s"""
-          t->indices[${dim}] = GC_malloc(sizeof(unsigned long*) * 2);
-          t->indices[${dim}][0] = GC_malloc(sizeof(unsigned long) * (numChildren + 1));
-          t->indices[${dim}][1] = GC_malloc(sizeof(unsigned long) * newChildren);
+          t->indices[${dim}] = malloc(sizeof(unsigned long*) * 2);
+          t->indices[${dim}][0] = malloc(sizeof(unsigned long) * (numChildren + 1));
+          t->indices[${dim}][1] = malloc(sizeof(unsigned long) * newChildren);
           
           for(unsigned long k = 0; k < newChildren; k++) {
             t->indices[${dim}][1][k] = temp_tree[k]->index;

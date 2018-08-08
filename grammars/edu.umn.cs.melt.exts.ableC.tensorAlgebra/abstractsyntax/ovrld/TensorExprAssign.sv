@@ -311,15 +311,11 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     )
     else
     parseStmt(
-      s"unsigned long* idx = GC_malloc(sizeof(unsigned long) * ${toString(listLength(head(out.accesses)))});\n"
+      s"unsigned long* idx = malloc(sizeof(unsigned long) * ${toString(listLength(head(out.accesses)))});\n"
       ++
       s"struct tensor_${fmtNm}* t = &${out.tensorName};\n"
       ++
-      s"t->indices = GC_malloc(sizeof(unsigned long**) * ${toString(outOrder)});\n"
-      ++
       "unsigned long count = 1;\n"
-      ++
-      generateMakeBody(getTensorFormat(outNew, fmts).storage)
       ++
       graph.asmbl
       ++
@@ -328,7 +324,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       tensor_packTree_${fmtNm}(&(${outNew.tensorName}.buffer), dims);
       
       struct tensor_tree_s* buffer = &(${outNew.tensorName}.buffer);
-      t->indices = GC_malloc(sizeof(unsigned long**) * ${toString(outOrder)});
+      t->indices = malloc(sizeof(unsigned long**) * ${toString(outOrder)});
       unsigned long numChildren = 1;
       struct tensor_tree_s** trees = &buffer;
 
@@ -337,7 +333,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
       ${generatePackBody_Assemble(getTensorFormat(outNew, fmts).storage)}
 
-      t->data = GC_malloc(sizeof(double) * numChildren);
+      t->data = malloc(sizeof(double) * numChildren);
       for(unsigned long i = 0; i < numChildren; i++) {
         t->data[i] = trees[i]->val;
       }
