@@ -75,16 +75,29 @@ top::Expr ::= tensor::Expr dim::Expr
       dim.pp,
       text("]")
     ]);
-  
+
   local lErrors::[Message] =
     case tensor.typerep of
     | tensorType(_, fmt, _) -> fmt.tensorFormatLookupCheck
-    | _ -> [err(top.location, "dimenof expected a tensor type (got ${showType(tensor.typerep)})")]
+    | _ -> [err(top.location, s"dimenof expected a tensor type (got ${showType(tensor.typerep)})")]
     end
     ++
     tensor.errors
     ++
-    dim.errors;
+    dim.errors
+    ++
+    if dim.typerep.isIntegerType
+    then
+      if dim.integerConstantValue.isJust
+      then
+        let c::Integer = dim.integerConstantValue.fromJust
+        in
+        if c < 0 || c >= fmt.dimensions
+        then [err(top.location, s"attempting to access an invalid dimension of the tensor with dimenof (requested ${toString(c)}, have ${toString(fmt.dimensions)})")]
+        else []
+        end
+      else []
+    else [err(top.location, s"dimenof expected an integer for dimension (got ${showType(dim.typerep)})")]; 
   
   local format::Name =
     case tensor.typerep of
@@ -98,17 +111,23 @@ top::Expr ::= tensor::Expr dim::Expr
   local dimens::String = toString(fmt.dimensions);
   
   local fwrd::Expr =
-    ableC_Expr {
-      ({
-        struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
-        unsigned long dim = $Expr{dim};
-        if(dim >= $intLiteralExpr{fmt.dimensions}) {
-          fprintf(stderr, "Attempted to access dimenof at dimension %lu, tensor only has %lu dimensions.\n", dim, $intLiteralExpr{fmt.dimensions});
-          exit(1);
-        }
-        _tensor->dims[dim];
-      })
-    };
+    if dim.integerConstantValue.isJust
+    then
+      ableC_Expr {
+        $Expr{tensor}.dims[$Expr{dim}]
+      }
+    else
+      ableC_Expr {
+        ({
+          struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+          unsigned long dim = $Expr{dim};
+          if(dim >= $intLiteralExpr{fmt.dimensions}) {
+            fprintf(stderr, "Attempted to access dimenof at dimension %lu, tensor only has %lu dimensions.\n", dim, $intLiteralExpr{fmt.dimensions});
+            exit(1);
+          }
+          _tensor->dims[dim];
+        })
+      };
   
   forwards to
     mkErrorCheck(
