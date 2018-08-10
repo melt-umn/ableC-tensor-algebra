@@ -63,21 +63,28 @@ top::Expr ::= tp::Type
 }
 
 abstract production dimenof
-top::Expr ::= tensor::Expr
+top::Expr ::= tensor::Expr dim::Expr
 {
   propagate substituted;
   top.pp =
     ppConcat([
       text("dimenof("),
       tensor.pp,
-      text(")")
+      text(")"),
+      text("["),
+      dim.pp,
+      text("]")
     ]);
   
   local lErrors::[Message] =
     case tensor.typerep of
     | tensorType(_, fmt, _) -> fmt.tensorFormatLookupCheck
-    | _ -> [err(top.location, "orderof expected a tensor type (got ${showType(tensor.typerep)})")]
-    end;
+    | _ -> [err(top.location, "dimenof expected a tensor type (got ${showType(tensor.typerep)})")]
+    end
+    ++
+    tensor.errors
+    ++
+    dim.errors;
   
   local format::Name =
     case tensor.typerep of
@@ -94,10 +101,12 @@ top::Expr ::= tensor::Expr
     ableC_Expr {
       ({
         struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
-        _tensor->dims;
-        //unsigned long* dims = GC_malloc(sizeof(unsigned long) * $intLiteralExpr{fmt.dimensions});
-        //memcpy(dims, _tensor->dims, sizeof(unsigned long) * $intLiteralExpr{fmt.dimensions});
-        //dims;
+        unsigned long dim = $Expr{dim};
+        if(dim >= $intLiteralExpr{fmt.dimensions}) {
+          fprintf(stderr, "Attempted to access dimenof at dimension %lu, tensor only has %lu dimensions.\n", dim, $intLiteralExpr{fmt.dimensions});
+          exit(1);
+        }
+        _tensor->dims[dim];
       })
     };
   

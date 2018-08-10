@@ -40,9 +40,9 @@ concrete productions top::UnaryExpr_c
   {
     top.ast = orderofExpr(tn.ast, location=top.location);
   }
-| 'dimenof' '(' tn::Expr_c ')'
+| 'dimenof' '(' tn::Expr_c ')' '[' dim::Expr_c ']'
   {
-    top.ast = dimenof(tn.ast, location=top.location);
+    top.ast = dimenof(tn.ast, dim.ast, location=top.location);
   }
 
 concrete productions top::TypeSpecifier_c
