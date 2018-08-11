@@ -1,5 +1,7 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:ovrld;
 
+imports edu:umn:cs:melt:exts:ableC:tensorAlgebra;
+
 aspect function ovrld:getArraySubscriptOverloadProd
 Maybe<(Expr ::= Expr Expr Location)> ::= t::Type env::Decorated Env
 {
@@ -24,20 +26,30 @@ aspect function ovrld:getEqOverloadProd
 Maybe<ovrld:BinaryProd> ::= l::Type r::Type env::Decorated Env
 {
   overloads <-
-    [pair(
+    pair(
       pair(
         "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
         "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"
       ),
-      \ l::Expr r::Expr l::Location ->
-        errorExpr([err(l, "This should not occur")], location=l)
-    )];
+      \ l::Expr r::Expr loc::Location ->
+        errorExpr([err(loc, "This should not occur")], location=loc)
+    )
+    ::
+    pair(
+      pair(
+        "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor",
+        "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor"
+      ),
+      \ l::Expr r::Expr loc::Location ->
+        tensorDeepCopy(l, r, location=loc)
+    )
+    :: [];
 
   lOverloads <-
     [pair(
       "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc",
-      \ l::Expr r::Expr l::Location ->
-        errorExpr([err(l, "This should not occur")], location=l)
+      \ l::Expr r::Expr loc::Location ->
+        errorExpr([err(loc, "This should not occur")], location=loc)
     )];
 
   rOverloads <-
