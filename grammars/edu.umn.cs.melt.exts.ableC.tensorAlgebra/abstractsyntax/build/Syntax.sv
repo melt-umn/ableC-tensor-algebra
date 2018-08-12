@@ -73,7 +73,7 @@ top::Expr ::= type::TypeName dims::[Expr]
     ableC_Expr {
       ({
         unsigned long __tensor_arr[] = $Initializer{dimInit};
-        struct $name{s"tensor_${fmtNm}"} _tensor;
+        struct $name{s"tensor_${fmtNm}"} _tensor = {0};
         $name{s"tensor_make_${fmtNm}"}(&_tensor, __tensor_arr);
         _tensor;
       })
@@ -129,7 +129,7 @@ top::Expr ::= type::TypeName data::TensorConstant
         double __tensor_data[] = $Initializer{data.tensor_asExpr};
         unsigned long __tensor_dims[] = $Initializer{data.tensor_dimExpr};
 
-        struct $name{s"tensor_${fmtNm}"} _tensor;
+        struct $name{s"tensor_${fmtNm}"} _tensor = {0};
         $name{s"tensor_makeFilled_${fmtNm}"}(&_tensor, __tensor_dims, __tensor_data);
         _tensor;
       })
@@ -200,13 +200,12 @@ top::Expr ::= type::TypeName args::[Expr]
     ableC_Expr {
       ({
         $BaseTypeExpr{dims.typerep.baseTypeExpr}* _dimens = $Expr{dims};
-        unsigned long* __tensor_arr = malloc(sizeof(unsigned long) * $intLiteralExpr{dimens});
+        unsigned long __tensor_arr[$intLiteralExpr{dimens}];
         for(unsigned long i = 0; i < $intLiteralExpr{dimens}; i++) {
           __tensor_arr[i] = _dimens[i];
         }
-        struct $name{s"tensor_${fmtNm}"} _tensor;
+        struct $name{s"tensor_${fmtNm}"} _tensor = {0};
         $name{s"tensor_make_${fmtNm}"}(&_tensor, __tensor_arr);
-        free(__tensor_arr);
         _tensor;
       })
     };

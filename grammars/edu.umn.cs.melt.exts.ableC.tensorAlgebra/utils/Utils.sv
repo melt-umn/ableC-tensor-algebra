@@ -1,5 +1,31 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:utils;
 
+function maybeMap
+[a] ::= f::(Maybe<a> ::= b) lst::[b]
+{
+  return
+    if null(lst)
+    then []
+    else let res::Maybe<a> = f(head(lst)) in
+      if res.isJust
+      then res.fromJust :: maybeMap(f, tail(lst))
+      else maybeMap(f, tail(lst))
+    end;
+}
+
+function maybeMapWithTail
+[a] ::= f::(Maybe<a> ::= b [b]) lst::[b]
+{
+  return
+    if null(lst)
+    then []
+    else let res::Maybe<a> = f(head(lst), tail(lst)) in
+      if res.isJust
+      then res.fromJust :: maybeMapWithTail(f, tail(lst))
+      else maybeMapWithTail(f, tail(lst))
+    end;
+}
+
 function makeList
 [a] ::= comp::(Integer ::= a a) inc::(a ::= a) start::a i_end::a
 {

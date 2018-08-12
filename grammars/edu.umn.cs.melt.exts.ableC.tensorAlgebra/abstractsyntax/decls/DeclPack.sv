@@ -1,6 +1,6 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:decls;
 
-import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
+imports edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 function declPackFunction
 Decl ::= fmt::TensorFormat
@@ -74,6 +74,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
             }
             index++;
           }
+          free(oldChildren);
         }
       """
       else s"""
@@ -107,6 +108,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
           }
           
           tree[i].children = start;
+          free(oldChildren);
         }
         
         count = count * dims[${toString(dim)}];
@@ -132,6 +134,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
           tree[i].children = &(temp[idx]);
         }
         
+        if(count > 1) free(tree);
         tree = temp;
         count = cTemp;
         
@@ -158,6 +161,7 @@ Decl ::= fmt::TensorFormat
         ${generatePackBody_Tree(fmt.storage, fmtNm, fmt.dimensions, 1)}
         tensor_packTree_${fmtNm}(buffer, dims);
         
+        if(t->indices) { ${freeIndices_String(fmt)} }
         t->indices = malloc(sizeof(unsigned long**) * ${toString(order)});
         unsigned long numChildren = 1;
         struct tensor_tree_s** trees = &buffer;
@@ -167,6 +171,7 @@ Decl ::= fmt::TensorFormat
         
         ${generatePackBody_Assemble(fmt.storage)}
         
+        if(t->data) free(t->data);
         t->data = malloc(sizeof(double) * numChildren);
         for(unsigned long i = 0; i < numChildren; i++) {
           t->data[i] = trees[i]->val;
@@ -265,6 +270,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
           }
         """
       }
+      if(numChildren > 1) free(trees);
       numChildren = newChildren;
       trees = temp_tree;
       ${generatePackBody_Assemble(tail(storage))}

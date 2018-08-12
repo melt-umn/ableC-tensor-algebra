@@ -311,7 +311,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     )
     else
     parseStmt(
-      s"unsigned long* idx = malloc(sizeof(unsigned long) * ${toString(listLength(head(out.accesses)))});\n"
+      s"unsigned long idx[${toString(listLength(head(out.accesses)))}];\n"
       ++
       s"struct tensor_${fmtNm}* t = &${out.tensorName};\n"
       ++
@@ -324,7 +324,10 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       tensor_packTree_${fmtNm}(&(${outNew.tensorName}.buffer), dims);
       
       struct tensor_tree_s* buffer = &(${outNew.tensorName}.buffer);
+      
+      if(t->indices) { ${freeIndices_String(getTensorFormat(outNew, fmts))} }
       t->indices = malloc(sizeof(unsigned long**) * ${toString(outOrder)});
+      
       unsigned long numChildren = 1;
       struct tensor_tree_s** trees = &buffer;
 
@@ -333,6 +336,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
       ${generatePackBody_Assemble(getTensorFormat(outNew, fmts).storage)}
 
+      if(t->data) free(t->data);
       t->data = malloc(sizeof(double) * numChildren);
       for(unsigned long i = 0; i < numChildren; i++) {
         t->data[i] = trees[i]->val;
@@ -536,6 +540,183 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
         zipWith(pair, newNames, tensorNames)
       )
     );
+
+  local exprs :: [Pair<String Expr>] =
+    maybeMap(
+      \ e::Expr ->
+        case decorate e with {env=top.env; returnType=nothing();} of
+        | declRefExpr(name(_)) -> nothing()
+        | _ ->
+          just(pair(getExprName(e, top.env), e))
+        end
+      ,
+      exNew.exprs
+    );
+
+  local declExpr :: (Stmt ::= Stmt) =
+    foldl(
+      \ inn::Stmt p::Pair<String Expr> ->
+        ableC_Stmt {
+          double $name{p.fst} = $Expr{p.snd};
+          $Stmt{inn}
+        }
+      ,
+      _,
+      exprs
+    );
+
+  local preSubs :: [Pair<Pair<String String> Expr>] = -- (newName, fmt), expr
+    maybeMap(
+      \ t::TensorExpr ->
+        case t of
+        | tensorAccess(_, ex, _, _) ->
+          case decorate ex with{env=top.env; returnType=nothing();} of
+          | declRefExpr(name(_)) -> nothing()
+          | _ ->
+            just(
+              pair(
+                pair(
+                  getTensorName(t),
+                  getTensorFormat(t, tm:empty(compareString)).proceduralName
+                ),
+                ex
+              )
+            )
+          end
+        | _ -> nothing()
+        end
+      ,
+      ex.tensors
+    );
+
+  local declTensor :: (Stmt ::= Stmt) =
+    foldl(
+      \ inn :: Stmt p::Pair<Pair<String String> Expr> ->
+        ableC_Stmt {
+          struct $name{s"tensor_${p.fst.snd}"} $name{p.fst.fst} = $Expr{p.snd};
+          $Stmt{inn}
+        }
+      ,
+      _,
+      preSubs
+    );
+
+  local originalNames :: [Pair<String String>] =
+    nubBy(
+      \ p1::Pair<String String> p2::Pair<String String> ->
+        p1.fst == p2.fst
+      ,
+      map(
+        \ t::TensorExpr ->
+          pair(getTensorName(t), getTensorFormat(t, tm:empty(compareString)).proceduralName)
+        ,
+        ex.tensors
+      )
+    );
+
+  local packTensors :: (Stmt ::= Stmt) =
+    foldl(
+      \ inn::Stmt t::Pair<String String> ->
+        ableC_Stmt {
+          $name{s"tensor_pack_${t.snd}"}($name{t.fst});
+          $Stmt{inn}
+        }
+      ,
+      _,
+      originalNames
+    );
+
+  local postSubs :: [Pair<Pair<String String> String>] = -- (newName, fmt) oldName
+    maybeMapWithTail(
+      \ n ::Pair<String TensorFormat> o :: [Pair<String TensorFormat>] ->
+        let c :: Integer =
+          count(stringEq, n.fst, map(\p::Pair<String TensorFormat>->p.fst, o))
+        in
+        if c > 0
+        then
+          just(
+            pair(
+              pair(n.fst ++ toString(c) ++ "_", n.snd.proceduralName),
+              n.fst
+            )
+          )
+        else nothing()
+        end
+      ,
+      zipWith(
+        pair,
+        tensorNames,
+        tensorFormats
+      )
+    );
+
+  local tensorSub :: (Stmt ::= Stmt) =
+    foldl(
+      \ inn::Stmt p::Pair<Pair<String String> String> ->
+        ableC_Stmt {
+          struct $name{s"tensor_${p.fst.snd}"} $name{p.fst.fst} = $name{p.snd};
+          $Stmt{inn}
+        }
+      ,
+      _,
+      postSubs
+    );
+
+  local tensorPrep :: (Stmt ::= Stmt) =
+    foldl(
+      \ inn::Stmt t::TensorExpr ->
+        let nm::String = getTensorName(t) in
+        let indexSetup :: Stmt =
+          foldl(
+            \ inn::Stmt dm::Pair<Integer Pair<Integer Integer>> ->
+              if dm.snd.snd == storeDense
+              then
+                ableC_Stmt {
+                  unsigned long $name{s"${nm}${toString(p.fst+1)}_size"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0][0];
+                  $Stmt{inn}
+                }
+              else
+                ableC_Stmt {
+                  unsigned long* $name{s"${nm}${toString(p.fst+1)}_pos"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0];
+                  unsigned long* $name{s"${nm}${toString(p.fst+1)}_idx"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][1];
+                  $Stmt{inn}
+                }
+            ,
+            nullStmt(),
+            getTensorFormat(ex, fmts).storage
+          )
+        in
+        ableC_Stmt {
+          double* $name{s"${nm}_data"} = $name{nm}.data;
+          $Stmt{indexSetup}
+          $Stmt{inn}
+        }
+        end end
+      ,
+      _,
+      exNew.tensors
+    );
+
+  local dimsCheck :: (Stmt ::= Stmt) =
+    let varChecks :: Stmt =
+      foldl(
+        \ inn::Stmt var::String ->
+          ableC_Stmt {
+            $Stmt{checkVar(outNew, exNew, var, fmts)}
+            $Stmt{inn}
+          }
+        ,
+        nullStmt(),
+        access
+      )
+    in
+    ableC_Stmt {
+      char error = 0;
+      $Stmt{varChecks}
+      if(error) exit(1);
+      $Stmt{_}
+    }
+    end;
 
   forwards to
     mkErrorCheck(
@@ -963,6 +1144,127 @@ top::Expr ::= output::Expr expr::Expr
       )
     );
 
+  local exprs :: [Pair<String Expr>] =
+    maybeMap(
+      \ e::Expr ->
+        case decorate e with {env=top.env; returnType=nothing();} of
+        | declRefExpr(name(_)) -> nothing()
+        | _ ->
+          just(pair(getExprName(e, top.env), e))
+        end
+      ,
+      exNew.exprs
+    );
+
+  local declExpr :: (Stmt ::= Stmt) =
+    foldl(
+      \ inn::Stmt p::Pair<String Expr> ->
+        ableC_Stmt {
+          double $name{p.fst} = $Expr{p.snd};
+          $Stmt{inn}
+        }
+      ,
+      _,
+      exprs
+    );
+
+  local preSubs :: [Pair<Pair<String String> Expr>] =
+    maybeMap(
+      \ t::TensorExpr ->
+        case t of
+        | tensorAccess(_, ex, _, _) ->
+          case decorate ex with {env=top.env; returnType=nothing();} of
+          | declRefExpr(name(_)) -> nothing()
+          | _ ->
+            just(
+              pair(
+                pair(
+                  getTensorName(t),
+                  getTensorFormat(t, tm:empty(compareString)).proceduralName
+                ),
+                ex
+              )
+            )
+          end
+        | _ -> nothing()
+        end
+      ,
+      ex.tensors
+    );
+
+  local declTensor :: (Stmt ::= Stmt) =
+    foldl(
+      \ inn::Stmt p::Pair<Pair<String String> Expr> ->
+        ableC_Stmt {
+          struct $name{s"tensor_${p.fst.snd}"} $name{p.fst.fst} = $Expr{p.snd};
+          $Stmt{inn}
+        }
+      ,
+      _,
+      preSubs
+    );
+
+  local originalNames :: [Pair<String String>] =
+    nubBy(
+      \ p1::Pair<String String> p2::Pair<String String> ->
+        p1.fst == p2.fst
+      ,
+      map(
+        \ t::TensorExpr ->
+          pair(getTensorName(t), getTensorFormat(t, tm:empty(compareString)).proceduralName)
+        ,
+        ex.tensors
+      )
+    );
+
+  local packTensors :: (Stmt ::= Stmt) =
+    foldl(
+      \ inn::Stmt t::Pair<String String> ->
+        ableC_Stmt {
+          $name{s"tensor_pack_${t.snd}"}($name{t.fst});
+          $Stmt{inn}
+        }
+      ,
+      _,
+      originalNames
+    );
+
+  local postSubs :: [Pair<Pair<String String> String>] = -- (newName, fmt), oldName
+    maybeMapWithTail(
+      \ n::Pair<String TensorFormat> o::[Pair<String TensorFormat>] ->
+        let c::Integer =
+          count(stringEq, n.fst, map(\p::Pair<String TensorFormat>->p.fst, o))
+        in
+        if c > 0
+        then
+          just(
+            pair(
+              pair(n.fst ++ toString(c) ++ "_", n.snd.proceduralName),
+              n.fst
+            )
+          )
+        else nothing()
+        end
+      ,
+      zipWith(
+        pair,
+        tensorNames,
+        tensorFormats
+      )
+    );
+
+  local tensorSub :: (Stmt ::= Stmt) =
+    foldl(
+      \ inn::Stmt p::Pair<Pair<String String> String> ->
+        ableC_Stmt {
+          struct $name{s"tensor_${p.fst.snd}"} $name{p.fst.fst} = $name{p.snd};
+          $Stmt{inn}
+        }
+      ,
+      _,
+      postSubs
+    );
+
   forwards to
     mkErrorCheck(
       lErrors,
@@ -1077,6 +1379,49 @@ String ::= out::TensorExpr ex::TensorExpr acc::[String] fmts::tm:Map<String Tens
     "if(error) exit(1);";
 }
 
+function checkVar
+Stmt ::= out::TensorExpr ex::TensorExpr var::String fmts::tm:Map<String TensorFormat>
+{
+  out.variable = var;
+  ex.varialbe = var;
+  out.fmts = fmts;
+  ex.fmts = fmts;
+
+  local acc::[Pair<String Integer>] =
+    out.sparse_R ++ out.dense_r ++ ex.sparse_r ++ ex.dense_r;
+
+  return
+    if null(acc)
+    then nullStmt()
+    else
+      let h::Pair<String Integer> =
+        head(acc)
+      in
+      let nm::String =
+        h.fst
+      in
+      let checks::Stmt =
+        foldl(
+          \ inn::Stmt p::Pair<String Integer> ->
+            ableC_Stmt {
+              if($name{nm}.dims[${intLiteralExpr{h.snd}] != $name{p.fst}.dims[$intLiteralExpr{p.snd}]) {
+                fprintf(stderr, $stringLiteralExpr{s"Tensor ${nm} and ${p.fst} do not have the same dimensionality for ${var}.\n"});
+                error = 1;
+              }
+              $Stmt{inn}
+            }
+          ,
+          nullStmt(),
+          tail(acc)
+        )
+      in
+      ableC_Stmt {
+        unsigned long $name{s"${var}_dimensions"} = $name{nm}.dims[$intLiteralExpr{h.snd}];
+        $Stmt{checks}
+      }
+      end end end;
+}
+
 function check_var
 String ::= out::TensorExpr ex::TensorExpr var::String fmts::tm:Map<String TensorFormat>
 {
@@ -1157,4 +1502,34 @@ String ::= fmt::String tensors::[TensorExpr]
       ++
       setFormats(fmt, tail(tensors))
       end;
+}
+
+function freeIndices_String
+String ::= fmt::TensorFormat
+{
+  return freeIndices_String_helper(fmt.storage);
+}
+
+function freeIndices_String_helper
+String ::= strg::[Pair<Integer Pair<Integer Integer>>]
+{
+  local p :: Pair<Integer Pair<Integer Integer>> =
+    head(strg);
+
+  return
+    if null(strg)
+    then "free(t->indices);"
+    else if p.snd.snd == storeDense
+    then
+      s"""
+        free(t->indices[${toString(p.snd.fst)}]);
+        ${freeIndices_String_helper(tail(strg))}
+      """
+    else
+      s"""
+        free(t->indices[${toString(p.snd.fst)}][0]);
+        free(t->indices[${toString(p.snd.fst)}][1]);
+        free(t->indices[${toString(p.snd.fst)}]);
+        ${freeIndices_String_helper(tail(strg))}
+      """;
 }

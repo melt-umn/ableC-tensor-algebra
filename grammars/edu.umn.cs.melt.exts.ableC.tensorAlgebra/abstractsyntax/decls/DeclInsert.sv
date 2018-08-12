@@ -83,6 +83,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
         memcpy(temp + i + 1, tree->children + i, sizeof(struct tensor_tree_s) * (end - i));
         
         tree->numChildren += 1;
+        if(tree->children) free(tree->children);
         tree->children = temp;
         tree = temp + i;
       }
@@ -145,6 +146,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
           memcpy(temp + i + 1, tree->children + i, sizeof(struct tensor_tree_s) * (end - i));
           
           tree->numChildren += 1;
+          if(tree->children) free(tree->children);
           tree->children = temp;
           tree = temp + i;
         }
@@ -208,6 +210,7 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
         memcpy(temp + i + 1, tree->children + i, sizeof(struct tensor_tree_s) * (end - i));
         
         tree->numChildren += 1;
+        if(tree->children) free(tree->children);
         tree->children = temp;
         tree = temp + i;
       }

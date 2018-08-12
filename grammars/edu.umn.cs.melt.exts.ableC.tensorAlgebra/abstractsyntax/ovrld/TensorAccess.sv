@@ -97,13 +97,12 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
         ({
           struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
           $BaseTypeExpr{idx.typerep.baseTypeExpr}* __idx = $Expr{idx};
-          unsigned long* _idx = malloc(sizeof(unsigned long) * $intLiteralExpr{fmt.dimensions});
+          unsigned long _idx[$intLiteralExpr{fmt.dimensions}];
           for(unsigned long __d = 0; __d < $intLiteralExpr{fmt.dimensions}; __d++) {
             _idx[__d] = __idx[__d];
           }
           $name{s"tensor_pack_${fmtNm}"}(_tensor);
           double res = $name{s"tensor_get_${fmtNm}"}(_tensor, _idx);
-          free(_idx);
           res;
         })
       }
