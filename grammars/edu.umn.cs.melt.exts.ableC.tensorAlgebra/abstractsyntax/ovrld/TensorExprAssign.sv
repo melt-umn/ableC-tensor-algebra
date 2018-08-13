@@ -618,7 +618,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     foldl(
       \ inn::Stmt t::Pair<String String> ->
         ableC_Stmt {
-          $name{s"tensor_pack_${t.snd}"}($name{t.fst});
+          $name{s"tensor_pack_${t.snd}"}(&$name{t.fst});
           $Stmt{inn}
         }
       ,
@@ -664,21 +664,22 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
   local tensorPrep :: (Stmt ::= Stmt) =
     foldl(
-      \ inn::Stmt t::TensorExpr ->
-        let nm::String = getTensorName(t) in
+      \ inn::Stmt p::Pair<TensorExpr String> ->
+        let t :: TensorExpr = p.fst in
+        let nm::String = p.snd in
         let indexSetup :: Stmt =
           foldl(
             \ inn::Stmt dm::Pair<Integer Pair<Integer Integer>> ->
               if dm.snd.snd == storeDense
               then
                 ableC_Stmt {
-                  unsigned long $name{s"${nm}${toString(p.fst+1)}_size"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0][0];
+                  unsigned long $name{s"${nm}${toString(dm.fst+1)}_size"} = $name{nm}.indices[$intLiteralExpr{dm.snd.fst}][0][0];
                   $Stmt{inn}
                 }
               else
                 ableC_Stmt {
-                  unsigned long* $name{s"${nm}${toString(p.fst+1)}_pos"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0];
-                  unsigned long* $name{s"${nm}${toString(p.fst+1)}_idx"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][1];
+                  unsigned long* $name{s"${nm}${toString(dm.fst+1)}_pos"} = $name{nm}.indices[$intLiteralExpr{dm.snd.fst}][0];
+                  unsigned long* $name{s"${nm}${toString(dm.fst+1)}_idx"} = $name{nm}.indices[$intLiteralExpr{dm.snd.fst}][1];
                   $Stmt{inn}
                 }
             ,
@@ -691,10 +692,14 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           $Stmt{indexSetup}
           $Stmt{inn}
         }
-        end end
+        end end end
       ,
       _,
-      exNew.tensors
+      zipWith(
+        pair,
+        exNew.tensors,
+        take(listLength(exNew.tensors), newNames)
+      )
     );
 
   local dimsCheck :: (Stmt ::= Stmt) =
@@ -710,15 +715,115 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
         access
       )
     in
+    \ inner::Stmt ->
     ableC_Stmt {
       char error = 0;
       $Stmt{varChecks}
       if(error) exit(1);
-      $Stmt{_}
+      $Stmt{inner}
     }
     end;
 
-  forwards to
+  local assembleOut :: (Stmt ::= Stmt) =
+    \ inner::Stmt ->
+      if allDense(getTensorFormat(outNew, fmts))
+      then
+        ableC_Stmt {
+          memset($name{outNew.tensorName}.data, 0, $name{outNew.tensorName}.dataLen * sizeof(double));
+          $Stmt{inner}
+        }
+      else
+        ableC_Stmt {
+          unsigned long idx[$intLiteralExpr{listLength(head(out.accesses))}];
+          struct $name{s"tensor_${fmtNm}"}* t = &$name{outNew.tensorName};
+          unsigned long count = 1;
+          $Stmt{parseStmt(graph.asmbl)}
+
+          unsigned long* dims = $name{outNew.tensorName}.dims;
+          $name{s"tensor_packTree_${fmtNm}"}(&($name{outNew.tensorName}.buffer), dims);
+
+          struct tensor_tree_s* buffer = &($name{outNew.tensorName}.buffer);
+
+          if(t->indices) { $Stmt{parseStmt(freeIndices_String(getTensorFormat(outNew, fmts)))} }
+          t->indices = malloc(sizeof(unsigned long**) * $intLiteralExpr{outOrder});
+
+          unsigned long numChildren = 1;
+          struct tensor_tree_s** trees = &buffer;
+
+          struct tensor_tree_s** temp_tree;
+          unsigned long total, dimSize, index, newChildren;
+
+          $Stmt{parseStmt(generatePackBody_Assemble(getTensorFormat(outNew, fmts).storage))}
+          
+          if(t->data) free(t->data);
+          t->data = malloc(sizeof(double) * numChildren);
+          for(unsigned long i = 0; i < numChildren; i++) {
+            t->data[i] = trees[i]->val;
+          }
+
+          t->dataLen = numChildren;
+          t->bufferCnt = 0;
+          t->buffer.numChildren = 0;
+          t->buffer.children = 0;
+          t->form = "";
+
+          $Stmt{inner}
+        };
+
+  local outVal :: (Stmt ::= Stmt) =
+    let nm :: String =
+      getTensorName(head(outNew.tensors))
+    in
+    let setupOut :: Stmt =
+      foldl(
+        \ inn::Stmt p::Pair<Integer Pair<Integer Integer>> ->
+          if p.snd.snd == storeDense
+          then
+            ableC_Stmt {
+              unsigned long $name{s"${nm}${toString(p.fst+1)}_size"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0][0];
+              $Stmt{inn}
+            }
+          else
+            ableC_Stmt {
+              unsigned long* $name{s"${nm}${toString(p.fst+1)}_pos"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0];
+              unsigned long* $name{s"${nm}${toString(p.fst+1)}_idx"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][1];
+              $Stmt{inn}
+            }
+        ,
+        nullStmt(),
+        getTensorFormat(head(outNew.tensors), fmts).storage
+      )
+    in
+    \ inner::Stmt ->
+    ableC_Stmt {
+      double* $name{s"${nm}_data"} = $name{nm}.data;
+      $Stmt{setupOut}
+      $Stmt{inner}
+    }
+    end end;
+
+  local comp :: (Stmt ::= Stmt) =
+    \ inner::Stmt ->
+    ableC_Stmt {
+      $Stmt{computeStmt}
+      $Stmt{inner}
+    };
+
+  local setFormat :: Stmt =
+    foldl(
+      \ inn::Stmt nm::String ->
+        ableC_Stmt {
+          $name{nm}.form = $stringLiteralExpr{exprToString(exNew, fmts)};
+          $Stmt{inn}
+        }
+      ,
+      ableC_Stmt {
+        $name{getTensorName(head(outNew.tensors))}.form = $stringLiteralExpr{exprToString(exNew, fmts)};
+      },
+      map(\  p::Pair<String String> -> p.fst, originalNames)
+    );
+
+  {-forwards to
     mkErrorCheck(
       lErrors,
       substExpr(
@@ -753,6 +858,15 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
         })
         """)
       )
+    );-}
+  forwards to
+    stmtExpr(
+      declExpr(declTensor(packTensors(tensorSub(tensorPrep(dimsCheck(
+        assembleOut(outVal(comp(setFormat))))))))),
+      ableC_Expr {
+        $name{outNew.tensorName}
+      },
+      location=top.location
     );
 }
 
@@ -1383,12 +1497,12 @@ function checkVar
 Stmt ::= out::TensorExpr ex::TensorExpr var::String fmts::tm:Map<String TensorFormat>
 {
   out.variable = var;
-  ex.varialbe = var;
+  ex.variable = var;
   out.fmts = fmts;
   ex.fmts = fmts;
 
   local acc::[Pair<String Integer>] =
-    out.sparse_R ++ out.dense_r ++ ex.sparse_r ++ ex.dense_r;
+    out.sparse_r ++ out.dense_r ++ ex.sparse_r ++ ex.dense_r;
 
   return
     if null(acc)
@@ -1404,7 +1518,7 @@ Stmt ::= out::TensorExpr ex::TensorExpr var::String fmts::tm:Map<String TensorFo
         foldl(
           \ inn::Stmt p::Pair<String Integer> ->
             ableC_Stmt {
-              if($name{nm}.dims[${intLiteralExpr{h.snd}] != $name{p.fst}.dims[$intLiteralExpr{p.snd}]) {
+              if($name{nm}.dims[$intLiteralExpr{h.snd}] != $name{p.fst}.dims[$intLiteralExpr{p.snd}]) {
                 fprintf(stderr, $stringLiteralExpr{s"Tensor ${nm} and ${p.fst} do not have the same dimensionality for ${var}.\n"});
                 error = 1;
               }
