@@ -897,7 +897,7 @@ top::Expr ::= output::Expr expr::Expr
     foldl(
       \ inn::Stmt t::Pair<String String> ->
         ableC_Stmt {
-          $name{s"tensor_pack_${t.snd}"}($name{t.fst});
+          $name{s"tensor_pack_${t.snd}"}(&$name{t.fst});
           $Stmt{inn}
         }
       ,
