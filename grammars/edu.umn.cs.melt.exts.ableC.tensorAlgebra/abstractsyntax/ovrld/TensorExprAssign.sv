@@ -1030,12 +1030,16 @@ top::Expr ::= output::Expr expr::Expr
   forwards to
     mkErrorCheck(
       lErrors,
-      stmtExpr(
-        declExpr(declTensor(packTensors(tensorSub(tensorPrep(dimsCheck(
-          outVal(comp(setFormats)))))))),
-        ableC_Expr {
-          $name{s"t${head(access)}0"}
-        },
+      eqExpr(
+        output,
+        stmtExpr(
+          declExpr(declTensor(packTensors(tensorSub(tensorPrep(dimsCheck(
+            outVal(comp(setFormats)))))))),
+          ableC_Expr {
+            $name{s"t${head(access)}0"}
+          },
+          location=top.location
+        ),
         location=top.location
       )
     );
