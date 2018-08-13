@@ -141,7 +141,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
           *({
             struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
             $BaseTypeExpr{idx.typerep.baseTypeExpr}* __idx = $Expr{idx};
-            unsigned long* _idx = malloc(sizeof(unsigned long) * $intLiteralExpr{fmt.dimensions});
+            unsigned long* _idx = calloc($intLiteralExpr{fmt.dimensions}, sizeof(unsigned long));
             for(unsigned long __d = 0; __d < $intLiteralExpr{fmt.dimensions}; __d++) {
               _idx[__d] = __idx[__d];
             }

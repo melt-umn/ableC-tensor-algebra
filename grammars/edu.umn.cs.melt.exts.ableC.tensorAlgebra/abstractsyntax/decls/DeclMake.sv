@@ -23,12 +23,12 @@ Decl ::= fmt::TensorFormat
   return 
     parseDecl(s"""
       static void tensor_make_${fmtNm}(struct tensor_${fmtNm}* t, unsigned long* dims) {
-        t->dims = malloc(sizeof(unsigned long) * ${toString(dimens)});
+        t->dims = calloc(${toString(dimens)}, sizeof(unsigned long));
         memcpy(t->dims, dims, sizeof(unsigned long) * ${toString(dimens)});
         
         t->bufferCnt = 0;
         t->data = 0;
-        t->indices = malloc(sizeof(unsigned long**) * ${toString(dimens)});
+        t->indices = calloc(${toString(dimens)}, sizeof(unsigned long**));
         unsigned long count =  1;
         
         ${generateMakeBody(fmt.storage)}
@@ -50,21 +50,21 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
 {
   return
     if null(storage)
-    then "t->data = malloc(sizeof(double) * count);"
+    then "t->data = calloc(count, sizeof(double));"
     else 
       let dim::Integer = head(storage).snd.fst in
       let dimen::String = toString(dim) in
       let spec::Integer = head(storage).snd.snd in
       if spec == storeDense
       then s"""
-        t->indices[${dimen}] = malloc(sizeof(unsigned long*));
+        t->indices[${dimen}] = calloc(1, sizeof(unsigned long*));
         t->indices[${dimen}][0] = &(t->dims[${dimen}]);
         count *= t->dims[${dimen}];
         ${generateMakeBody(tail(storage))}
       """
       else s"""
-        t->indices[${dimen}] = malloc(sizeof(unsigned long*) * 2);
-        t->indices[${dimen}][0] = malloc(sizeof(unsigned long) * (count + 1));
+        t->indices[${dimen}] = calloc(2, sizeof(unsigned long*));
+        t->indices[${dimen}][0] = calloc(count + 1, sizeof(unsigned long));
         count = 1;
         ${generateMakeBody(tail(storage))}
       """

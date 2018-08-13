@@ -200,7 +200,7 @@ top::Expr ::= type::TypeName args::[Expr]
     ableC_Expr {
       ({
         $BaseTypeExpr{dims.typerep.baseTypeExpr}* _dimens = $Expr{dims};
-        unsigned long* __tensor_arr = malloc(sizeof(unsigned long) * $intLiteralExpr{dimens});
+        unsigned long* __tensor_arr = calloc($intLiteralExpr{dimens}, sizeof(unsigned long));
         for(unsigned long i = 0; i < $intLiteralExpr{dimens}; i++) {
           __tensor_arr[i] = _dimens[i];
         }

@@ -311,7 +311,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     )
     else
     parseStmt(
-      s"unsigned long* idx = malloc(sizeof(unsigned long) * ${toString(listLength(head(out.accesses)))});\n"
+      s"unsigned long* idx = calloc(${toString(listLength(head(out.accesses)))}, sizeof(unsigned long));\n"
       ++
       s"struct tensor_${fmtNm}* t = &${out.tensorName};\n"
       ++
@@ -324,7 +324,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       tensor_packTree_${fmtNm}(&(${outNew.tensorName}.buffer), dims);
       
       struct tensor_tree_s* buffer = &(${outNew.tensorName}.buffer);
-      t->indices = malloc(sizeof(unsigned long**) * ${toString(outOrder)});
+      t->indices = calloc(${toString(outOrder)}, sizeof(unsigned long**));
       unsigned long numChildren = 1;
       struct tensor_tree_s** trees = &buffer;
 
@@ -333,7 +333,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
       ${generatePackBody_Assemble(getTensorFormat(outNew, fmts).storage)}
 
-      t->data = malloc(sizeof(double) * numChildren);
+      t->data = calloc(numChildren, sizeof(double));
       for(unsigned long i = 0; i < numChildren; i++) {
         t->data[i] = trees[i]->val;
       }
