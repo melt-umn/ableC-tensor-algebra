@@ -69,5 +69,10 @@ int main() {
   else
     fprintf(stderr, "Success!\n");
 
+  freeTensor(A);
+  freeTensor(B);
+  freeTensor(C);
+  freeTensor(D);
+
   return 0;
 }

@@ -33,7 +33,13 @@ int main() {
   char error = 0;
   for(int i = 0; i < 100; i++)
     for(int j = 0; j < 250; j++)
-      if(out[i,j] != ref[i,j]) exit(1);
+      if(out[i,j] != ref[i,j]) error = 1;
 
+  freeTensor(out);
+  freeTensor(ref);
+  freeTensor(A);
+  freeTensor(B);
+
+  if(error) exit(1);
   return 0;
 }

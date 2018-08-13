@@ -36,6 +36,10 @@ int main() {
   assert(A[0, 0], 4.0);
   assert(A[1, 2], 23.0);
 
+  freeTensor(A);
+  freeTensor(B);
+  freeTensor(c);
+
   if(error) exit(1);
   return 0;
 }

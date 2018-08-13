@@ -17,4 +17,9 @@ int main() {
   printf("a[%d] = %f (should be %f)\n", 0, a[0], 20.0);
   printf("a[%d] = %f (should be %f)\n", 2, a[2], 40.0);
   printf("a[%d] = %f (should be %f)\n", 3, a[3], 60.0);
+
+  freeTensor(a);
+  freeTensor(b);
+
+  return 0;
 }

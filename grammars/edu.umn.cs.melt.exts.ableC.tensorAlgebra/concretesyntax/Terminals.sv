@@ -11,6 +11,7 @@ terminal In_t 'in';
 
 marking terminal Orderof_t 'orderof' lexer classes {Ckeyword};
 marking terminal Dimensof_t 'dimenof' lexer classes {Ckeyword};
+marking terminal FreeTensor_t 'freeTensor' lexer classes {Ckeyword};
 
 terminal Dense_t 'dense';
 terminal Sparse_t 'sparse';

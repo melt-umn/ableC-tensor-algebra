@@ -8,4 +8,8 @@ int main() {
 
   printf("matrix[0, 0] = %f\n", matrix[0, 0]);
   printf("matrix[1, 1] = %f\n", matrix[1, 1]);
+
+  freeTensor(matrix);
+
+  return 0;
 }

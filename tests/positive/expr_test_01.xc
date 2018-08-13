@@ -35,6 +35,9 @@ int main() {
   assert(a[6],  0.0);
   assert(a[7],  0.0);
 
+  freeTensor(a);
+  freeTensor(b);
+
   if(error) exit(1);
   return 0;
 }

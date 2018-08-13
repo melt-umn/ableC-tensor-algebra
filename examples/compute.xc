@@ -31,4 +31,10 @@ int main() {
   printf("y[%d] = %f (should be %f)\n", 0, y[0], 16.0);
   printf("y[%d] = %f (should be %f)\n", 3, y[3], 0.0);
   printf("y[%d] = %f (should be %f)\n", 7, y[7], 18.0);
+
+  freeTensor(y);
+  freeTensor(A);
+  freeTensor(x);
+
+  return 0;
 }

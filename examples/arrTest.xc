@@ -11,5 +11,6 @@ int main() {
   printf("matrix[15, 27] = %f\n", matrix[15, 27]);
   printf("matrix[15, 27] = %f\n", matrix[acc]);
 
+  freeTensor(matrix);
   return 0;
 }

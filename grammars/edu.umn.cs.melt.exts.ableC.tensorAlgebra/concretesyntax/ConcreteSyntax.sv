@@ -44,6 +44,10 @@ concrete productions top::UnaryExpr_c
   {
     top.ast = dimenof(tn.ast, dim.ast, location=top.location);
   }
+| 'freeTensor' '(' tn::Expr_c ')'
+  {
+    top.ast = freeTensor(tn.ast, location=top.location);
+  }
 
 concrete productions top::TypeSpecifier_c
 | 'tensor' '<' fmt::Identifier_t '>'

@@ -59,5 +59,8 @@ int main() {
   fprintf(stderr, "%f\n", c);
   fprintf(stderr, "%f\n", d);
 
+  freeTensor(A);
+  freeTensor(B);
+
   return 0;
 }

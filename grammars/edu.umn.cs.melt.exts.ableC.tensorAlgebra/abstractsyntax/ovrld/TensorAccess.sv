@@ -98,6 +98,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
           struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
           $BaseTypeExpr{idx.typerep.baseTypeExpr}* __idx = $Expr{idx};
           unsigned long _idx[$intLiteralExpr{fmt.dimensions}];
+          
           for(unsigned long __d = 0; __d < $intLiteralExpr{fmt.dimensions}; __d++) {
             _idx[__d] = __idx[__d];
           }

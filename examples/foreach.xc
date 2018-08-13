@@ -21,5 +21,7 @@ int main() {
   }
   printf("\n");
 
+  freeTensor(A);
+
   return 0;
 }

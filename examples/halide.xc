@@ -93,5 +93,11 @@ int main() {
   else
     fprintf(stderr, "Pass\n");
 
+  freeTensor(A);
+  freeTensor(B);
+  freeTensor(C0);
+  freeTensor(C1);
+  freeTensor(C2);
+
   return error;
 }

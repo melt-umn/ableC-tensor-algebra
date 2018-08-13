@@ -14,5 +14,7 @@ int main() {
     printf("\n");
   }
 
+  freeTensor(res);
+
   return 0;
 }

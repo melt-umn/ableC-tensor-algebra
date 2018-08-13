@@ -33,5 +33,9 @@ int main() {
 
   printf("x = %f\n", x);
 
+  freeTensor(A);
+  freeTensor(B);
+  freeTensor(C);
+
   return 0;
 }

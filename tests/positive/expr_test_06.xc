@@ -73,6 +73,11 @@ int main() {
   assert(A[4, 3], 0.0);
   assert(A[4, 4], 0.0);
 
+  freeTensor(A);
+  freeTensor(B);
+  freeTensor(C);
+  freeTensor(D);
+
   if(error) exit(1);
   return 0;
 }

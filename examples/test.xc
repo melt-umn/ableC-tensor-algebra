@@ -18,4 +18,11 @@ int main() {
   A[i,j] = B[i,k] * C[i,j] * D[k,l];
 
   printf("A[1,3] = %f (should be %f)\n", A[1,3], 3.0);
+
+  freeTensor(A);
+  freeTensor(B);
+  freeTensor(C);
+  freeTensor(D);
+
+  return 0;
 }

@@ -55,24 +55,24 @@ top::Expr ::= l::Expr r::Expr
             if($Expr{l}.dims) free($Expr{l}.dims);
             if($Expr{l}.indices) { $Stmt{freeIndices(l, formatL)}; free($Expr{l}.indices); }
             if($Expr{l}.data) free($Expr{l}.data);
+            __free_tensor_tree(&($Expr{l}.buffer));
             $Expr{l}.bufferCnt = 0;
             $Expr{l}.buffer.isLeaf = 0;
             $Expr{l}.buffer.index = 0;
             $Expr{l}.buffer.numChildren = 0;
-            if($Expr{l}.buffer.children) free($Expr{l}.buffer.children);
             $Expr{l}.buffer.children = 0;
             $Expr{l}.form = "";
             
             $name{s"tensor_pack_${formatR.proceduralName}"}(&$Expr{r});
             
-            $Expr{l}.dims = malloc(sizeof(unsigned long) * $intLiteralExpr{formatL.dimensions});
+            $Expr{l}.dims = calloc($intLiteralExpr{formatL.dimensions}, sizeof(unsigned long));
             memcpy($Expr{l}.dims, $Expr{r}.dims, sizeof(unsigned long) * $intLiteralExpr{formatL.dimensions});
 
             unsigned long size = 1;
-            $Expr{l}.indices = malloc(sizeof(unsigned long**) * $intLiteralExpr{formatL.dimensions});
+            $Expr{l}.indices = calloc($intLiteralExpr{formatL.dimensions}, sizeof(unsigned long**));
             $Stmt{copyIndices(l, r, formatL)}
 
-            $Expr{l}.data = malloc(sizeof(double) * $Expr{r}.dataLen);
+            $Expr{l}.data = calloc($Expr{r}.dataLen, sizeof(double));
             memcpy($Expr{l}.data, $Expr{r}.data, sizeof(double) * $Expr{r}.dataLen);
             $Expr{l}.dataLen = $Expr{r}.dataLen;
 
@@ -141,18 +141,18 @@ Stmt ::= dest::Expr src::Expr strg::[Pair<Integer Pair<Integer Integer>>]
     else if p.snd.snd == storeDense
     then
       ableC_Stmt {
-        $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}] = malloc(sizeof(unsigned long*));
+        $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}] = calloc(1, sizeof(unsigned long*));
         $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}][0] = &($Expr{dest}.dims[$intLiteralExpr{p.snd.fst}]);
         size *= $Expr{dest}.dims[$intLiteralExpr{p.snd.fst}];
         $Stmt{copyIndices_helper(dest, src, tail(strg))}
       }
     else
       ableC_Stmt {
-        $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}] = malloc(sizeof(unsigned long*) * 2);
-        $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}][0] = malloc(sizeof(unsigned long) * (size + 1));
+        $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}] = calloc(2, sizeof(unsigned long*));
+        $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}][0] = calloc(size + 1, sizeof(unsigned long));
         memcpy($Expr{dest}.indices[$intLiteralExpr{p.snd.fst}][0], $Expr{src}.indices[$intLiteralExpr{p.snd.fst}][0], sizeof(unsigned long) * (size + 1));
         size = $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}][0][size];
-        $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}][1] = malloc(sizeof(unsigned long) * size);
+        $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}][1] = calloc(size, sizeof(unsigned long));
         memcpy($Expr{dest}.indices[$intLiteralExpr{p.snd.fst}][1], $Expr{src}.indices[$intLiteralExpr{p.snd.fst}][1], sizeof(unsigned long) * (size));
         $Stmt{copyIndices_helper(dest, src, tail(strg))}
       };

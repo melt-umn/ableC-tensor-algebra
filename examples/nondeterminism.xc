@@ -40,5 +40,9 @@ int main() {
   else
     fprintf(stderr, "Success!\n");
 
-  fprintf(stderr, "Size of omp_lock_t = %u\n", sizeof(omp_lock_t));
+  freeTensor(a0);
+  freeTensor(a1);
+  freeTensor(b);
+
+  return 0;
 }

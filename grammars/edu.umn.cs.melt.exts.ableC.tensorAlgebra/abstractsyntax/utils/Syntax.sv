@@ -52,7 +52,7 @@ top::Expr ::= tp::Type
   local lErrors::[Message] =
     case tp of
     | tensorType(_, _, _) -> format.tensorFormatLookupCheck
-    | _ -> [err(top.location, "orderof expected a tensor type (got ${showType(tp.typerep)})")]
+    | _ -> [err(top.location, s"orderof expected a tensor type (got ${showType(tp)})")]
     end;
   
   forwards to 
