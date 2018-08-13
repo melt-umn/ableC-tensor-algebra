@@ -151,6 +151,10 @@ Decl ::= fmt::TensorFormat
   
   return parseDecl(s"""
     static void tensor_pack_${fmtNm}(struct tensor_${fmtNm}* t) {
+      if(t->bufferCnt == 0) return;
+
+      pthread_rwlock_wrlock(&(t->lock));
+
       if(t->bufferCnt > 0) {
         unsigned long* dims = t->dims;
         unsigned long*** indices = t->indices;
@@ -185,6 +189,8 @@ Decl ::= fmt::TensorFormat
         t->buffer.children = 0;
         t->form = "";
       }
+
+      pthread_rwlock_unlock(&(t->lock));
     }
   """);
 }

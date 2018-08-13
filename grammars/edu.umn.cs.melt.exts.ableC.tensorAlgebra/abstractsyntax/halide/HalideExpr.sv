@@ -89,6 +89,15 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
 
   exNew.accessOrder = access;
 
+  local originalNames :: [String] =
+    nubBy(
+      stringEq,
+      map(
+        getTensorName(_),
+        ex.tensors
+      )
+    );
+
   local tensorInit :: [Maybe<Pair<String Expr>>] =
     map(
       \ e::TensorExpr ->
@@ -137,6 +146,34 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
         end
       ,
       exNew.exprs
+    );
+
+  local requestLocks :: Stmt =
+    foldl(
+      \ inn::Stmt t::String ->
+        ableC_Stmt {
+          pthread_rwlock_rdlock(&($name{t}.lock));
+          $Stmt{inn}
+        }
+      ,
+      ableC_Stmt {
+        pthread_rwlock_wrlock(&($name{outNew.tensorName}.lock));
+      },
+      originalNames
+    );
+
+  local releaseLocks :: Stmt =
+    foldl(
+      \ inn::Stmt t::String ->
+        ableC_Stmt {
+          pthread_rwlock_unlock(&($name{t}.lock));
+          $Stmt{inn}
+        }
+      ,
+      ableC_Stmt {
+        pthread_rwlock_unlock(&($name{outNew.tensorName}.lock));
+      },
+      originalNames
     );
 
   local tensorDecls :: [Stmt] =
@@ -240,16 +277,22 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
       seqStmt(
         tensorDecl,
         seqStmt(
-          tensorNameSub,
+          requestLocks,
           seqStmt(
-            exprDecl,
+            tensorNameSub,
             seqStmt(
-              checkDims,
+              exprDecl,
               seqStmt(
-                initData,
+                checkDims,
                 seqStmt(
-                  zeroOut,
-                  inner
+                  initData,
+                  seqStmt(
+                    zeroOut,
+                    seqStmt(
+                      inner,
+                      releaseLocks
+                    )
+                  )
                 )
               )
             )
@@ -685,6 +728,36 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       tensors
     );
 
+  local originalNames :: [String] =
+    nubBy(
+      stringEq,
+      tensorNames
+    );
+
+  local requestLocks :: Stmt =
+    foldl(
+      \ inn::Stmt t::String ->
+        ableC_Stmt {
+          pthread_rwlock_rdlock(&($name{t}.lock));
+          $Stmt{inn}
+        }
+      ,
+      nullStmt(),
+      originalNames
+    );
+
+  local releaseLocks :: Stmt =
+    foldl(
+      \ inn::Stmt t::String ->
+        ableC_Stmt {
+          pthread_rwlock_unlock(&($name{t}.lock));
+          $Stmt{inn}
+        }
+      ,
+      nullStmt(),
+      originalNames
+    );
+
   local tensorFormats::[TensorFormat] =
     map(
       getTensorFormat(_, tm:empty(compareString)),
@@ -896,14 +969,20 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
         seqStmt(
           tensorDecl,
           seqStmt(
-            tensorNameSub,
+            requestLocks,
             seqStmt(
-              exprDecl,
+              tensorNameSub,
               seqStmt(
-                checkDims,
+                exprDecl,
                 seqStmt(
-                  initData,
-                  inner
+                  checkDims,
+                  seqStmt(
+                    initData,
+                    seqStmt(
+                      inner,
+                      releaseLocks
+                    )
+                  )
                 )
               )
             )

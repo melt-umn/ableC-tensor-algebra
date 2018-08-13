@@ -307,6 +307,14 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   exNew.fmts = fmts;
   outNew.fmts = fmts;
 
+  local lockOut :: (Stmt ::= Stmt) =
+    \ inner::Stmt ->
+      ableC_Stmt {
+        pthread_rwlock_wrlock(&($name{outNew.tensorName}.lock));
+        $Stmt{inner}
+        pthread_rwlock_unlock(&($name{outNew.tensorName}.lock));
+      };
+
   local exprs :: [Pair<String Expr>] =
     maybeMap(
       \ e::Expr ->
@@ -385,6 +393,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       \ inn::Stmt t::Pair<String String> ->
         ableC_Stmt {
           $name{s"tensor_pack_${t.snd}"}(&$name{t.fst});
+          pthread_rwlock_rdlock(&($name{t.fst}.lock));
           $Stmt{inn}
         }
       ,
@@ -578,6 +587,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       \ inn::Stmt nm::String ->
         ableC_Stmt {
           $name{nm}.form = $stringLiteralExpr{exprToString(exNew, fmts)};
+          pthread_rwlock_unlock(&($name{nm}.lock));
           $Stmt{inn}
         }
       ,
@@ -591,8 +601,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     mkErrorCheck(
       lErrors,
       stmtExpr(
-        declExpr(declTensor(packTensors(tensorSub(tensorPrep(dimsCheck(
-          assembleOut(outVal(comp(setFormat))))))))),
+        lockOut(declTensor(packTensors(declExpr(tensorSub(tensorPrep(dimsCheck(
+          assembleOut(outVal(comp(setFormat)))))))))),
         ableC_Expr {
           $name{outNew.tensorName}
         },
@@ -898,6 +908,7 @@ top::Expr ::= output::Expr expr::Expr
       \ inn::Stmt t::Pair<String String> ->
         ableC_Stmt {
           $name{s"tensor_pack_${t.snd}"}(&$name{t.fst});
+          pthread_rwlock_rdlock(&($name{t.fst}.lock));
           $Stmt{inn}
         }
       ,
@@ -1020,6 +1031,7 @@ top::Expr ::= output::Expr expr::Expr
       \ inn::Stmt nm::String ->
         ableC_Stmt {
           $name{nm}.form = $stringLiteralExpr{exprToString(exNew, fmts)};
+          pthread_rwlock_unlock(&($name{nm}.lock));
           $Stmt{inn}
         }
       ,

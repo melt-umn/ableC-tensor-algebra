@@ -166,7 +166,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
         ableC_Expr {
           *({
             struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
-            unsigned long __index[] = $Initializer{idxInit};
+            unsigned long __index[$intLiteralExpr{fmt.dimensions}] = $Initializer{idxInit};
             $name{s"tensor_getPointer_${fmtNm}"}(_tensor, __index);
           })
         },

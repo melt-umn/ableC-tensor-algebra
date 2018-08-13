@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <pthread.h>
 
 #ifdef TACO_PARALLEL
 char edu_umn_cs_melt_exts_ableC_tensorAlgebra_parallel;

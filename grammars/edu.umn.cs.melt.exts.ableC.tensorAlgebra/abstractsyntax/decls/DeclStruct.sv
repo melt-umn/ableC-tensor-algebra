@@ -10,19 +10,19 @@ Decl ::= fmt::TensorFormat
   return
     maybeTagDecl(
       s"tensor_${fmtNm}",
-      parseDecl(
-        s"""
-          struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_${fmtNm}"), module("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor"))) tensor_${fmtNm} {
-            unsigned long* dims;
-            unsigned long*** indices;
-            double* data;
-            
-            unsigned long bufferCnt;
-            struct tensor_tree_s buffer;
-            char* form;
-            unsigned long dataLen;
-          };
-        """
-      )
+      ableC_Decl {
+        struct __attribute__((refId($stringLiteralExpr{s"edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_${fmtNm}"}), module("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor"))) $name{s"tensor_${fmtNm}"} {
+          unsigned long* dims;
+          unsigned long*** indices;
+          double* data;
+
+          unsigned long bufferCnt;
+          struct tensor_tree_s buffer;
+          char* form;
+          unsigned long dataLen;
+
+          pthread_rwlock_t lock;
+        };
+      }
     );
 }

@@ -1257,7 +1257,7 @@ String ::=
               (
               if output
               then
-                s"tensor_getPointer_${fmtNm}(&${assign.tensorName}, idx);"
+                s"tensor_getPointer_locked_${fmtNm}(&${assign.tensorName}, idx);"
               else ""
               )
               ++

@@ -35,6 +35,7 @@ top::Expr ::= tensor::Expr
       $Stmt{freeIndices(tensor, fmt)}
       free($Expr{tensor}.indices);
       __free_tensor_tree(&($Expr{tensor}.buffer));
+      pthread_rwlock_destroy(&($Expr{tensor}.lock));
       1;
     })
     };

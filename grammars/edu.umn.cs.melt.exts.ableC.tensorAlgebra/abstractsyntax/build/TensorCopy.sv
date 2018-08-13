@@ -76,6 +76,9 @@ top::Expr ::= l::Expr r::Expr
             memcpy($Expr{l}.data, $Expr{r}.data, sizeof(double) * $Expr{r}.dataLen);
             $Expr{l}.dataLen = $Expr{r}.dataLen;
 
+            pthread_rwlock_destory(&($Expr{l}.lock));
+            pthread_rwlock_init(&($Expr{l}.lock), 0);
+
             $Expr{l};
           })
         }

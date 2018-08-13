@@ -115,7 +115,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
       ableC_Expr {
         ({
           struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
-          unsigned long __index[] = $Initializer{idxInitializer};
+          unsigned long __index[$intLiteralExpr{fmt.dimensions}] = $Initializer{idxInitializer};
           $name{s"tensor_pack_${fmtNm}"}(_tensor);
           $name{s"tensor_get_${fmtNm}"}(_tensor, __index);
         })

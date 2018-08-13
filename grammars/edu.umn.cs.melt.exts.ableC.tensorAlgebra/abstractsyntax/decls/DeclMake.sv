@@ -20,7 +20,7 @@ Decl ::= fmt::TensorFormat
   local fmtNm::String = fmt.proceduralName;
   local dimens::Integer = fmt.dimensions;
   
-  return 
+  return
     parseDecl(s"""
       static void tensor_make_${fmtNm}(struct tensor_${fmtNm}* t, unsigned long* dims) {
         t->dims = calloc(${toString(dimens)}, sizeof(unsigned long));
@@ -41,6 +41,7 @@ Decl ::= fmt::TensorFormat
         
         t->form = "";
         t->dataLen = count;
+        pthread_rwlock_init(&(t->lock), 0);
       }
     """);
 }

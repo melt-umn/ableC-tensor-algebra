@@ -155,14 +155,22 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
   local init :: [Stmt] =
     tensorVals(tensor, fmt, top.env);
 
+  local nm :: String =
+    getTensorName(tensor);
+
   local fwrd :: Stmt =
     compoundStmt(
-      foldr(
-        \ nw::Stmt inn::Stmt ->
-          seqStmt(nw, inn)
-        ,
-        loops,
-        init
+      seqStmt(
+        foldr(
+          \ nw::Stmt inn::Stmt ->
+            seqStmt(nw, inn)
+          ,
+          loops,
+          init
+        ),
+        ableC_Stmt {
+          pthread_rwlock_unlock(&($name{nm}.lock));
+        }
       )
     );
 
@@ -195,6 +203,10 @@ function tensorVals
     ::
     ableC_Stmt {
       $name{s"tensor_pack_${fmt.proceduralName}"}(&$name{nm});
+    }
+    ::
+    ableC_Stmt {
+      pthread_rwlock_rdlock(&($name{nm}.lock));
     }
     ::
     ableC_Stmt {
