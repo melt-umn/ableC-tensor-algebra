@@ -195,11 +195,16 @@ top::ComputeGraph ::=
   top.ifCnd =
     map(
       \ lst::[LatticePoint] ->
-        map(
-          \ lp::LatticePoint ->
-            lp.cond
+        nubBy(
+          \ c1::TensorCond c2::TensorCond ->
+            c1.ifCond == "1" && c2.ifCond == "1"
           ,
-          lst
+          map(
+            \ lp::LatticePoint ->
+              lp.cond
+            ,
+            lst
+          )
         )
       ,
       sbLts

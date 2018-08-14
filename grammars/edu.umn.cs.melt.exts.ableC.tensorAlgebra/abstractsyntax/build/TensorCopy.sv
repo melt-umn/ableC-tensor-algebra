@@ -49,7 +49,7 @@ top::Expr ::= l::Expr r::Expr
         eqExpr(l, r, location=top.location)
       | buildTensorExpr(_, _) -> 
         eqExpr(l, r, location=top.location)
-      | _ ->
+      | declRefExpr(_) ->
         ableC_Expr {
           ({
             if($Expr{l}.dims) free($Expr{l}.dims);
@@ -76,12 +76,14 @@ top::Expr ::= l::Expr r::Expr
             memcpy($Expr{l}.data, $Expr{r}.data, sizeof(double) * $Expr{r}.dataLen);
             $Expr{l}.dataLen = $Expr{r}.dataLen;
 
-            pthread_rwlock_destory(&($Expr{l}.lock));
+            pthread_rwlock_destroy(&($Expr{l}.lock));
             pthread_rwlock_init(&($Expr{l}.lock), 0);
 
             $Expr{l};
           })
         }
+      | _ -> 
+        eqExpr(l, r, location=top.location)
       end
     else
       ableC_Expr {
@@ -146,7 +148,8 @@ Stmt ::= dest::Expr src::Expr strg::[Pair<Integer Pair<Integer Integer>>]
     then
       ableC_Stmt {
         $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}] = calloc(1, sizeof(unsigned long*));
-        $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}][0] = &($Expr{dest}.dims[$intLiteralExpr{p.snd.fst}]);
+        $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}][0] = calloc(1, sizeof(unsigned long));
+        $Expr{dest}.indices[$intLiteralExpr{p.snd.fst}][0][0] = $Expr{dest}.dims[$intLiteralExpr{p.snd.fst}];
         size *= $Expr{dest}.dims[$intLiteralExpr{p.snd.fst}];
         $Stmt{copyIndices_helper(dest, src, tail(strg))}
       }
