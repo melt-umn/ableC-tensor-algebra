@@ -30,6 +30,37 @@ String ::= dims::Integer idx::Integer
     """;
 }
 
+function indexCheckStmt
+Stmt ::= dims::Integer
+{
+  return
+    ableC_Stmt {
+      char err = 0;
+      $Stmt{indexCheckStmtBody(dims, 0)}
+    };
+}
+
+function indexCheckStmtBody
+Stmt ::= dims::Integer idx::Integer
+{
+  return
+    if dims == idx
+    then 
+      ableC_Stmt {
+        if(err) {
+          exit(1);
+        }
+      }
+    else
+      ableC_Stmt {
+        if(index[$intLiteralExpr{idx}] >= dims[$intLiteralExpr{idx}]) {
+          fprintf(stderr, $stringLiteralExpr{s"Invalid index on dimension ${toString(idx)} of tensor (index %lu requested, size %lu)\n"}, index[$intLiteralExpr{idx}], dims[$intLiteralExpr{idx}]);
+          err = 1;
+        }
+        $Stmt{indexCheckStmtBody(dims, idx + 1)}
+      };
+}
+
 function generateIndexArray
 String ::= size::Integer
 {

@@ -136,23 +136,22 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
   local fwrd::Expr =
     if arrayAccess
     then
-      op(
-        ableC_Expr {
-          *({
-            struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
-            $BaseTypeExpr{idx.typerep.baseTypeExpr}* __idx = $Expr{idx};
-            unsigned long _idx[$intLiteralExpr{fmt.dimensions}];
-            
-            for(unsigned long __d = 0; __d < $intLiteralExpr{fmt.dimensions}; __d++) {
-              _idx[__d] = __idx[__d];
-            }
-            double* res = $name{s"tensor_getPointer_${fmtNm}"}(_tensor, _idx);
-            res;
-          })
-        },
-        right,
-        top.location
-      )
+      ableC_Expr {
+        ({
+          struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+          $BaseTypeExpr{idx.typerep.baseTypeExpr}* __idx = $Expr{idx};
+          unsigned long _idx[$intLiteralExpr{fmt.dimensions}];
+          
+          for(unsigned long __d = 0; __d < $intLiteralExpr{fmt.dimensions}; __d++) {
+            _idx[__d] = __idx[__d];
+          }
+          pthread_rwlock_wrlock(&(_tensor->lock));
+          double* res = $name{s"tensor_getPointer_locked_${fmtNm}"}(_tensor, _idx);
+          $Expr{op(ableC_Expr{*res}, right, top.location)};
+          pthread_rwlock_unlock(&(_tensor->lock));
+          *res;
+        })
+      }
     else
     if rightTensorExpr
     then
@@ -162,17 +161,17 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
       else -- x = A[i,j]
         errorExpr([err(top.location, "This should not occur")], location=top.location)
     else -- x[i] = a
-      op(
-        ableC_Expr {
-          *({
-            struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
-            unsigned long __index[$intLiteralExpr{fmt.dimensions}] = $Initializer{idxInit};
-            $name{s"tensor_getPointer_${fmtNm}"}(_tensor, __index);
-          })
-        },
-        right,
-        top.location
-      );
+      ableC_Expr {
+        ({
+          struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+          unsigned long __index[$intLiteralExpr{fmt.dimensions}] = $Initializer{idxInit};
+          pthread_rwlock_wrlock(&(_tensor->lock));
+          double* res = $name{s"tensor_getPointer_locked_${fmtNm}"}(_tensor, __index);
+          $Expr{op(ableC_Expr{*res}, right, top.location)};
+          pthread_rwlock_unlock(&(_tensor->lock));
+          *res;
+        })
+      };
 
   local allErrors :: [Message] =
     lErrors

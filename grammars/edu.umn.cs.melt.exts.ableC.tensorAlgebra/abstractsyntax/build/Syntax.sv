@@ -72,7 +72,7 @@ top::Expr ::= type::TypeName dims::[Expr]
   local fwrd::Expr =
     ableC_Expr {
       ({
-        unsigned long __tensor_arr[] = $Initializer{dimInit};
+        unsigned long __tensor_arr[$intLiteralExpr{fmt.dimensions}] = $Initializer{dimInit};
         struct $name{s"tensor_${fmtNm}"} _tensor = {0};
         $name{s"tensor_make_${fmtNm}"}(&_tensor, __tensor_arr);
         _tensor;

@@ -108,7 +108,7 @@ Decl ::= fmt::TensorFormat
     parseDecl(s"""
       static double* tensor_getPointer_${fmtNm}(struct tensor_${fmtNm}* t, unsigned long* index) 
       {
-        pthread_rwlock_rdlock(&(t->lock));
+        pthread_rwlock_wrlock(&(t->lock));
 
         unsigned long* dims = t->dims;
         unsigned long*** indices = t->indices;
@@ -156,8 +156,6 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>] fmtNm::String
           }
         }
         if(!found) {
-          pthread_rwlock_unlock(&(t->lock));
-          pthread_rwlock_wrlock(&(t->lock));
           double* res = tensor_insertZero_${fmtNm}(&(t->buffer), index);
           t->bufferCnt++;
           pthread_rwlock_unlock(&(t->lock));

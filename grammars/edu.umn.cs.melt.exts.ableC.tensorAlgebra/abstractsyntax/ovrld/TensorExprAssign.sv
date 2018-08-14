@@ -531,6 +531,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           for(unsigned long i = 0; i < numChildren; i++) {
             t->data[i] = trees[i]->val;
           }
+          if(trees != &buffer) free(trees);
 
           t->dataLen = numChildren;
           t->bufferCnt = 0;
