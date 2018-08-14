@@ -182,7 +182,9 @@ Decl ::= fmt::TensorFormat
         for(unsigned long i = 0; i < numChildren; i++) {
           t->data[i] = trees[i]->val;
         }
-        if(trees != &buffer) free(trees);
+        if(trees != &buffer) {
+          free(trees);
+        }
 
         t->dataLen = numChildren;
         t->bufferCnt = 0;
@@ -279,7 +281,9 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
           }
         """
       }
-      if(trees != &buffer) free(trees);
+      if(trees != &buffer) {
+        free(trees);
+      }
       numChildren = newChildren;
       trees = temp_tree;
       ${generatePackBody_Assemble(tail(storage))}
