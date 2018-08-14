@@ -41,6 +41,13 @@ static void __free_tensor_tree(struct tensor_tree_s* t) {
   if(t->numChildren >  0) free(t->children);
 }
 
+static void __free_tensor_packedTree(struct tensor_tree_s* t) {
+  if(t->children > 0) {
+    __free_tensor_packedTree(t->children);
+    free(t->children);
+  }
+}
+
 static char tensor_checkTree(struct tensor_tree_s* t) {
   if(t->isLeaf) return t->val != 0.0;
   unsigned long end = t->numChildren;

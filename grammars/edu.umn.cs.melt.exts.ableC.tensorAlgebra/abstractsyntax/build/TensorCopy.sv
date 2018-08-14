@@ -114,6 +114,7 @@ Stmt ::= expr::Expr strg::[Pair<Integer Pair<Integer Integer>>]
     else if p.snd.snd == storeDense
     then
       ableC_Stmt {
+        free($Expr{expr}.indices[$intLiteralExpr{p.snd.fst}][0]);
         free($Expr{expr}.indices[$intLiteralExpr{p.snd.fst}]);
         $Stmt{freeIndices_helper(expr, tail(strg))}
       }

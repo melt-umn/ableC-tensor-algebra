@@ -78,7 +78,22 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
         }
       """
       else s"""
-      
+        cTemp = 0;
+        for(unsigned long i = 0; i < count; i++) {
+          cTemp += tree[i].numChildren;
+        }
+
+        temp = calloc(cTemp, sizeof(struct tensor_tree_s));
+        index = 0;
+        for(unsigned long i = 0; i < count; i++) {
+          unsigned long idx = index;
+          for(unsigned long j = 0; j < tree[i].numChildren; j++) {
+            temp[index] = tree[i].children[j];
+            index++;
+          }
+          if(tree[i].children) free(tree[i].children);
+          tree[i].children = &(temp[idx]);
+        }
       """
     else 
       if type == storeDense
@@ -186,6 +201,7 @@ Decl ::= fmt::TensorFormat
           free(trees);
         }
 
+        __free_tensor_packedTree(&(t->buffer));
         t->dataLen = numChildren;
         t->bufferCnt = 0;
         t->buffer.numChildren = 0;

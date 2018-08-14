@@ -533,6 +533,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           }
           if(trees != &buffer) free(trees);
 
+          __free_tensor_packedTree(&(t->buffer));
           t->dataLen = numChildren;
           t->bufferCnt = 0;
           t->buffer.numChildren = 0;
@@ -1280,6 +1281,7 @@ String ::= strg::[Pair<Integer Pair<Integer Integer>>]
     else if p.snd.snd == storeDense
     then
       s"""
+        free(t->indices[${toString(p.snd.fst)}][0]);
         free(t->indices[${toString(p.snd.fst)}]);
         ${freeIndices_String_helper(tail(strg))}
       """

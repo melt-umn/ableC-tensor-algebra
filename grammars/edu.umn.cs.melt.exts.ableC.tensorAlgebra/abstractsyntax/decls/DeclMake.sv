@@ -59,7 +59,8 @@ String ::= storage::[Pair<Integer Pair<Integer Integer>>]
       if spec == storeDense
       then s"""
         t->indices[${dimen}] = calloc(1, sizeof(unsigned long*));
-        t->indices[${dimen}][0] = &(t->dims[${dimen}]);
+        t->indices[${dimen}][0] = calloc(1, sizeof(unsigned long));
+        t->indices[${dimen}][0][0] = t->dims[${dimen}];
         count *= t->dims[${dimen}];
         ${generateMakeBody(tail(storage))}
       """
