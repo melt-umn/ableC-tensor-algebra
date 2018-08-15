@@ -37,7 +37,7 @@ the tensor, we wish to setup the tensor, and for this we will use a new
 how to use `build`:
 
 ```C
-tensor<*fmt*> *name* = build(tensor<*fmt*>)({*dimensions*});
+tensor<*fmt*> <i>name</i> = build(tensor<*fmt*>)({*dimensions*});
 tensor<*fmt*> *name* = build(tensor<*fmt*>)([*tensor contents*]);
 tensor<*fmt*> *name* = build(tensor<*fmt*>)(*dimensions array*);
 ```
@@ -48,10 +48,10 @@ type errors will occur. Then, we have three options, the first being a curly-bra
 list of the desired dimensions, if we want a 10 x 6 matrix, for example, we would put 
 `{10, 6}`. The second option is to provide the contents of the tensor in an organized
 fashion. For example, a small 2x3 matrix with:
-`
+```
 1 2 3
 4 5 6
-`
+```
 would be declared with `[ [1, 2, 3], [4, 5, 6] ]`. Finally, a tensor can also
 be declared using an array with the desired dimensions. 
 
