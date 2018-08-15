@@ -36,6 +36,7 @@ the tensor, we wish to setup the tensor, and for this we will use a new
 `build` terminal. To create and initialize a tensor we have three options for
 how to use `build`:
 
+    tensor<*fmt*>
 ```C
 tensor<*fmt*> <i>name</i> = build(tensor<*fmt*>)({*dimensions*});
 tensor<*fmt*> *name* = build(tensor<*fmt*>)([*tensor contents*]);
