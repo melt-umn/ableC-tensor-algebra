@@ -224,30 +224,28 @@ top::ComputeGraph ::=
     if outDense || null(top.conds)
     then nullStmt()
     else
-      ableC_Stmt {
-        $Stmt{generateAssemble(head(top.conds), head(exs), head(top.exprs), head(top.ifCnd), head(top.frthr), head(vars), fmts, listLength(top.conds) == 1, assign, tail(vars), true)}
-        $Stmt{
-          foldl(
-            \ above::Stmt nu::Stmt ->
-              ableC_Stmt {
-                $Stmt{above}
-                $Stmt{nu}
-              }
+      foldl(
+        \ above::Stmt nu::Stmt ->
+          ableC_Stmt {
+            $Stmt{above}
+            $Stmt{nu}
+          }
+        ,
+        generateAssemble(head(top.conds), head(exs), head(top.exprs), head(top.ifCnd), 
+          head(top.frthr), head(vars), fmts, listLength(top.conds) == 1, assign, tail(vars), true),
+        zip5(
+            \ c::TensorCond ex::TensorExpr e::[TensorExpr] cd::[TensorCond] gr::[ComputeGraph] ->
+              generateAssemble(
+                c, ex, e, cd, gr, head(vars), fmts, listLength(top.conds) == 1, 
+                assign, tail(vars), false)
             ,
-            nullStmt(),
-            zip5(
-              \ c::TensorCond ex::TensorExpr e::[TensorExpr] cd::[TensorCond] gr::[ComputeGraph] ->
-                generateAssemble(c, ex, e, cd, gr, head(vars), fmts, listLength(top.conds) == 1, assign, tail(vars), false)
-              ,
-              tail(top.conds),
-              tail(exs),
-              tail(top.exprs),
-              tail(top.ifCnd),
-              tail(top.frthr)
-            )
+            tail(top.conds),
+            tail(exs),
+            tail(top.exprs),
+            tail(top.ifCnd),
+            tail(top.frthr)
           )
-        }
-      };
+        );
 
   top.compute =
     if null(top.conds)
