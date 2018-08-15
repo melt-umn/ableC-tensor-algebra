@@ -2,37 +2,47 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:lattice;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+synthesized attribute cnd :: Expr;
+synthesized attribute ifCondition :: Expr;
 synthesized attribute condition :: String;
 synthesized attribute ifCond :: String;
 
-nonterminal TensorCond with condition, ifCond;
+nonterminal TensorCond with condition, ifCond, cnd, ifCondition;
 
 abstract production allCond
 top::TensorCond ::= v::String
 {
   top.condition = s"${v} < ${v}_dimensions";
+  top.cnd = ableC_Expr{ $name{v} < $name{s"${v}_dimensions"} };
   top.ifCond = "1";
+  top.ifCondition = ableC_Expr { 1 };
 }
 
 abstract production nullCond
 top::TensorCond ::=
 {
   top.condition = "0";
+  top.cnd = ableC_Expr { 0 };
   top.ifCond = "0";
+  top.ifCondition = ableC_Expr { 0 };
 }
 
 abstract production sparseAccess
 top::TensorCond ::= tNm::String dim::Integer var::String
 {
   top.condition = s"p${tNm}${toString(dim+1)} < ${tNm}${toString(dim+1)}_pos[${if dim == 0 then "1" else s"p${tNm}${toString(dim)} + 1"}]";
+  top.cnd = ableC_Expr { $name{s"p${tNm}${toString(dim+1)}"} < $name{s"${tNm}${toString(dim+1)}_pos"}[$Expr{if dim == 0 then ableC_Expr{1} else ableC_Expr{$name{s"p${tNm}${toString(dim)}"} + 1}}] };
   top.ifCond = s"${var}${tNm} == ${var}";
+  top.ifCondition = ableC_Expr { $name{s"${var}${tNm}"} == $name{var} };
 }
 
 abstract production denseAccess
 top::TensorCond ::= tNm::String dim::Integer var::String
 {
   top.condition = s"${var} < ${tNm}${toString(dim+1)}_size";
+  top.cnd = ableC_Expr { $name{var} < $name{s"${tNm}${toString(dim+1)}_size"} };
   top.ifCond = "1";
+  top.ifCondition = ableC_Expr { 1 };
 }
 
 function accessCond
@@ -57,7 +67,9 @@ abstract production andCond
 top::TensorCond ::= l::TensorCond r::TensorCond
 {
   top.condition = s"(${l.condition}) && (${r.condition})";
+  top.cnd = ableC_Expr { ( $Expr{l.cnd} && $Expr{r.cnd} ) };
   top.ifCond = s"(${l.ifCond}) && (${r.ifCond})";
+  top.ifCondition = ableC_Expr { ( $Expr{l.ifCondition} && $Expr{r.ifCondition} ) };
 }
 
 function condAnd

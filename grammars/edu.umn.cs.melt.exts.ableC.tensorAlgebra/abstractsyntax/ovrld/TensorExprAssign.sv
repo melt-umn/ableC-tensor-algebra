@@ -508,7 +508,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           unsigned long idx[$intLiteralExpr{listLength(head(out.accesses))}];
           struct $name{s"tensor_${fmtNm}"}* t = &$name{outNew.tensorName};
           unsigned long count = 1;
-          $Stmt{parseStmt(graph.asmbl)}
+          $Stmt{graph.asmbl}
 
           unsigned long* dims = $name{outNew.tensorName}.dims;
           $name{s"tensor_packTree_${fmtNm}"}(&($name{outNew.tensorName}.buffer), dims);
