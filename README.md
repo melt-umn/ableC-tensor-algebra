@@ -15,9 +15,9 @@ A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compi
 ### Part 1: Tensor Formats
 The first step in declaring and using tensors for this extension is to declare
 the necessary tensor formats. This is done with a declaration of the form:
-```C
-tensor format *name* ({*specifiers*} [, {*dimension order*}]);
-```
+<pre><code>
+tensor format <i>name</i> ({<i>specifiers</i>} [, {<i>dimension order</i>}]);
+</code></pre>
 The dimension order part is optional. In this, *name* is the name you wish to give
 the tensor format, *specifiers* is a list of the storage specifiers for each
 dimension in the tensor, and *dimension order* is an optional integer list
@@ -36,12 +36,11 @@ the tensor, we wish to setup the tensor, and for this we will use a new
 `build` terminal. To create and initialize a tensor we have three options for
 how to use `build`:
 
-    tensor<*fmt*>
-```C
-tensor<*fmt*> <i>name</i> = build(tensor<*fmt*>)({*dimensions*});
-tensor<*fmt*> *name* = build(tensor<*fmt*>)([*tensor contents*]);
-tensor<*fmt*> *name* = build(tensor<*fmt*>)(*dimensions array*);
-```
+<pre><code>
+tensor&lt;<i>fmt</i>&gt; <i>name</i> = build(tensor&lt;<i>fmt</i>&gt;)({<i>dimensions</i>});
+tensor&lt;<i>fmt</i>&gt; <i>name</i> = build(tensor&lt;<i>fmt</i>&gt;)([<i>tensor contents</i>]);
+tensor&lt;<i>fmt</i>&gt; <i>name</i> = build(tensor&lt;<i>fmt</i>&gt;)(<i>dimensions array</i>);
+</code></pre>
 
 In all of these, you must provide the type of the tensor to the `build` command,
 this type must match that of the variable you are assigning to, otherwise
