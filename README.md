@@ -60,10 +60,77 @@ some reason you don't want to immediately, assign your tensor the value `{0}`
 to ensure the fields of the tensor are properly zeroed.
 
 ### Part 3: Tensor Access
+Accessing and assigning values to tensors is easy, and should be rather
+intuitive. It is done using the same syntax as array accesses, though the
+one difference is that only a single [ ] is ever used, and indices are 
+separated by commas within this. For example, if mat is a matrix, we can
+access element (3, 5) by writing:
+```C
+mat[3, 5]
+```
+To assign a value to a specific point in a tensor, we can just write an
+access with any assignment operator, such as:
+```C
+mat[3, 5] += 2;
+```
+We can also use variables or expressions as the indices we wish to access,
+so we could write, for example:
+```C
+for(int i = 0; i < 10; i++) {
+  for(int j = 0; j < 10; j++) {
+    printf("%f\n", mat[i, j]);
+  }
+}
+```
 
 ### Part 4: Index Variables
+While sometimes we want variables to represent specific values when accessing
+a tensor, as in the above example, there are other times when we want a variable
+to represent a series of values, all the possible values that the index could take.
+For example, in math, writing `a_i = b_i` doesn't mean that for some specific
+value of i, a and b are equal, it means that for all values of i, a and b are equal.
+In this case i is what we will call an index variable. To allow this differentiation 
+between variables with a value, and index variables, index variables must be declared,
+and have their own type `indexvar`. If we want, for example, to declare i, j, k as 
+index variables, we can write:
+```C
+indexvar i, j, k;
+```
+anywhere in our code.
 
 ### Part 5: Tensor Expression
+Tensor expressions are the algebra component of any tensor algebra system.
+Tensor expressions specify how to take one or more input tensors and convert
+their values into values in an output tensor. In writing tensor expressions, 
+we write tensor index expressions, where we use index variables to describe 
+how we access a tensor. Matrix multiplication is a simple tensor operation, 
+common to linear algebra, and can be expressed as:
+```C
+A[i, j] = B[i, k] * C[k, j];
+```
+in mathematics we would generally write this as: 
+A<sub>i,j</sub> = B<sub>i,k</sub> * C<sub>k,j</sub>.
+
+Our system supports tensor expressions involving addition, subtraction,
+multiplication, and division. However, division is not guaranteed to 
+function necessarily how traditional division would. If the divisor
+of any division would be 0, the system simply does not perform the division,
+leaving the value 0, instead of taking a value of infinity, or NaN. In addition to
+these arithmetic operators, tensor expressions may contain regular C expressions,
+such as in 
+```C
+a[i] = 4 * b[i];
+```
+
+There are a few other limitations to the tensor expressions supported
+by this system. First, no index variable may appear only on the left-hand
+side. `A[i, j] = b[i];` is not valid, though `a[i] = B[i, j];` is.
+In the later case, the columns of B will be summed together into a. 
+The other limitation has to do with access patterns, and is more compliated.
+In short, code cannot be generated for a tensor expression that must access
+a tensor against it's natural access order. For example, if both A and B 
+are matrices stored in row-major order, `A[i,j] = B[j,i];` will not be 
+valid and a compiler error will be raised. 
 
 ### Part 6: Foreach Loops
 
