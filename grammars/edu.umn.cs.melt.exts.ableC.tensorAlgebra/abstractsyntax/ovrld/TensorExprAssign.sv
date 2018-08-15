@@ -524,7 +524,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           struct tensor_tree_s** temp_tree;
           unsigned long total, dimSize, index, newChildren;
 
-          $Stmt{parseStmt(generatePackBody_Assemble(getTensorFormat(outNew, fmts).storage))}
+          $Stmt{generatePackBody_Assemble(getTensorFormat(outNew, fmts).storage)}
           
           if(t->data) free(t->data);
           t->data = calloc(numChildren, sizeof(double));

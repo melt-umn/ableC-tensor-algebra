@@ -61,6 +61,42 @@ Stmt ::= dims::Integer idx::Integer
       };
 }
 
+function generateIndexInitializer
+Initializer ::= size::Integer
+{
+  return
+    objectInitializer(generateIndexInitList(1, size));
+}
+
+function generateIndexInitList
+InitList ::= idx::Integer size::Integer
+{
+  return
+    if idx == size
+    then
+      consInit(
+        positionalInit(
+          exprInitializer(
+            ableC_Expr {
+              $name{s"i${toString(idx)}"}
+            }
+          )
+        ),
+        nilInit()
+      )
+    else
+      consInit(
+        positionalInit(
+          exprInitializer(
+            ableC_Expr {
+              $name{s"i${toString(idx)}"}
+            }
+          )
+        ),
+        generateIndexInitList(idx+1, size)
+      );
+}
+
 function generateIndexArray
 String ::= size::Integer
 {
@@ -71,12 +107,52 @@ String ::= size::Integer
 }
 
 function generateProductDims
-String ::= dims::Integer idx::Integer
+Expr ::= dims::Integer idx::Integer
 {
   local index::String = toString(idx);
   
   return
     if dims == idx
-    then "1"
-    else s"dims[${index}] * ${generateProductDims(dims, idx + 1)}";
+    then 
+      ableC_Expr {
+        1
+      }
+    else 
+      ableC_Expr {
+        dims[$intLiteralExpr{idx}] * $Expr{generateProductDims(dims, idx+1)}
+      };
+}
+
+function freeIndicesTPointer
+Stmt ::= fmt::TensorFormat
+{
+  return freeIndicesTPointer_helper(fmt.storage);
+}
+
+function freeIndicesTPointer_helper
+Stmt ::= strg::[Pair<Integer Pair<Integer Integer>>]
+{
+  local p :: Pair<Integer Pair<Integer Integer>> =
+    head(strg);
+
+  return
+    if null(strg)
+    then
+      ableC_Stmt {
+        free(t->indices);
+      }
+    else if p.snd.snd == storeDense
+    then
+      ableC_Stmt {
+        free(t->indices[$intLiteralExpr{p.snd.fst}][0]);
+        free(t->indices[$intLiteralExpr{p.snd.fst}]);
+        $Stmt{freeIndicesTPointer_helper(tail(strg))}
+      }
+    else
+      ableC_Stmt {
+        free(t->indices[$intLiteralExpr{p.snd.fst}][0]);
+        free(t->indices[$intLiteralExpr{p.snd.fst}][1]);
+        free(t->indices[$intLiteralExpr{p.snd.fst}]);
+        $Stmt{freeIndicesTPointer_helper(tail(strg))}
+      };
 }
