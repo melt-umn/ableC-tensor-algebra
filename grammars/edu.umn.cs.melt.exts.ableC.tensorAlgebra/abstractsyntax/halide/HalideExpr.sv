@@ -98,8 +98,8 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
       )
     );
 
-  local tensorInit :: [Maybe<Pair<String Expr>>] =
-    map(
+  local tensorDecls :: [Stmt] =
+    maybeMap(
       \ e::TensorExpr ->
         case e of
         | tensorAccess(_, ex, _, _) ->
@@ -113,10 +113,9 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
               getTensorName(e)
             in
             just(
-              pair(
-                s"struct tensor_${fmt.proceduralName} ${nm} = __tensor_sub;",
-                ex
-              )
+              ableC_Stmt {
+                struct $name{s"tensor_${fmt.proceduralName}"} $name{nm} = $Expr{ex};
+              }
             )
             end
             end
@@ -127,8 +126,8 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
       exNew.tensors
     );
 
-  local exprInit :: [Maybe<Pair<String Expr>>] =
-    map(
+  local exprDecls :: [Stmt] =
+    maybeMap(
       \ e::Expr ->
         case decorate e with {env=top.env; returnType=nothing();} of
         | declRefExpr(name(_)) -> nothing()
@@ -137,10 +136,9 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
             getExprName(e, top.env)
           in
           just(
-            pair(
-              s"double ${nm} = __expr_sub;",
-              e
-            )
+            ableC_Stmt {
+              double $name{nm} = $Expr{e};
+            }
           )
           end
         end
@@ -176,38 +174,6 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
       originalNames
     );
 
-  local tensorDecls :: [Stmt] =
-    map(
-      \ m::Maybe<Pair<String Expr>> ->
-        case m of
-        | just(pair(s, ex)) ->
-          substStmt(
-            [declRefSubstitution("__tensor_sub", ex)]
-            ,
-            parseStmt(s)
-          )
-        | nothing() -> nullStmt()
-        end
-      ,
-      tensorInit
-    );
-
-  local exprDecls :: [Stmt] =
-    map(
-      \ m::Maybe<Pair<String Expr>> -> 
-        case m of
-        | just(pair(s, ex)) ->
-          substStmt(
-            [declRefSubstitution("__expr_sub", ex)]
-            ,
-            parseStmt(s)
-          )
-        | nothing() -> nullStmt()
-        end
-      ,
-      exprInit
-    );
-
   local tensorDecl :: Stmt =
     foldl(
       \ s1::Stmt s2::Stmt ->
@@ -219,8 +185,11 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
 
   local exprDecl :: Stmt =
     foldl(
-      \ s1::Stmt s2::Stmt ->
-        seqStmt(s1, s2)
+      \ inn::Stmt s::Stmt ->
+        ableC_Stmt {
+          $Stmt{s}
+          $Stmt{inn}
+        }
       ,
       nullStmt(),
       exprDecls
@@ -234,9 +203,9 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
           then
             nullStmt()
           else
-            parseStmt(
-              s"struct tensor_${pr.fst} ${pr.snd.fst} = ${pr.snd.snd};"
-            )
+            ableC_Stmt {
+              struct $name{s"tensor_${pr.fst}"} $name{pr.snd.fst} = $name{pr.snd.snd};
+            }
         )
       ,
       nullStmt(),
@@ -253,16 +222,16 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     );
 
   local checkDims :: Stmt =
-    parseStmt(
-      halide_check_dims(out, exNew, access, fmts)
-    );
+    halide_check_dims(out, exNew, access, fmts);
 
   local initData :: Stmt =
     foldl(
       \ s1::Stmt t::String ->
         seqStmt(
          s1,
-         parseStmt(s"double* ${t}_data = ${t}.data;")
+         ableC_Stmt {
+           double* $name{s"${t}_data"} = $name{t}.data;
+         }
         )
       ,
       nullStmt(),
@@ -270,7 +239,9 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     );
 
   local zeroOut :: Stmt =
-    parseStmt(s"memset(${outNew.tensorName}.data, 0, ${outNew.tensorName}.dataLen * sizeof(double));");
+    ableC_Stmt {
+      memset($name{outNew.tensorName}.data, 0, $name{outNew.tensorName}.dataLen * sizeof(double));
+    };
 
   local fwrd::Stmt =
     compoundStmt(
@@ -349,19 +320,22 @@ top::IterStmt ::= output::Name expr::Expr
       tensors
     );
 
-  local accessCalc :: [String] =
+  local accessCalc :: [Expr] =
     map(
       \ e::TensorExpr ->
         let acc::[String] =
           head((decorate e with {fmts=fmts;}).accesses)
         in
         foldl(
-          \ res::String v::String ->
-            if length(res) == 0
-            then v
-            else s"((${res}) * ${v}_dimension) + ${v}"
+          \ res::Expr v::String ->
+            if v == head(acc)
+            then ableC_Expr { $name{v} }
+            else
+              ableC_Expr {
+                ( ($Expr{res}) * $name{s"${v}_dimension"} ) + $name{v}
+              }
           ,
-          "",
+          ableC_Expr { 0 },
           acc
         )
         end
@@ -369,7 +343,7 @@ top::IterStmt ::= output::Name expr::Expr
       tensors
     );
 
-  local accesses :: tm:Map<String String> =
+  local accesses :: tm:Map<String Expr> =
     tm:add(
       zipWith(
         pair,
@@ -492,9 +466,9 @@ top::IterStmt ::= output::Name expr::Expr
             seqIterStmt(
               iter,
               stmtIterStmt(
-                parseStmt(s"""
-                  __result += ${denseExprEval(p.snd, fmts, accesses)};
-                """)
+                ableC_Stmt {
+                  __result += $Expr{denseEvalExpr(p.snd.fromJust, fmts, accesses)};
+                }
               )
             )
           else
@@ -548,19 +522,22 @@ top::IterStmt ::= output::Name expr::Expr access::[String]
       tensors
     );
 
-  local accessCalc :: [String] =
+  local accessCalc :: [Expr] =
     map(
       \ e::TensorExpr ->
         let acc::[String] =
           head((decorate e with {fmts=fmts;}).accesses)
         in
         foldl(
-          \ res::String v::String ->
-            if length(res) == 0
-            then v
-            else s"((${res}) * ${v}_dimension) + ${v}"
+          \ res::Expr v::String ->
+            if v == head(acc)
+            then ableC_Expr { $name{v} }
+            else
+              ableC_Expr {
+                ( ($Expr{res}) * $name{s"${v}_dimension"} ) + $name{v}
+              }
           ,
-          "",
+          ableC_Expr { 0 },
           acc
         )
         end
@@ -568,7 +545,7 @@ top::IterStmt ::= output::Name expr::Expr access::[String]
       tensors
     );
 
-  local accesses :: tm:Map<String String> =
+  local accesses :: tm:Map<String Expr> =
     tm:add(
       zipWith(
         pair,
@@ -690,9 +667,9 @@ top::IterStmt ::= output::Name expr::Expr access::[String]
             seqIterStmt(
               iter,
               stmtIterStmt(
-                parseStmt(s"""
-                  __result += ${denseExprEval(p.snd, fmts, accesses)};
-                """)
+                ableC_Stmt {
+                  __result += $Expr{denseEvalExpr(p.snd.fromJust, fmts, accesses)};
+                }
               )
             )
           else
@@ -821,8 +798,8 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
 
   exNew.accessOrder = access;
 
-  local tensorInit :: [Maybe<Pair<String Expr>>] =
-    map(
+  local tensorDecls :: [Stmt] =
+    maybeMap(
       \ e::TensorExpr ->
         case e of
         | tensorAccess(_, ex, _, _) ->
@@ -836,10 +813,9 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
               getTensorName(e)
             in
             just(
-              pair(
-                s"struct tensor_${fmt.proceduralName} ${nm} = __tensor_sub;",
-                ex
-              )
+              ableC_Stmt {
+                struct $name{s"tensor_${fmt.proceduralName}"} $name{nm} = $Expr{ex};
+              }
             )
             end
             end
@@ -850,8 +826,8 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       exNew.tensors
     );
 
-  local exprInit :: [Maybe<Pair<String Expr>>] =
-    map(
+  local exprDecls :: [Stmt] =
+    maybeMap(
       \ e::Expr ->
         case decorate e with {env=top.env; returnType=nothing();} of
         | declRefExpr(name(_)) -> nothing()
@@ -860,47 +836,14 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
             getExprName(e, top.env)
           in
           just(
-            pair(
-              s"double ${nm} = __expr_sub;",
-              e
-            )
+            ableC_Stmt {
+              double $name{nm} = $Expr{e};
+            }
           )
           end
         end
       ,
       exNew.exprs
-    );
-
-  local tensorDecls :: [Stmt] =
-    map(
-      \ m::Maybe<Pair<String Expr>> ->
-        case m of
-        | just(pair(s, ex)) ->
-          substStmt(
-            [declRefSubstitution("__tensor_sub", ex)]
-            ,
-            parseStmt(s)
-          )
-        | nothing() -> nullStmt()
-        end
-      ,
-      tensorInit
-    );
-
-  local exprDecls :: [Stmt] =
-    map(
-      \ m::Maybe<Pair<String Expr>> ->
-        case m of
-        | just(pair(s, ex)) ->
-          substStmt(
-            [declRefSubstitution("__expr_sub", ex)]
-            ,
-            parseStmt(s)
-          )
-        | nothing() -> nullStmt()
-        end
-      ,
-      exprInit
     );
 
   local tensorDecl :: Stmt =
@@ -928,9 +871,9 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
           if pr.snd.fst == pr.snd.snd
           then nullStmt()
           else
-            parseStmt(
-              s"struct tensor_${pr.fst} ${pr.snd.fst} = ${pr.snd.snd};"
-            )
+            ableC_Stmt {
+              struct $name{s"tensor_${pr.fst}"} $name{pr.snd.fst} = $name{pr.snd.snd};
+            }
         )
       ,
       nullStmt(),
@@ -949,19 +892,17 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
   local initData :: Stmt =
     foldl(
       \ s1::Stmt t::String ->
-        seqStmt(
-          s1,
-          parseStmt(s"double* ${t}_data = ${t}.data;")
-        )
+        ableC_Stmt {
+          $Stmt{s1}
+          double* $name{s"${t}_data"} = $name{t}.data;
+        }
       ,
       nullStmt(),
       newNames
     );
 
   local checkDims :: Stmt =
-    parseStmt(
-      halide_check_dims(out, exNew, access, fmts)
-    );
+    halide_check_dims(out, exNew, access, fmts);
 
   local fwrd::Expr =
     stmtExpr(
@@ -1004,7 +945,9 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
           location=output.location
         ),
         stmtExpr(
-          parseStmt("double __result = 0.0;"),
+          ableC_Stmt {
+            double __result = 0.0;
+          },
           fwrd,
           location=expr.location
         ),
@@ -1023,27 +966,32 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
 }
 
 function halide_check_dims
-String ::= 
+Stmt ::= 
   out::TensorExpr ex::TensorExpr acc::[String] 
   fmts::tm:Map<String TensorFormat>
 {
+  local checks :: Stmt =
+    foldl(
+      \ inn::Stmt v::String ->
+        ableC_Stmt {
+          $Stmt{halide_check_var(out, ex, v, fmts)}
+          $Stmt{inn}
+        }
+      ,
+      nullStmt(),
+      acc
+    );
+
   return
-    "char error = 0;"
-    ++
-    "\n"
-    ++
-    implode("\n",
-      map(
-        halide_check_var(out, ex, _, fmts),
-        acc
-      )
-    )
-    ++
-    "if(error) exit(1);";
+    ableC_Stmt {
+      char error = 0;
+      $Stmt{checks}
+      if(error) exit(1);
+    };
 }
 
 function halide_check_var
-String ::=
+Stmt ::=
   out::TensorExpr ex::TensorExpr var::String
   fmts::tm:Map<String TensorFormat>
 {
@@ -1055,9 +1003,31 @@ String ::=
   local acc::[Pair<String Integer>] =
     out.sparse_r ++ out.dense_r ++ ex.sparse_r ++ ex.dense_r;
 
+  local check :: Stmt =
+    let h::Pair<String Integer> =
+      head(acc)
+    in
+    let nm::String =
+      h.fst
+    in
+    foldl(
+      \ inn::Stmt pr::Pair<String Integer> ->
+        ableC_Stmt {
+          if($name{nm}.dims[$intLiteralExpr{h.snd}] != $name{pr.fst}.dims[$intLiteralExpr{pr.snd}]) {
+            fprintf(stderr, $stringLiteralExpr{s"Tensor ${nm} and ${pr.fst} do not have the same dimensionality for ${var}.\n"});
+            error = 1;
+          }
+        }
+      ,
+      nullStmt(),
+      tail(acc)
+    )
+    end
+    end;
+
   return
     if null(acc) 
-    then ""
+    then nullStmt()
     else
       let h::Pair<String Integer> = 
         head(acc)
@@ -1065,34 +1035,10 @@ String ::=
       let nm::String =
         h.fst
       in
-      let dim::String =
-        toString(h.snd)
-      in
-      s"unsigned long ${var}_dimension = ${nm}.dims[${dim}];"
-      ++
-      "\n"
-      ++
-      implode("\n",
-        map(
-          \ p::Pair<String Integer> ->
-            s"if(${nm}.dims[${dim}] != ${p.fst}.dims[${toString(p.snd)}]) {"
-            ++
-            "\n"
-            ++
-            s"  fprintf(stderr, \"Tensor ${nm} and ${p.fst} do not have the same dimensionality for ${var}.\\n\");"
-            ++
-            "\n"
-            ++
-            "  error = 1;"
-            ++
-            "\n"
-            ++
-            "}"
-          ,
-          tail(acc)
-        )
-      )
-      end
+      ableC_Stmt {
+        unsigned long $name{s"${var}_dimension"} = $name{nm}.dims[$intLiteralExpr{h.snd}];
+        $Stmt{check}
+      }
       end
       end;
 }
@@ -1132,19 +1078,22 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
       tensors
     );
 
-  local accessCalc :: [String] =
+  local accessCalc :: [Expr] =
     map(
       \ e::TensorExpr ->
         let acc::[String] =
           head((decorate e with {fmts=fmts;}).accesses)
         in
         foldl(
-          \ res::String v::String ->
-            if length(res) == 0
-            then v
-            else s"((${res}) * ${v}_dimension) + ${v}"
+          \ res::Expr v::String ->
+            if v == head(acc)
+            then ableC_Expr { $name{v} }
+            else 
+              ableC_Expr {
+                ( ($Expr{res}) * $name{s"${v}_dimension"} ) + $name{v}
+              }
           ,
-          "",
+          ableC_Expr { 0 },
           acc
         )
         end
@@ -1152,7 +1101,7 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
       tensors
     );
 
-  local accesses :: tm:Map<String String> =
+  local accesses :: tm:Map<String Expr> =
     tm:add(
       zipWith(
         pair,
@@ -1378,9 +1327,9 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
             seqIterStmt(
               iter,
               stmtIterStmt(
-                parseStmt(s"""
-                  ${outNew.tensorName}_data[${outAcc}] += ${denseExprEval(p.snd, fmts, accesses)};
-                """)
+                ableC_Stmt {
+                  $name{s"${outNew.tensorName}_data"}[$Expr{outAcc}] += $Expr{denseEvalExpr(p.snd.fromJust, fmts, accesses)};
+                }
               )
             )
           else
@@ -1391,7 +1340,7 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
       innerVars
     );
 
-  local outAcc::String = 
+  local outAcc::Expr = 
     getElem(
       accessCalc,
       positionOf(
@@ -1410,9 +1359,9 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
         if topExpr.isJust
         then
           stmtIterStmt(
-            parseStmt(s"""
-              ${outNew.tensorName}_data[${outAcc}] += ${denseExprEval(topExpr, fmts, accesses)};
-            """)
+            ableC_Stmt {
+              $name{s"${outNew.tensorName}_data"}[$Expr{outAcc}] += $Expr{denseEvalExpr(topExpr.fromJust, fmts, accesses)};
+            }
           )
         else
           nullIterStmt()
@@ -1458,19 +1407,22 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
       tensors
     );
 
-  local accessCalc :: [String] =
+  local accessCalc :: [Expr] =
     map(
       \ e::TensorExpr ->
         let acc::[String] =
           head((decorate e with {fmts=fmts;}).accesses)
         in
         foldl(
-          \ res::String v::String ->
-            if length(res) == 0
-            then v
-            else s"((${res}) * ${v}_dimension) + ${v}"
+          \ res::Expr v::String ->
+            if v == head(acc)
+            then ableC_Expr { $name{v} }
+            else
+              ableC_Expr {
+                ( ($Expr{res}) * $name{s"${v}_dimension"} ) + $name{v}
+              }
           ,
-          "",
+          ableC_Expr { 0 },
           acc
         )
         end
@@ -1478,7 +1430,7 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
       tensors
     );
 
-  local accesses :: tm:Map<String String> =
+  local accesses :: tm:Map<String Expr> =
     tm:add(
       zipWith(
         pair,
@@ -1703,9 +1655,9 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
             seqIterStmt(
               iter,
               stmtIterStmt(
-                parseStmt(s"""
-                  ${outNew.tensorName}_data[${outAcc}] += ${denseExprEval(p.snd, fmts, accesses)};
-                """)
+                ableC_Stmt {
+                  $name{s"${outNew.tensorName}_data"}[$Expr{outAcc}] += $Expr{denseEvalExpr(p.snd.fromJust, fmts, accesses)};
+                }
               )
             )
           else
@@ -1716,7 +1668,7 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
       innerVars
     );
 
-  local outAcc::String =
+  local outAcc::Expr =
     getElem(
       accessCalc,
       positionOf(
@@ -1734,9 +1686,9 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
         if topExpr.isJust
         then
           stmtIterStmt(
-            parseStmt(s"""
-              ${outNew.tensorName}_data[${outAcc}] += ${denseExprEval(topExpr, fmts, accesses)};
-            """)
+            ableC_Stmt {
+              $name{s"${outNew.tensorName}_data"}[$Expr{outAcc}] += $Expr{denseEvalExpr(topExpr.fromJust, fmts, accesses)};
+            }
           )
         else
           nullIterStmt()
@@ -1822,4 +1774,38 @@ String ::=
         denseExprEval(just(r), fmts, acc) ++ ")"
       end
     else "";
+}
+
+function denseEvalExpr
+Expr ::=
+  e::TensorExpr fmts::tm:Map<String TensorFormat>
+  acc::tm:Map<String Expr>
+{
+  return
+    case e of
+    | tensorBaseExpr(_, _) ->
+      ableC_Expr {
+        $name{e.exprName}
+      }
+    | tensorAccess(_, _, _, _) ->
+      ableC_Expr {
+        $name{s"${e.tensorName}_data"}[$Expr{head(tm:lookup(e.tensorName, acc))}]
+      }
+    | tensorAdd(_, l, r, _) ->
+      ableC_Expr {
+        ( $Expr{denseEvalExpr(l, fmts, acc)} + $Expr{denseEvalExpr(r, fmts, acc)} )
+      }
+    | tensorSub(_, l, r, _) ->
+      ableC_Expr {
+        ( $Expr{denseEvalExpr(l, fmts, acc)} - $Expr{denseEvalExpr(r, fmts, acc)} )
+      }
+    | tensorMul(_, l, r, _) ->
+      ableC_Expr {
+        ( $Expr{denseEvalExpr(l, fmts, acc)} * $Expr{denseEvalExpr(r, fmts, acc)} )
+      }
+    | tensorDiv(_, l, r, _) ->
+      ableC_Expr {
+        ( $Expr{denseEvalExpr(l, fmts, acc)} / $Expr{denseEvalExpr(r, fmts, acc)} )
+      }
+    end;
 }

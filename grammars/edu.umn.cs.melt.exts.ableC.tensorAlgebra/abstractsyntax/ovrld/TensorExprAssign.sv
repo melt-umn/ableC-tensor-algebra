@@ -515,7 +515,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
           struct tensor_tree_s* buffer = &($name{outNew.tensorName}.buffer);
 
-          if(t->indices) { $Stmt{parseStmt(freeIndices_String(getTensorFormat(outNew, fmts)))} }
+          if(t->indices) { $Stmt{freeIndicesTPointer(getTensorFormat(outNew, fmts))} }
           t->indices = calloc($intLiteralExpr{outOrder}, sizeof(unsigned long**));
 
           unsigned long numChildren = 1;
