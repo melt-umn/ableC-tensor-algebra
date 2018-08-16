@@ -66,13 +66,15 @@ $(ABLEC_JAR): $(GRAMMAR_SOURCES)
 	silver-ableC -o $@ $(SVFLAGS) $(ARTIFACT)
 
 %.c: %.xc $(XC_INCLUDE_SOURCES) $(ABLEC_JAR)
-	java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)
+	@echo -e "java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)\E[0;31m"
+	@java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)
+	@echo -e "\E[0m"
 
 %.out: %.o $(SRC_SOURCES) | libs
 	$(CC) $(LDFLAGS) $< $(LOADLIBES) $(LDLIBS) -o $@
 
 translate_error/%.test: translate_error/%.xc $(XC_INCLUDE_SOURCES) $(ABLEC_JAR)
-	@echo -e "java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)\E[0;31m"
+	@echo -e "java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)\E[0;32m"
 	@if java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS); then echo -e "\E[0;31mFailed to error\E[0m"; exit 1; else echo -e "\E[0m"; fi
 	@touch $@
 

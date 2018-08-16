@@ -8,7 +8,7 @@ int main() {
   tensor<s0> a = build(tensor<s0>)({3});
   tensor<s0> b = build(tensor<s0>)({5});
 
-  a[i] = c[i];
+  a[i] = b[i];
 
   freeTensor(a);
   freeTensor(b);

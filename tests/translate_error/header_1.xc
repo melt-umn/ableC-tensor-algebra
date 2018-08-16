@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 tensor format mat ({dense, sparse});
 
 indexvar i, j;
