@@ -7,10 +7,15 @@ synthesized attribute exprs :: [[TensorExpr]];
 synthesized attribute ifCnd :: [[TensorCond]];
 synthesized attribute frthr :: [[ComputeGraph]];
 synthesized attribute asmbl :: Stmt;
-synthesized attribute compute :: String;
+synthesized attribute compute :: Stmt;
 synthesized attribute var :: String;
 
-nonterminal ComputeGraph with conds, exprs, ifCnd, frthr, asmbl, compute, var;
+inherited attribute canPar :: Boolean;
+inherited attribute thdCnt :: Maybe<Integer>;
+
+nonterminal ComputeGraph with 
+  conds, exprs, ifCnd, frthr, asmbl, compute, var,
+  canPar, thdCnt;
 
 abstract production nullGraph
 top::ComputeGraph ::= 
@@ -20,7 +25,7 @@ top::ComputeGraph ::=
   top.ifCnd = [];
   top.frthr = [];
   top.asmbl = nullStmt();
-  top.compute = "";
+  top.compute = nullStmt();
   top.var = "";
 }
 
@@ -249,16 +254,23 @@ top::ComputeGraph ::=
 
   top.compute =
     if null(top.conds)
-    then ""
+    then nullStmt()
     else
-      generateCode(head(top.conds), head(exs), head(top.exprs), head(top.ifCnd), head(top.frthr), head(vars), fmts, listLength(top.conds) == 1, assign, tail(vars), true)
-      ++
-      "\n"
-      ++
-      implode("\n",
+      foldl(
+        \ above::Stmt nu::Stmt ->
+          ableC_Stmt {
+            $Stmt{above}
+            $Stmt{nu}
+          }
+        ,
+        generateCode(head(top.conds), head(exs), head(top.exprs), head(top.ifCnd), 
+          head(top.frthr), head(vars), fmts, listLength(top.conds) == 1, assign, tail(vars), 
+          true, top.canPar, top.thdCnt),
         zip5(
           \ c::TensorCond ex::TensorExpr e::[TensorExpr] cd::[TensorCond] gr::[ComputeGraph] ->
-            generateCode(c, ex, e, cd, gr, head(vars), fmts, listLength(top.conds) == 1, assign, tail(vars), false)
+            generateCode(
+              c, ex, e, cd, gr, head(vars), fmts, listLength(top.conds) == 1, 
+              assign, tail(vars), false, top.canPar, top.thdCnt)
           ,
           tail(top.conds),
           tail(exs),
@@ -439,28 +451,39 @@ Boolean ::= e::TensorExpr
 }
 
 function evalExpr
-String ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
+Expr ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
 {
   e.fmts = fmts;
 
   return
     case e of
-    | tensorBaseExpr(_, _) -> e.exprName
+    | tensorBaseExpr(_, _) -> ableC_Expr{$name{e.exprName}}
     | tensorAccess(_, _, _, _) -> 
-      e.tensorName ++ "_data[p" ++ e.tensorName ++ toString(listLength(head(e.accesses))) ++ "]"
+      ableC_Expr {
+        $name{s"${e.tensorName}_data"}
+          [$name{s"p${e.tensorName}${toString(listLength(head(e.accesses)))}"}]
+      }
     | tensorAdd(_, l, r, _) -> 
-      "(" ++ evalExpr(l, fmts) ++ "+" ++ evalExpr(r, fmts) ++ ")"
+      ableC_Expr {
+        ( $Expr{evalExpr(l, fmts)} + $Expr{evalExpr(r, fmts)} )
+      }
     | tensorSub(_, l, r, _) -> 
-      "(" ++ evalExpr(l, fmts) ++ "-" ++ evalExpr(r, fmts) ++ ")"
+      ableC_Expr {
+        ( $Expr{evalExpr(l, fmts)} - $Expr{evalExpr(r, fmts)} )
+      }
     | tensorMul(_, l, r, _) -> 
-      "(" ++ evalExpr(l, fmts) ++ "*" ++ evalExpr(r, fmts) ++ ")"
+      ableC_Expr {
+        ( $Expr{evalExpr(l, fmts)} * $Expr{evalExpr(r, fmts)} )
+      }
     | tensorDiv(_, l, r, _) -> 
-      "(" ++ evalExpr(l, fmts) ++ "/" ++ evalExpr(r, fmts) ++ ")"
+      ableC_Expr {
+        ( $Expr{evalExpr(l, fmts)} / $Expr{evalExpr(r, fmts)} )
+      }
     end;
 }
 
 function evalOut
-String ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
+Expr ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
 {
   e.fmts = fmts;
 
@@ -468,12 +491,15 @@ String ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
     case e of
     | tensorBaseExpr(ex, _) ->
       case decorate ex with {env=e.envr; returnType=nothing();} of
-      | declRefExpr(nm) -> nm.name
-      | _ -> "__error"
+      | declRefExpr(nm) -> ableC_Expr{$name{nm.name}}
+      | _ -> ableC_Expr{$name{"__error"}}
       end
     | tensorAccess(_, _, _, _) ->
-      e.tensorName ++ "_data[p" ++ e.tensorName ++ toString(listLength(head(e.accesses))) ++ "]"
-    | _ -> "__error"
+      ableC_Expr {
+        $name{s"${e.tensorName}_data"}
+          [$name{s"p${e.tensorName}${toString(listLength(head(e.accesses)))}"}]
+      }
+    | _ -> ableC_Expr{$name{"__error"}}
     end;
 }
 
@@ -602,11 +628,11 @@ String ::= c::TensorCond e::TensorExpr var::String fmts::tm:Map<String TensorFor
 }
 
 function generateCode
-String ::= 
+Stmt ::= 
   c::TensorCond ex::TensorExpr e::[TensorExpr] ic::[TensorCond] 
   g::[ComputeGraph] v::String fmts::tm:Map<String TensorFormat>
   canEmitFor::Boolean assign::TensorExpr remain::[String]
-  top::Boolean 
+  top::Boolean canPar::Boolean thdCnt::Maybe<Integer>
 {
   local subs::[Pair<String TensorExpr>] =
     listSubs(ex, v, remain, fmts);
@@ -622,7 +648,7 @@ String ::=
     end;
 
   local canParallel :: Boolean =
-    forLoop && !outSparse.isJust && outDense.isJust;
+    canPar && forLoop && !outSparse.isJust && outDense.isJust;
 
   local forVar::String =
     case c of
@@ -632,11 +658,25 @@ String ::=
     | _ -> ""
     end;
 
-  local forInit::String =
+  local forInit::Decl =
     case c of
-    | allCond(v) -> s"unsigned long ${v} = 0"
-    | denseAccess(_, _, v) -> s"unsigned long ${v} = 0"
-    | sparseAccess(n, d, _) -> s"unsigned long p${n}${toString(d+1)} = ${n}${toString(d+1)}_pos[${if d == 0 then "0" else s"p${n}${toString(d)}"}]"
+    | allCond(v) -> ableC_Decl{ unsigned long $name{v} = 0; }
+    | denseAccess(_, _, v) -> ableC_Decl{ unsigned long $name{v} = 0; }
+    | sparseAccess(n, d, _) -> 
+      ableC_Decl {
+        unsigned long $name{s"p${n}${toString(d+1)}"} =
+          $name{s"${n}${toString(d+1)}_pos"}
+            [ $Expr{if d == 0 then ableC_Expr{0} else ableC_Expr{$name{s"p${n}${toString(d)}"} } } ];
+      }
+    | _ -> decls(nilDecl())
+    end;
+
+  local forInitTxt::String =
+    case c of
+    | allCond(v) -> s"unsigned long ${v} = 0;"
+    | denseAccess(_, _, v) -> s"unsigned long ${v} = 0;"
+    | sparseAccess(n, d, _) ->
+      s"""unsigned long ${s"p${n}${toString(d+1)}"} = ${s"${n}${toString(d+1)}_pos"}[${if d == 0 then "0" else s"p${n}${toString(d)}"}]"""
     | _ -> ""
     end;
 
@@ -732,293 +772,333 @@ String ::=
     list_reduceDeeper(ex, v::remain, fmts);
 
   return
-    (
-    if top
-    then
-      implode("\n",
-        map(
-          \ p::Pair<String Integer> ->
-            if forLoop && s"p${p.fst}${toString(p.snd+1)}" == forVar
-            then ""
-            else
-              s"unsigned long p${p.fst}${toString(p.snd+1)} = ${p.fst}${toString(p.snd+1)}_pos[${if p.snd == 0 then "0" else s"p${p.fst}${toString(p.snd)}"}];"
-          ,
-          ex.sparse
-        )
-      )
-    else ""
-    )
-    ++
-    "\n"
-    ++
-    (
-    if top
-    then
-      case outSparse of
-      | just(pair(s, d)) ->
-          s"unsigned long p${s}${toString(d+1)} = ${s}${toString(d+1)}_pos[${if d == 0 then "0" else s"p${s}${toString(d)}"}];"
-      | nothing() -> ""
-      end
-    else ""
-    )
-    ++
-    "\n"
-    ++
-    (
-    if top && !forLoop && topAll
-    then
-      s"unsigned long ${v} = 0;"
-      ++
-      "\n"
-    else ""
-    )
-    ++
-    (
-    if forLoop
-    then
-      (
-      if canParallel
-      then "__parallel_emit;\n" 
-      else ""
-      ) ++
-      s"for(${forInit}; ${generateForCondition(c, ex, v, fmts)}; ${forVar}++) {"
-    else
-      s"while(${generateFullCondition(c, ex, v, fmts)}) {"
-    )
-    ++
-    "\n  "
-    ++
-    (
-    if listLength(ex.sparse) == 1 && (!forLoop || forVar != v) && !topAll
-    then 
-      let p::Pair<String Integer> =
-        head(ex.sparse)
-      in
-      s"unsigned long ${v} = ${p.fst}${toString(p.snd+1)}_idx[p${p.fst}${toString(p.snd+1)}];"
-      end
-    else
-      implode("\n  ",
-        map(
-          \ p::Pair<String Integer> ->
-            s"unsigned long ${v}${p.fst} = ${p.fst}${toString(p.snd+1)}_idx[p${p.fst}${toString(p.snd+1)}];"
-          ,
-          ex.sparse
-        )
-      )
-      ++
-      "\n  "
-      ++
-      (
-      if null(ex.sparse) || (forLoop && forVar == v) || topAll
-      then ""
-      else
-        s"unsigned long ${v} = ${generateMin(ex.sparse, v)};"
-      )
-    )
-    ++
-    "\n  "
-    ++
-    case outSparse of
-    | just(pair(s, d)) -> 
-      s"while(${s}${toString(d+1)}_idx[p${s}${toString(d+1)}] < ${v}) "
-      ++
-      s"p${s}${toString(d+1)}++;"
-    | nothing() -> ""
-    end
-    ++
-    "\n  "
-    ++
-    implode("\n  ",
-      map(
-        \ p::Pair<String Integer> ->
-          s"unsigned long p${p.fst}${toString(p.snd+1)} = ${if p.snd == 0 then "0" else s"(p${p.fst}${toString(p.snd)} * ${p.fst}${toString(p.snd+1)}_size)"} + ${v};"
-        ,
-        ex.dense
-      )
-    )
-    ++
-    "\n  "
-    ++
-    case outDense of
-    | just(pair(s, d)) ->
-      s"unsigned long p${s}${toString(d+1)} = ${if d == 0 then "0" else s"(p${s}${toString(d)} * ${s}${toString(d+1)}_size)"} + ${v};"
-    | nothing() -> ""
-    end
-    ++ 
-    (
-    if above
-    then
-      "\n  "
-      ++
-      implode("\n  ",
-        map(
-          \ p::Pair<String TensorExpr> ->
-            s"double ${p.fst} = ${evalExpr(p.snd, fmts)};"
-          ,
-          subs
-        )
-      )
-    else ""
-    )
-    ++
-    "\n  if(0) {}"
-    ++
-    "\n  "
-    ++
-    implode(
-      "\n  ",
-      explode(
-        "\n",
-        implode("\n",
-          zip3(
-            \ c::TensorCond e::TensorExpr g::ComputeGraph ->
-              let red::TensorExpr = 
-                reduceDeeper(e, v, remain, fmts)
-              in
-              let sbs::[Pair<String TensorExpr>] =
-                list_reduceDeeper(e, remain, fmts)
-              in
-              (
-              if c.ifCond == "1" || emitElse
-              then
-                "else {"
+  ableC_Stmt {
+    $Stmt{
+      if top
+      then
+        foldl(
+          seqStmt,
+          nullStmt(),
+          map(
+            \ p::Pair<String Integer> ->
+              if forLoop && s"p${p.fst}${toString(p.snd+1)}" == forVar
+              then nullStmt()
               else
-                s"else if(${c.ifCond}) {"
-              )
-              ++
-              "\n  "
-              ++
-              (
-              if (output || below)
-              && (decorate e with {remaining=remain; fmts=fmts;}).isAvail
-              then ""
-              else
-                (
-                if output || below
-                then 
-                  implode("\n  ",
-                    map(
-                      \ s::Pair<String TensorExpr> ->
-                        s"double ${s.fst} = 0.0;"
-                      ,
-                      sbs
-                    )
-                  )
-                else ""
-                )
-                ++
-                "\n  "
-                ++
-                implode(
-                  "\n  ",
-                  explode(
-                    "\n",
-                    g.compute
-                  )
-                )
-              )
-              ++
-              (
-              if below
-              then
-                implode("\n",
-                  map(
-                    \ p::Pair<String TensorExpr> ->
-                      if exprContained(e, p.snd, fmts)
-                      then
-                        let sb::TensorExpr =
-                          performSubs(p.snd, sbs, fmts)
-                        in
-                        s"${p.fst} += ${evalExpr(sb, fmts)};"
-                        end
-                      else
-                        let possible::[TensorExpr] =
-                          exprCanZero(p.snd)
-                        in
-                        let i::Integer =
-                          positionBy(
-                            \ ex::TensorExpr ->
-                              exprContained(e, ex, fmts)
-                            ,
-                            possible
-                          )
-                        in
-                        if i != -1
-                        then
-                          s"${p.fst} += ${evalExpr(getElem(possible, i).fromJust, fmts)};"
-                        else ""
-                        end
-                        end
-                    ,
-                    redSubs
-                  )
-                )
-              else ""
-              )
-              ++
-              (
-              if output
-              then
-              s"\n  ${evalOut(assign, fmts)} += ${evalExpr(red, fmts)};"
-              else ""
-              )
-              ++
-              "\n  "
-              ++
-              case outSparse of
-              | just(pair(s, d)) ->
-                s"p${s}${toString(d+1)}++;"
-              | nothing() -> ""
-              end
-              ++
-              "\n}"
-              end
-              end
+                ableC_Stmt {
+                  unsigned long $name{s"p${p.fst}${toString(p.snd+1)}"} =
+                    $name{s"${p.fst}${toString(p.snd+1)}_pos"}
+                      [ $Expr{if p.snd == 0 then ableC_Expr { 0 } else ableC_Expr{ $name{s"p${p.fst}${toString(p.snd)}"} } } ];
+                }
             ,
-            ic,
-            e,
-            g
+            ex.sparse
           )
         )
-      )
-    )
-    ++
-    "\n  "
-    ++
-    (
-    if listLength(ex.sparse) == 1 && !topAll
-    then
-      let p::Pair<String Integer> =
-        head(ex.sparse)
+      else nullStmt()
+    }
+    $Stmt {
+      if top
+      then 
+        case outSparse of
+        | just(pair(s, d)) ->
+          ableC_Stmt {
+            unsigned long $name{s"p${s}${toString(d+1)}"} =
+              $name{s"${s}${toString(d+1)}_pos"}
+                [ $Expr{if d == 0 then ableC_Expr{0} else ableC_Expr{$name{s"p${s}${toString(d)}"} } } ];
+          }
+        | _ -> nullStmt()
+        end
+      else nullStmt()
+    }
+    $Stmt {
+      if top && !forLoop && topAll
+      then ableC_Stmt {
+        unsigned long $name{v} = 0;
+      }
+      else nullStmt()
+    }
+    $Stmt {
+      let inner::Stmt =
+        ableC_Stmt {
+          $Stmt {
+            if listLength(ex.sparse) == 1 && (!forLoop || forVar != v) && !topAll
+            then
+              let p::Pair<String Integer> =
+                head(ex.sparse)
+              in
+              ableC_Stmt {
+                unsigned long $name{v} =
+                  $name{s"${p.fst}${toString(p.snd+1)}_idx"}[$name{s"p${p.fst}${toString(p.snd+1)}"}];
+              }
+              end
+            else
+              ableC_Stmt {
+                $Stmt{
+                  foldl(
+                    \ nxt::Stmt p::Pair<String Integer> ->
+                      ableC_Stmt {
+                        $Stmt{nxt}
+                        unsigned long $name{s"${v}${p.fst}"} =
+                          $name{s"${p.fst}${toString(p.snd+1)}_idx"}[$name{s"p${p.fst}${toString(p.snd+1)}"}];
+                      }
+                    ,
+                    nullStmt(),
+                    ex.sparse
+                  )
+                }
+                $Stmt {
+                  if null(ex.sparse) || (forLoop && forVar == v) || topAll
+                  then nullStmt()
+                  else 
+                    ableC_Stmt {
+                      unsigned long $name{v} = $Expr{generateMinExpr(ex.sparse, v)};
+                    }
+                }
+              }
+          }
+          $Stmt{
+            case outSparse of
+            | just(pair(s, d)) ->
+              ableC_Stmt {
+                while($name{s"${s}${toString(d+1)}_idx"}[$name{s"p${s}${toString(d+1)}"}] < $name{v}) {
+                  $name{s"p${s}${toString(d+1)}"}++;
+                }
+              }
+            | nothing() -> nullStmt()
+            end
+          }
+          $Stmt{
+            foldl(
+              \ inn::Stmt p::Pair<String Integer> ->
+                ableC_Stmt {
+                  $Stmt{inn}
+                  unsigned long $name{s"p${p.fst}${toString(p.snd+1)}"} =
+                    $Expr{
+                      if p.snd == 0
+                      then ableC_Expr{ $name{v} }
+                      else
+                        ableC_Expr {
+                          ( $name{s"p${p.fst}${toString(p.snd)}"} *
+                            $name{s"${p.fst}${toString(p.snd+1)}_size"} ) + $name{v}
+                        }
+                    };
+                }
+              ,
+              nullStmt(),
+              ex.dense
+            )
+          }
+          $Stmt{
+            case outDense of
+            | just(pair(s, d)) ->
+              ableC_Stmt {
+                unsigned long $name{s"p${s}${toString(d+1)}"} =
+                  $Expr{
+                    if d == 0
+                    then ableC_Expr{ $name{v} }
+                    else
+                      ableC_Expr {
+                        ( $name{s"p${s}${toString(d)}"} * $name{s"${s}${toString(d+1)}_size"} ) + $name{v}
+                      }
+                  };
+              }
+            | _ -> nullStmt()
+            end
+          }
+          $Stmt{
+            if above
+            then
+              foldl(
+                \ abv::Stmt p::Pair<String TensorExpr> ->
+                  ableC_Stmt {
+                    $Stmt{abv}
+                    double $name{p.fst} = $Expr{evalExpr(p.snd, fmts)};
+                  }
+                ,
+                nullStmt(),
+                subs
+              )
+            else nullStmt()
+          }
+          $Stmt{
+            foldr(
+              \ f::(Stmt ::= Stmt) inn::Stmt ->
+                f(inn)
+              ,
+              nullStmt(),
+              zip3(
+                \ c::TensorCond e::TensorExpr g::ComputeGraph ->
+                  \ inn::Stmt ->
+                    let red::TensorExpr =
+                      reduceDeeper(e, v, remain, fmts)
+                    in let sbs::[Pair<String TensorExpr>] =
+                      list_reduceDeeper(e, remain, fmts)
+                    in let body::Stmt =
+                      ableC_Stmt {
+                        $Stmt{
+                          if (output || below)
+                           && (decorate e with {remaining=remain; fmts=fmts;}).isAvail
+                          then nullStmt()
+                          else
+                            ableC_Stmt {
+                              $Stmt{
+                                foldl(
+                                  \ abv::Stmt s::Pair<String TensorExpr> ->
+                                    ableC_Stmt {
+                                      $Stmt{abv}
+                                      double $name{s.fst} = 0.0;
+                                    }
+                                  ,
+                                  nullStmt(),
+                                  sbs
+                                )
+                              }
+                              $Stmt{(decorate g with {canPar=canPar&&!canParallel;thdCnt=thdCnt;}).compute}
+                            }
+                        }
+                        $Stmt{
+                          if below
+                          then
+                            foldl(
+                              \ abv::Stmt p::Pair<String TensorExpr> ->
+                                if exprContained(e, p.snd, fmts)
+                                then
+                                  let sb::TensorExpr =
+                                    performSubs(p.snd, sbs, fmts)
+                                  in
+                                  ableC_Stmt {
+                                    $name{p.fst} += $Expr{evalExpr(sb, fmts)};
+                                  }
+                                  end
+                                else
+                                  let possible::[TensorExpr] =
+                                    exprCanZero(p.snd)
+                                  in
+                                  let i::Integer =
+                                    positionBy(
+                                      \ ex::TensorExpr ->
+                                        exprContained(e, ex, fmts)
+                                      ,
+                                      possible
+                                    )
+                                  in
+                                  if i != -1
+                                  then
+                                    ableC_Stmt {
+                                      $name{p.fst} += $Expr{evalExpr(getElem(possible, i).fromJust, fmts)};
+                                    }
+                                  else nullStmt()
+                                  end end
+                              ,
+                              nullStmt(),
+                              redSubs
+                            )
+                          else nullStmt()
+                        }
+                        $Stmt{
+                          if output
+                          then 
+                            ableC_Stmt {
+                              $Expr{evalOut(assign, fmts)} += $Expr{evalExpr(red, fmts)};
+                            }
+                          else nullStmt()
+                        }
+                        $Stmt{
+                          case outSparse of
+                          | just(pair(s, d)) ->
+                            ableC_Stmt {
+                              $name{s"p${s}${toString(d+1)}"}++;
+                            }
+                          | _ -> nullStmt()
+                          end
+                        }
+                      }
+                    in
+                    if c.ifCond == "1" || emitElse
+                    then
+                      body
+                    else
+                      ableC_Stmt {
+                        if($Expr{c.ifCondition}) {
+                          $Stmt{body}
+                        } else {
+                          $Stmt{inn}
+                        }
+                      }
+                    end end end
+                ,
+                ic,
+                e,
+                g
+              )
+            )
+          }
+          $Stmt{
+            if listLength(ex.sparse) == 1 && !topAll
+            then
+              let p::Pair<String Integer> =
+                head(ex.sparse)
+              in
+              if forLoop && forVar == s"p${p.fst}${toString(p.snd+1)}"
+              then nullStmt()
+              else
+                ableC_Stmt {
+                  $name{s"p${p.fst}${toString(p.snd+1)}"}++;
+                }
+              end
+            else
+              foldl(
+                \ abv::Stmt p::Pair<String Integer> ->
+                  ableC_Stmt {
+                    $Stmt{abv}
+                    if($name{s"${v}${p.fst}"} == $name{v}) $name{s"p${p.fst}${toString(p.snd+1)}"}++;
+                  }
+                ,
+                nullStmt(),
+                ex.sparse
+              )
+          }
+          $Stmt{
+            if !forLoop && topAll
+            then
+              ableC_Stmt{
+                $name{v}++;
+              }
+            else nullStmt()
+          }
+        }
       in
-      if forLoop && forVar == s"p${p.fst}${toString(p.snd+1)}"
-      then ""
-      else
-        s"p${p.fst}${toString(p.snd+1)}++;"
+        if forLoop
+        then
+          if canParallel
+          then 
+            if thdCnt.isJust
+            then ableC_Stmt {
+              $Decl{forInit}
+              $Stmt{txtStmt(s"#pragma omp parallel for num_threads (${toString(thdCnt.fromJust)})")}
+              $Stmt{txtStmt(s"for(${forInitTxt} ${generateFullCondition(c, ex, v, fmts)}; ${forVar}++)")} {
+                $Stmt{inner}
+              }
+            }
+            else ableC_Stmt {
+              $Decl{forInit}
+              $Stmt{txtStmt("#pragma omp parallel for")}
+              $Stmt{txtStmt(s"for(${forInitTxt} ${generateFullCondition(c, ex, v, fmts)}; ${forVar}++)")} {
+                $Stmt{inner}
+              }
+            }
+          else ableC_Stmt {
+            for($Decl{forInit} $Expr{fullCondition(c, ex, v, fmts)}; $name{forVar}++) {
+              $Stmt{inner}
+            }
+          }
+        else ableC_Stmt {
+          while($Expr{fullCondition(c, ex, v, fmts)}) {
+            $Stmt{inner}
+          }
+        }
       end
-    else
-      implode(
-        "\n  ",
-        map(
-          \ p::Pair<String Integer> ->
-            s"if(${v}${p.fst} == ${v}) p${p.fst}${toString(p.snd+1)}++;"
-          ,
-          ex.sparse
-        )
-      )
-    )
-    ++
-    (
-    if !forLoop && topAll
-    then
-      "\n  "
-      ++
-      s"${v}++;"
-    else
-      ""
-    )
-    ++
-    "\n}";
+    }
+  };
 }
 
 function generateMin

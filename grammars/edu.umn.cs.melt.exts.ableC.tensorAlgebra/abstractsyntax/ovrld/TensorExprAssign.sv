@@ -137,166 +137,32 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       top.location, top.env
     );
 
-  local maybeVar :: Maybe<String> =
-    let parts::[String] =
-      explode("__parallel_emit", graph.compute)
-    in
-    if null(tail(parts))
-    then nothing()
-    else
-      let str::String = head(tail(parts)) in
-      let start::Integer = indexOf("for", str) in
-      let stop::Integer = indexOf("{", str) in
-      let loop::String = substring(start, stop, str) in
-        just(
-          substring(
-            18,
-            indexOf("=", loop) - 1,
-            loop
-          )
-        )
-      end end end end
-    end;
-
-  local isParallel :: Boolean =
+  local canParallel :: Boolean =
     case lookupValue(emitParallel, top.env) of
     | [] -> false
-    | _::_ ->
-      maybeVar.isJust
-      &&
-      let vars::[String] =
-        take(
-          positionOf(
-            stringEq, 
-            maybeVar.fromJust,
-            access
-          ),
-          access
-        )
-      in
-      foldl(
-        \ b::Boolean p::Pair<String String> ->
-          b && p.fst == p.snd
-        ,
-        true,
-        zipWith(pair, head(outNew.accesses), vars)
-      )
+    | _::_ -> true
+    end;
+
+  local thdCnt :: Maybe<Integer> =
+    case lookupValue(emitThreads, top.env) of
+    | [] -> nothing()
+    | v::_ ->
+      case v of
+      | declaratorValueItem(
+          declarator(_, _, _, 
+            justInitializer(
+              exprInitializer(
+                realConstant(
+                  integerConstant(n, _, _)))))) -> toIntSafe(n)
+      | _ -> nothing()
       end
     end;
 
-  local parallelEmit :: Stmt =
-    txtStmt(
-      if !isParallel
-      then ""
-      else
-      case lookupValue(emitParallel, top.env) of
-      | [] -> ""
-      | _::_ ->
-        case lookupValue(emitThreads, top.env) of
-        | [] -> "#pragma omp parallel for"
-        | v::_ ->
-          case v of
-          | declaratorValueItem(
-              declarator(_, _, _,
-                justInitializer(
-                  exprInitializer(
-                    realConstant(
-                      integerConstant(n, _, _)
-                    )
-                  )
-                )
-              )
-            ) -> s"#pragma omp parallel for num_threads(${n})"
-          | _ -> "#pragma omp parallel for"
-          end
-        end
-      end
-    );
-
-  {- Quick testing shows that having multiple #pragma directives
-     results in a slower execution time than just one #pragma,
-     so, we we explode and implode to remove all but the first
-     parallelization directive. -}
-  local graphCode :: String =
-    let lst::[String] =
-      explode("__parallel_emit", graph.compute)
-    in
-    if null(tail(lst))
-    then head(lst)
-    else 
-    let res::String =
-      head(lst) ++ "__parallel_emit" ++
-      implode(
-        "",
-        tail(lst)
-      )
-    in
-    if forLoop.isJust
-    then substitute(forLoop.fromJust, "__for_loop;", res)
-    else res
-    end
-    end;
-
-  local forLoop :: Maybe<String> =
-    let lst::[String] =
-      explode("__parallel_emit", graph.compute)
-    in
-    if null(tail(lst)) || !isParallel
-    then nothing()
-    else
-      just(
-        let str::String =
-          head(tail(lst))
-        in
-        let start::Integer =
-          indexOf("for", str)
-        in
-        let stop::Integer =
-          indexOf("{", str)
-        in
-        substring(start, stop, str)
-        end
-        end
-        end
-      )
-    end;
-
-  local forVar :: Maybe<String> =
-    if forLoop.isJust
-    then
-      just(
-        let stop::Integer =
-          indexOf("=", forLoop.fromJust)
-        in
-        substring(18, stop-1, forLoop.fromJust)
-        end
-      )
-    else nothing();
-
-  local forStmt :: Maybe<Stmt> =
-    if forLoop.isJust
-    then 
-      just(
-        txtStmt(forLoop.fromJust)
-      )
-    else nothing();
+  graph.canPar = canParallel;
+  graph.thdCnt = thdCnt;
 
   local computeStmt::Stmt =
-    substStmt(
-      stmtSubstitution("__parallel_emit", parallelEmit) ::
-      if forStmt.isJust
-      then [stmtSubstitution("__for_loop", forStmt.fromJust)]
-      else [],
-      parseStmt(
-        (
-        if forVar.isJust
-        then s"unsigned long ${forVar.fromJust};"
-        else ""
-        )
-        ++
-        graphCode
-      )
-    );
+    graph.compute;
 
   local fmtNm::String =
     getTensorFormat(outNew, fmts).proceduralName;
@@ -713,124 +579,33 @@ top::Expr ::= output::Expr expr::Expr
       out, fmts, exNew, access,
       top.location, top.env
     );
-
-  local isParallel :: Boolean =
+  
+  local canParallel :: Boolean =
     case lookupValue(emitParallel, top.env) of
     | [] -> false
-    | _::_ -> false
+    | _::_ -> true
+    end;
+
+  local thdCnt :: Maybe<Integer> =
+    case lookupValue(emitThreads, top.env) of
+    | [] -> nothing()
+    | v::_ -> 
+      case v of
+      | declaratorValueItem(
+          declarator(_, _, _, 
+            justInitializer(
+              exprInitializer(
+                realConstant(
+                  integerConstant(n, _, _)))))) -> toIntSafe(n)
+      | _ -> nothing()
+      end
     end;
   
-  local parallelEmit :: Stmt =
-    txtStmt(
-      if !isParallel
-      then ""
-      else
-      case lookupValue(emitParallel, top.env) of
-      | [] -> ""
-      | _::_ ->
-        case lookupValue(emitThreads, top.env) of
-        | [] -> "#pragma omp parallel for"
-        | v::_ ->
-          case v of
-          | declaratorValueItem(
-              declarator(_, _, _,
-                justInitializer(
-                  exprInitializer(
-                    realConstant(
-                      integerConstant(n, _, _)
-                    )
-                  )
-                )
-              )
-            ) -> s"#pragma omp parallel for num_threads(${n})"
-          | _ -> "#pragma omp parallel for"
-          end
-        end
-      end
-    );
-
-  local graphCode :: String =
-    let lst::[String] = 
-      explode("__parallel_emit", graph.compute)
-    in
-    if null(tail(lst))
-    then head(lst)
-    else if !isParallel
-    then implode("", lst)
-    else
-    let res::String =
-      head(lst) ++ "__parallel_emit" ++
-      implode(
-        "",
-        tail(lst)
-      )
-    in
-    if forLoop.isJust
-    then substitute(forLoop.fromJust, "__for_loop;", res)
-    else res
-    end
-    end;
-
-  local forLoop :: Maybe<String> =
-    let lst::[String] =
-      explode("__parallel_emit", graph.compute)
-    in
-    if null(tail(lst)) || !isParallel
-    then nothing()
-    else
-      just(
-        let str::String =
-          head(tail(lst))
-        in
-        let start::Integer =
-          indexOf("for", str)
-        in
-        let stop::Integer =
-          indexOf("{", str)
-        in
-        substring(start, stop, str)
-        end
-        end
-        end
-      )
-    end;
-
-  local forVar :: Maybe<String> =
-    if forLoop.isJust
-    then
-      just(
-        let stop::Integer =
-          indexOf("=", forLoop.fromJust)
-        in
-        substring(18, stop-1, forLoop.fromJust)
-        end
-      )
-    else nothing();
-
-  local forStmt :: Maybe<Stmt> =
-    if forLoop.isJust
-    then
-      just(
-        txtStmt(forLoop.fromJust)
-      )
-    else nothing();
+  graph.canPar = canParallel;
+  graph.thdCnt = thdCnt;
 
   local computeStmt::Stmt =
-    substStmt(
-      stmtSubstitution("__parallel_emit", parallelEmit) ::
-      if forStmt.isJust
-      then [stmtSubstitution("__for_loop", forStmt.fromJust)]
-      else [],
-      parseStmt(
-        (
-        if forVar.isJust
-        then s"unsigned long ${forVar.fromJust};\n"
-        else ""
-        )
-        ++
-        graphCode
-      )
-    );
+    graph.compute;
 
   local exprs :: [Pair<String Expr>] =
     maybeMap(
