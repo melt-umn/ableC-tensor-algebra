@@ -68,14 +68,13 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
   outNew.fmts = fmts;
   exNew.fmts = fmts;
 
-  local order::Maybe<[String]> =
+  local order :: Maybe<[String]> =
     mergeOrder(out.accesses ++ ex.accesses);
 
   local access::[String] =
-    case order of
-    | nothing() -> []
-    | just(l) -> l
-    end;
+    if order.isJust
+    then order.fromJust
+    else [];
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
@@ -86,8 +85,6 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
       ),
       tm:empty(compareString)
     );
-
-  exNew.accessOrder = access;
 
   local originalNames :: [String] =
     nubBy(
@@ -243,6 +240,9 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
       memset($name{outNew.tensorName}.data, 0, $name{outNew.tensorName}.dataLen * sizeof(double));
     };
 
+  local lErrors :: [Message] =
+    checkTensorHeader(tensor.location, top.env);
+
   local fwrd::Stmt =
     compoundStmt(
       seqStmt(
@@ -276,7 +276,9 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
   fwrd.returnType = top.returnType;
 
   forwards to
-    if !null(fwrd.errors)
+    if !null(lErrors)
+    then warnStmt(lErrors)
+    else if !null(fwrd.errors)
     then warnStmt(fwrd.errors)
     else fwrd;
 }
@@ -584,7 +586,7 @@ top::IterStmt ::= output::Name expr::Expr access::[String]
   local allVars :: [String] =
     nubBy(
       stringEq,
-      flatMap(\l::[String] -> l, exNew.accesses)
+      concat(exNew.accesses)
     );
 
   local missingVar :: Boolean =
@@ -782,13 +784,12 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
     );
 
   local order::Maybe<[String]> =
-    mergeOrder(ex.accesses);
+    mergeOrder(out.accesses ++ ex.accesses);
 
   local access::[String] =
-    case order of
-    | nothing() -> []
-    | just(l) -> l
-    end;
+    if order.isJust
+    then order.fromJust
+    else [];
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
@@ -799,8 +800,6 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       ),
       tm:empty(compareString)
     );
-
-  exNew.accessOrder = access;
 
   local tensorDecls :: [Stmt] =
     maybeMap(
@@ -908,6 +907,9 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
   local checkDims :: Stmt =
     halide_check_dims(out, exNew, access, fmts);
 
+  local lErrors :: [Message] =
+    checkTensorHeader(output.location, top.env);
+
   local fwrd::Expr =
     stmtExpr(
       compoundStmt(
@@ -963,7 +965,9 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
   finalFwrd.env = top.env;
 
   forwards to
-    if !null(finalFwrd.errors)
+    if !null(lErrors)
+    then warnStmt(lErrors)
+    else if !null(finalFwrd.errors)
     then warnStmt(finalFwrd.errors)
     else finalFwrd;
 
@@ -1151,13 +1155,13 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
     let lAcc::[String] =
       nubBy(
         stringEq,
-        flatMap(\l::[String] -> l, outNew.accesses)
+        concat(outNew.accesses)
       )
     in
     let rAcc::[String] =
       nubBy(
         stringEq,
-        flatMap(\l::[String] -> l, exNew.accesses)
+        concat(exNew.accesses)
       )
     in
     filter(
@@ -1482,13 +1486,13 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
     let lAcc::[String] = 
       nubBy(
         stringEq,
-        flatMap(\l::[String] -> l, outNew.accesses)
+        concat(outNew.accesses)
       )
     in
     let rAcc::[String] =
       nubBy(
         stringEq,
-        flatMap(\l::[String] -> l, exNew.accesses)
+        concat(exNew.accesses)
       )
     in
     filter(
@@ -1510,7 +1514,7 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
   local allVars :: [String] =
     nubBy(
       stringEq,
-      flatMap(\l::[String] -> l, outNew.accesses ++ exNew.accesses)
+      concat(outNew.accesses ++ exNew.accesses)
     );
 
   local missingVar :: Boolean =
