@@ -1,14 +1,13 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:indexvar;
 
+import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
+
 abstract production indexvar
 top::Decl ::= nms::[Name]
 {
   local errors::[Message] =
-    flatMap(
-      \ n::Name -> (decorate n with {env=top.env;}).indexVarRedeclarationCheck,
-      nms
-    );
-  
+    checkTensorHeader(head(nms).location, top.env);
+
   propagate substituted;
   top.pp = ppConcat([
              text("indexvar "),

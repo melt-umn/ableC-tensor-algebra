@@ -27,6 +27,8 @@ top::Expr ::= type::TypeName dims::[Expr]
   local dimens::Integer = fmt.dimensions;
   
   local lErrors::[Message] =
+    checkTensorHeader(top.location, top.env)
+    ++
     case formatType of
     | tensorType(_, _, _) -> 
         format.tensorFormatLookupCheck
@@ -109,6 +111,8 @@ top::Expr ::= type::TypeName data::TensorConstant
   data.env = top.env;
   
   local lErrors::[Message] =
+    checkTensorHeader(top.location, top.env)
+    ++
     case formatType of
     | tensorType(_, _, _) -> 
        format.tensorFormatLookupCheck
@@ -166,6 +170,8 @@ top::Expr ::= type::TypeName args::[Expr]
   dims.returnType = nothing();  
 
   local lErrors::[Message] = 
+    checkTensorHeader(top.location, top.env)
+    ++
     case formatType of
     | tensorType(_, _, _) -> format.tensorFormatLookupCheck
     | _ -> [err(top.location, s"Tensor cannot be built using a non-tensor type. Got ${showType(formatType)}")]

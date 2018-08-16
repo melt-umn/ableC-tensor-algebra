@@ -21,6 +21,8 @@ top::Type ::= q::Qualifiers fmt::Name env::Decorated Env
     fmt.tensorFormat.proceduralName;
   
   local lErrors::[Message] =
+    checkTensorHeader(fmt.location, env)
+    ++
     fmt.tensorFormatLookupCheck;
   
   forwards to

@@ -50,6 +50,8 @@ top::Expr ::= tp::Type
   format.env = top.env;
   
   local lErrors::[Message] =
+    checkTensorHeader(top.location, top.env)
+    ++
     case tp of
     | tensorType(_, _, _) -> format.tensorFormatLookupCheck
     | _ -> [err(top.location, s"orderof expected a tensor type (got ${showType(tp)})")]
@@ -77,6 +79,8 @@ top::Expr ::= tensor::Expr dim::Expr
     ]);
 
   local lErrors::[Message] =
+    checkTensorHeader(top.location, top.env)
+    ++
     case tensor.typerep of
     | tensorType(_, fmt, _) -> fmt.tensorFormatLookupCheck
     | _ -> [err(top.location, s"dimenof expected a tensor type (got ${showType(tensor.typerep)})")]

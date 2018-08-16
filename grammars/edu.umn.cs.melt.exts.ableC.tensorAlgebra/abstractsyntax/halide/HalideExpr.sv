@@ -417,6 +417,8 @@ top::IterStmt ::= output::Name expr::Expr
     );
 
   local localErrors :: [Message] =
+    checkTensorHeader(output.location, top.env)
+    ++
     foldl(
       \ lst::[Message] fmt::Pair<TensorExpr Boolean> ->
         if fmt.snd
@@ -619,6 +621,8 @@ top::IterStmt ::= output::Name expr::Expr access::[String]
     );
 
   local localErrors :: [Message] =
+    checkTensorHeader(output.location, top.env)
+    ++
     foldl(
       \ lst::[Message] fmt::Pair<TensorExpr Boolean> ->
         if fmt.snd
@@ -1212,6 +1216,8 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
     );
 
   local localErrors::[Message] =
+    checkTensorHeader(tensor.location, top.env)
+    ++
     foldl(
       \ lst::[Message] fmt::Pair<TensorExpr Boolean> ->
         if fmt.snd
@@ -1541,6 +1547,8 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
     );
 
   local localErrors :: [Message] =
+    checkTensorHeader(tensor.location, top.env)
+    ++
     foldl(
       \ lst::[Message] fmt::Pair<TensorExpr Boolean> ->
         if fmt.snd

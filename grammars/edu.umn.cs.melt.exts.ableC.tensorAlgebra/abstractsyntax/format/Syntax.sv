@@ -6,6 +6,8 @@ abstract production format
 top::Decl ::= nm::Name specs::[Integer] order::[Integer]
 {
   local errors::[Message] =
+    checkTensorHeader(nm.location, top.env)
+    ++
     (
     if listLength(specs) == 0
     then [err(nm.location, "Zero dimensional tensors (scalars) cannot be declared as tensor formats. Declare values as normal double values.")]
