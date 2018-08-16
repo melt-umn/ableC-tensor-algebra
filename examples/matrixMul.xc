@@ -10,4 +10,8 @@ int main() {
   tensor<mat> C = build(tensor<mat>)({100, 100});
 
   C[i, j] = A[i, k] * B[k, j];
+
+  freeTensor(A);
+  freeTensor(B);
+  freeTensor(C);
 }
