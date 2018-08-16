@@ -941,16 +941,19 @@ Stmt ::=
                           else
                             ableC_Stmt {
                               $Stmt{
-                                foldl(
-                                  \ abv::Stmt s::Pair<String TensorExpr> ->
-                                    ableC_Stmt {
-                                      $Stmt{abv}
-                                      double $name{s.fst} = 0.0;
-                                    }
-                                  ,
-                                  nullStmt(),
-                                  sbs
-                                )
+                                if output || below
+                                then
+                                  foldl(
+                                    \ abv::Stmt s::Pair<String TensorExpr> ->
+                                      ableC_Stmt {
+                                        $Stmt{abv}
+                                        double $name{s.fst} = 0.0;
+                                      }
+                                    ,
+                                    nullStmt(),
+                                    sbs
+                                  )
+                                else nullStmt()
                               }
                               $Stmt{(decorate g with {canPar=canPar&&!canParallel;thdCnt=thdCnt;}).compute}
                             }
