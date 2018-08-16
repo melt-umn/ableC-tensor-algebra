@@ -18,13 +18,16 @@ top::Expr ::= l::Expr r::Expr
     end;
 
   local formatR :: TensorFormat =
-    case l.typerep of
+    case r.typerep of
     | tensorType(_, f, _) -> new(f.tensorFormat)
     end;
-
+  
   local lErrors :: [Message] =
     case l.typerep, r.typerep of
-    | tensorType(_, _, _), tensorType(_, _, _) -> []
+    | tensorType(_, _, _), tensorType(_, _, _) -> 
+      if formatL.dimensions == formatR.dimensions
+      then []
+      else [err(top.location, "Format changes can only be performed between tensors of the same order.")]
     | tensorType(_, _, _), _ -> 
       case r of
       | build_empty(_, _) -> []
@@ -40,16 +43,16 @@ top::Expr ::= l::Expr r::Expr
     r.errors;
 
   local fwrd :: Expr =
-    if formatL.proceduralName == formatR.proceduralName
-    then
-      case r of
-      | build_empty(_, _) ->
-        eqExpr(l, r, location=top.location)
-      | build_data(_, _) -> 
-        eqExpr(l, r, location=top.location)
-      | buildTensorExpr(_, _) -> 
-        eqExpr(l, r, location=top.location)
-      | declRefExpr(_) ->
+    case r of
+    | build_empty(_, _) ->
+      eqExpr(l, r, location=top.location)
+    | build_data(_, _) -> 
+      eqExpr(l, r, location=top.location)
+    | buildTensorExpr(_, _) -> 
+      eqExpr(l, r, location=top.location)
+    | declRefExpr(_) ->
+      if formatL.proceduralName == formatR.proceduralName
+      then
         ableC_Expr {
           ({
             if($Expr{l}.dims) free($Expr{l}.dims);
@@ -82,17 +85,106 @@ top::Expr ::= l::Expr r::Expr
             $Expr{l};
           })
         }
-      | _ -> 
-        eqExpr(l, r, location=top.location)
-      end
-    else
-      ableC_Expr {
+      else
+        ableC_Expr {
         ({
-          fprintf(stderr, "Tensor format changes are currently not supported through assignment.");
-          exit(0);
-          0;
+          if($Expr{l}.indices) { $Expr{freeTensor(l, location=top.location)}; }
+          // uses .indices as a check of whether things are initialized
+
+          memset(&$Expr{l}, 0, sizeof(struct $name{s"tensor_${formatL.proceduralName}"}));
+          $name{s"tensor_make_${formatL.proceduralName}"}(&$Expr{l}, $Expr{r}.dims);
+
+          unsigned long __idx[$intLiteralExpr{formatL.dimensions}];
+
+          double* data = $Expr{r}.data;
+          $Stmt {
+            foldl(
+              \ abv::Stmt p::Pair<Integer Pair<Integer Integer>> ->
+                if p.snd.snd == storeDense
+                then
+                  ableC_Stmt {
+                    $Stmt{abv}
+                    unsigned long $name{s"size_${toString(p.fst+1)}"} = 
+                      $Expr{r}.indices[$intLiteralExpr{p.snd.fst}][0][0];
+                  }
+                else
+                  ableC_Stmt {
+                    $Stmt{abv}
+                    unsigned long* $name{s"pos_${toString(p.fst+1)}"} =
+                      $Expr{r}.indices[$intLiteralExpr{p.snd.fst}][0];
+                    unsigned long* $name{s"idx_${toString(p.fst+1)}"} =
+                      $Expr{r}.indices[$intLiteralExpr{p.snd.fst}][1];
+                  }
+              ,
+              nullStmt(),
+              formatR.storage
+            )
+          }
+
+          $Stmt {
+            foldr(
+              \ d::Pair<Integer Pair<Integer Integer>> inn::Stmt ->
+                if d.snd.snd == storeDense
+                then
+                  ableC_Stmt {
+                    for(unsigned long $name{s"v${toString(d.fst+1)}"} = 0;
+                        $name{s"v${toString(d.fst+1)}"} < $name{s"size_${toString(d.fst+1)}"};
+                        $name{s"v${toString(d.fst+1)}"}++) {
+                      __idx[$intLiteralExpr{d.fst}] = $name{s"v${toString(d.fst+1)}"};
+                      $Stmt{
+                        if d.fst == 0
+                        then 
+                          ableC_Stmt { 
+                            unsigned long $name{s"p${toString(d.fst+1)}"} = 
+                              $name{s"v${toString(d.fst+1)}"}; 
+                          }
+                        else
+                          ableC_Stmt { 
+                            unsigned long $name{s"p${toString(d.fst+1)}"} = 
+                              ($name{s"p${toString(d.fst)}"} * $name{s"size_${toString(d.fst+1)}"}) 
+                                + $name{s"v${toString(d.fst+1)}"}; 
+                          }
+                      }
+                      $Stmt{inn}
+                    }
+                  }
+                else
+                  if d.fst == 0
+                  then
+                    ableC_Stmt {
+                      for(unsigned long p1 = pos_1[0]; p1 < pos_1[1]; p1++) {
+                        __idx[0] = idx_1[p1];
+                        $Stmt{inn}
+                      }
+                    }
+                  else
+                    ableC_Stmt {
+                      for(unsigned long $name{s"p${toString(d.fst+1)}"} = 
+                            $name{s"pos_${toString(d.fst+1)}"}[$name{s"p${toString(d.fst)}"}];
+                          $name{s"p${toString(d.fst+1)}"} < $name{s"pos_${toString(d.fst+1)}"}
+                            [$name{s"p${toString(d.fst)}"}+1];
+                          $name{s"p${toString(d.fst+1)}"}++) {
+                        __idx[$intLiteralExpr{d.fst}] = $name{s"idx_${toString(d.fst+1)}"}
+                          [$name{s"p${toString(d.fst+1)}"}];
+                        $Stmt{inn}
+                      }
+                    }
+              ,
+              ableC_Stmt {
+                double v = data[$name{s"p${toString(formatL.dimensions)}"}];
+                if(v != 0) { // TODO: This is unsafe
+                  *$name{s"tensor_getPointer_${formatL.proceduralName}"}(&$Expr{l}, __idx) = v;
+                }
+              },
+              formatR.storage
+            )
+          }
+
+          $Expr{l};
         })
-      };
+        }
+    | _ -> eqExpr(l, r, location=top.location)
+    end;
 
   forwards to
     mkErrorCheck(lErrors, fwrd);
