@@ -784,7 +784,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
     );
 
   local order::Maybe<[String]> =
-    mergeOrder(out.accesses ++ ex.accesses);
+    mergeOrder(ex.accesses);
 
   local access::[String] =
     if order.isJust
