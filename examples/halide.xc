@@ -5,7 +5,7 @@
 
 #define NUM_THREADS 8
 #define TILE_DIM 70
-#define UNROLL_SIZE 5
+#define UNROLL_SIZE 4
 #define VECTOR_SIZE 8
 
 #define M 700
@@ -31,7 +31,7 @@ int main() {
     for(unsigned k : P) {
       for(unsigned i : M)
         A[i,k] = (double)rand() / (double)RAND_MAX;
-      for(unsigned j : M) 
+      for(unsigned j : N) 
         B[k,j] = (double)rand() / (double)RAND_MAX;
     }
   } by {
@@ -47,7 +47,6 @@ int main() {
     C0[i,j] = A[i,k] * B[k,j];
   } by {
     order loops i, j, k;
-    parallelize i;
   }
 
   gettimeofday(&end, NULL);
