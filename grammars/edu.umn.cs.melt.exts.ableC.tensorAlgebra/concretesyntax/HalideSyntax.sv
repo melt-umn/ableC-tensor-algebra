@@ -7,51 +7,29 @@ concrete productions top::Stmt_c
     ten::PostfixExpr_c '[' index::Expr_c ']' '=' value::Expr_c ';'
   '}' 'by' '{' ts::Transformations_c '}'
 {
-  local iter::Stmt =
-    iterateStmt(
-      halideTensorExpr(ten.ast, index.ast, value.ast),
-      ts.ast
-    );
-
-  top.ast =
-    halideSetup(ten.ast, index.ast, value.ast, iter);
+  top.ast = 
+    halideTensorCompute(ten.ast, index.ast, value.ast, ts.ast);
 }
 | tnTrns::TensorTransform_t '{'
     ten::PostfixExpr_c '[' index::Expr_c ']' '=' value::Expr_c ';'
   '}' 'by' '{' 'order' 'loops' lst::NameList_c ';' ts::Transformations_c '}'
 {
-  local iter::Stmt =
-    iterateStmt(
-      halideTensorExprOrder(ten.ast, index.ast, value.ast, map((.name), lst.list)),
-      ts.ast
-    );
-
   top.ast =
-    halideSetup(ten.ast, index.ast, value.ast, iter);
+    halideTensorComputeOrdered(ten.ast, index.ast, value.ast, 
+      map((.name), lst.list), ts.ast);
 }
 | tnTrns::TensorTransform_t '{'
     assign::Identifier_t '=' expr::Expr_c ';'
   '}' 'by' '{' ts::Transformations_c '}'
 {
-  local iter::Stmt =
-    iterateStmt(
-      halideScalarTensorExpr(fromId(assign), expr.ast),
-      ts.ast
-    );
-
   top.ast =
-    halideScalarSetup(fromId(assign), expr.ast, iter);
+    halideScalarCompute(fromId(assign), expr.ast, ts.ast);
 }
 | tnTrns::TensorTransform_t '{'
     assign::Identifier_t '=' expr::Expr_c ';'
   '}' 'by' '{' 'order' 'loops' lst::NameList_c ';' ts::Transformations_c '}'
 {
-  local iter::Stmt =
-    iterateStmt(
-      halideScalarExprOrder(fromId(assign), expr.ast, map((.name), lst.list)),
-      ts.ast
-    );
-
   top.ast =
-    halideScalarSetup(fromId(assign), expr.ast, iter);
+    halideScalarComputeOrdered(fromId(assign), expr.ast,
+      map((.name), lst.list), ts.ast);
 }

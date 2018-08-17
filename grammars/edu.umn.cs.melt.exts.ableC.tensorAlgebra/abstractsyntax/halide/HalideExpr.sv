@@ -68,13 +68,11 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
   outNew.fmts = fmts;
   exNew.fmts = fmts;
 
-  local order :: Maybe<[String]> =
-    mergeOrder(out.accesses ++ ex.accesses);
-
-  local access::[String] =
-    if order.isJust
-    then order.fromJust
-    else [];
+  local access :: [String] =
+    nubBy(
+      stringEq, 
+      concat(out.accesses ++ ex.accesses)
+    );
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
@@ -783,13 +781,11 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       location=expr.location
     );
 
-  local order::Maybe<[String]> =
-    mergeOrder(ex.accesses);
-
   local access::[String] =
-    if order.isJust
-    then order.fromJust
-    else [];
+    nubBy(
+      stringEq,
+      concat(ex.accesses)
+    );
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
