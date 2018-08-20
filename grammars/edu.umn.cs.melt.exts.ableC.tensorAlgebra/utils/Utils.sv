@@ -99,16 +99,6 @@ function zip3
       :: zip3(f, tail(lstA), tail(lstB), tail(lstC));
 }
 
-function zip4
-[a] ::= f::(a ::= b c d e) lstA::[b] lstB::[c] lstC::[d] lstD::[e]
-{
-  return
-    if null(lstA) || null(lstB) || null(lstC) || null(lstD)
-    then []
-    else f(head(lstA), head(lstB), head(lstC), head(lstD))
-      :: zip4(f, tail(lstA), tail(lstB), tail(lstC), tail(lstD));
-}
-
 function zip5
 [a] ::= f::(a ::= b c d e f) lstB::[b] lstC::[c] lstD::[d] lstE::[e] lstF::[f]
 {
@@ -135,16 +125,6 @@ Integer ::= f::(Boolean ::= a) lst::[a] i::Integer
       if f(head(lst))
       then i
       else positionBy_helper(f, tail(lst), i+1);
-}
-
-function mapTail
-[a] ::= f::(a ::= [b]) lst::[b]
-{
-  return
-    if null(lst)
-    then []
-    else f(tail(lst))
-      :: mapTail(f, tail(lst));
 }
 
 function mapWithTail
@@ -178,46 +158,6 @@ function filterWith
       if head(inc)
       then head(lst) :: filterWith(tail(lst), tail(inc))
       else filterWith(tail(lst), tail(inc));
-}
-
-function zip6
-[a] ::= f::(a ::= b c d e f g) l1::[b] l2::[c] l3::[d] l4::[e] l5::[f] l6::[g]
-{
-  return
-    if null(l1) || null(l2) || null(l3) || null(l4) || null(l5) || null(l6)
-    then []
-    else f(head(l1), head(l2), head(l3), head(l4), head(l5), head(l6))
-      :: zip6(f, tail(l1), tail(l2), tail(l3), tail(l4), tail(l5), tail(l6));
-}
-
-function filterHead
-[a] ::= f::(Boolean ::= a [a]) lst::[a]
-{
-  return 
-    filterHead_helper(
-      f, lst,
-      map(
-        \ i::Integer ->
-          take(i, lst)
-        ,
-        makeList(integerCompare, inc, 0, listLength(lst))
-      )
-    );
-}
-
-function filterHead_helper
-[a] ::= f::(Boolean ::= a [a]) lst::[a] hs::[[a]]
-{
-  return
-    if null(lst) || null(hs)
-    then []
-    else 
-      if f(head(lst), head(hs))
-      then 
-        head(lst) ::
-        filterHead_helper(f, tail(lst), tail(hs))
-      else
-        filterHead_helper(f, tail(lst), tail(hs));
 }
 
 function containsWith
@@ -263,4 +203,34 @@ Integer ::= f::(Boolean ::= a a) elems::[a] lst::[a] idx::Integer
       then lastIndexOf_helper(f, tail(elems), lst, i)
       else lastIndexOf_helper(f, tail(elems), lst, idx)
       end;
+}
+
+function filterHead
+[a] ::= f::(Boolean ::= a [a]) lst::[a]
+{
+  return 
+    filterHead_helper(
+      f, lst,
+      map(
+        \ i::Integer ->
+          take(i, lst)
+        ,
+        makeList(integerCompare, inc, 0, listLength(lst))
+      )
+    );
+}
+
+function filterHead_helper
+[a] ::= f::(Boolean ::= a [a]) lst::[a] hs::[[a]]
+{
+  return
+    if null(lst) || null(hs)
+    then []
+    else 
+      if f(head(lst), head(hs))
+      then 
+        head(lst) ::
+        filterHead_helper(f, tail(lst), tail(hs))
+      else
+        filterHead_helper(f, tail(lst), tail(hs));
 }

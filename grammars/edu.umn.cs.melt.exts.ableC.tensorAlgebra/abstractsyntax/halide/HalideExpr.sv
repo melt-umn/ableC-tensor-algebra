@@ -242,33 +242,19 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     checkTensorHeader(tensor.location, top.env);
 
   local fwrd::Stmt =
-    compoundStmt(
-      seqStmt(
-        tensorDecl,
-        seqStmt(
-          requestLocks,
-          seqStmt(
-            tensorNameSub,
-            seqStmt(
-              exprDecl,
-              seqStmt(
-                checkDims,
-                seqStmt(
-                  initData,
-                  seqStmt(
-                    zeroOut,
-                    seqStmt(
-                      inner,
-                      releaseLocks
-                    )
-                  )
-                )
-              )
-            )
-          )
-        )
-      )
-    );
+    ableC_Stmt {
+    {
+      $Stmt{tensorDecl}
+      $Stmt{requestLocks}
+      $Stmt{tensorNameSub}
+      $Stmt{exprDecl}
+      $Stmt{checkDims}
+      $Stmt{initData}
+      $Stmt{zeroOut}
+      $Stmt{inner}
+      $Stmt{releaseLocks}
+    }
+    };
 
   fwrd.env = top.env;
   fwrd.returnType = top.returnType;

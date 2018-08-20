@@ -107,7 +107,6 @@ top::Expr ::= type::TypeName data::TensorConstant
   local fmt::Decorated TensorFormat = format.tensorFormat;
   local dimens::Integer = fmt.dimensions;
   
-  data.tensor_pos = "";
   data.env = top.env;
   
   local lErrors::[Message] =

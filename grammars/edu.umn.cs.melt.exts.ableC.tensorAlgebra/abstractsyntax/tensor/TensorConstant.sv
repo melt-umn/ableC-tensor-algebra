@@ -3,15 +3,11 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:tensor;
 synthesized attribute tensor_dims::Integer;
 synthesized attribute tensor_size::Integer;
 synthesized attribute tensor_data::Either<[TensorConstant] [Expr]>;
-synthesized attribute tensor_asArray::String;
-synthesized attribute tensor_dimArray::String;
-synthesized attribute tensor_substs::[Substitution];
-inherited attribute tensor_pos::String;
 
 synthesized attribute tensor_asExpr :: Initializer;
 synthesized attribute tensor_dimExpr :: Initializer;
 
-nonterminal TensorConstant with location, pp, errors, env, tensor_dims, tensor_size, tensor_data, tensor_asArray, tensor_dimArray, tensor_substs, tensor_pos, tensor_asExpr, tensor_dimExpr;
+nonterminal TensorConstant with location, pp, errors, env, tensor_dims, tensor_size, tensor_data, tensor_asExpr, tensor_dimExpr;
 
 abstract production tensor_higher
 t::TensorConstant ::= sub::[TensorConstant]
@@ -55,10 +51,6 @@ t::TensorConstant ::= sub::[TensorConstant]
   
   t.tensor_dims = head(sub).tensor_dims + 1;
   t.tensor_size = listLength(sub);
-  
-  t.tensor_asArray = asArrayTensors(t.tensor_pos, head(sub), tail(sub), 0);
-  t.tensor_dimArray = toString(t.tensor_size) ++ ", " ++ head(sub).tensor_dimArray;
-  t.tensor_substs = combineSubsts(t.tensor_pos, head(sub), tail(sub), 0);
   
   t.tensor_asExpr = 
     objectInitializer(
@@ -149,10 +141,6 @@ t::TensorConstant ::= sub::[Expr]
   t.tensor_dims = 1;
   t.tensor_size = listLength(sub);
   
-  t.tensor_asArray = asArrayExprs(t.tensor_pos, sub, 0);
-  t.tensor_dimArray = toString(t.tensor_size);
-  t.tensor_substs = generateSubstsExprs(t.tensor_pos, sub, 0);
-  
   t.tensor_asExpr =
     objectInitializer(
       foldr(
@@ -181,39 +169,6 @@ t::TensorConstant ::= sub::[Expr]
     );
 
   t.tensor_data = right(sub);
-}
-
-function asArrayExprs
-String ::= pos::String sub::[Expr] idx::Integer
-{
-  return
-    if null(tail(sub))
-    then s"__tensor_data_${pos}_${toString(idx)}"
-    else s"""
-      __tensor_data_${pos}_${toString(idx)}, ${asArrayExprs(pos, tail(sub), idx+1)}
-    """;
-}
-
-function asArrayTensors
-String ::= pos::String h::TensorConstant tl::[TensorConstant] idx::Integer
-{
-  h.tensor_pos = pos ++ "_" ++ toString(idx);
-  
-  return
-    if null(tl)
-    then h.tensor_asArray
-    else h.tensor_asArray ++ ", " ++ asArrayTensors(pos, head(tl), tail(tl), idx+1);
-}
-
-function combineSubsts
-[Substitution] ::= pos::String h::TensorConstant tl::[TensorConstant] idx::Integer
-{
-  h.tensor_pos = pos ++ "_" ++ toString(idx);
-  
-  return
-    if null(tl)
-    then h.tensor_substs
-    else h.tensor_substs ++ combineSubsts(pos, head(tl), tail(tl), idx+1);
 }
 
 function combineErrors
@@ -245,21 +200,6 @@ function errorChecking
     if null(tl)
     then []
     else errorChecking(head(tl), tail(tl), env);
-}
-
-function generateSubstsExprs
-[Substitution] ::= pos::String sub::[Expr] idx::Integer
-{
-  return
-    if !null(sub)
-    then 
-      declRefSubstitution(
-        s"__tensor_data_${pos}_${toString(idx)}",
-        head(sub)
-      )
-      ::
-      generateSubstsExprs(pos, tail(sub), idx+1)
-    else [];
 }
 
 function checkDimensions
