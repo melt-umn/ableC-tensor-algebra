@@ -241,9 +241,9 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>] fmtNm::String order::Int
       then 
         ableC_Stmt {
           for(unsigned long $name{s"i${toString(dim)}"} = 0;
-              $name{s"i${toString(dim)}"} < dims[$intLiteralExpr{dimen}];
+              $name{s"i${toString(dim)}"} < indices[$intLiteralExpr{dimen}][0][0];
               $name{s"i${toString(dim)}"}++) {
-            unsigned long $name{s"pI${toString(dim)}"} = ($name{s"pI${toString(dim-1)}"} * dims[$intLiteralExpr{dimen}]) + $name{s"i${toString(dim)}"};
+            unsigned long $name{s"pI${toString(dim)}"} = ($name{s"pI${toString(dim-1)}"} * indices[$intLiteralExpr{dimen}][0][0]) + $name{s"i${toString(dim)}"};
             $Stmt{generatePackBody_Tree(tail(storage), fmtNm, order, dim+1)}
           }
         }
