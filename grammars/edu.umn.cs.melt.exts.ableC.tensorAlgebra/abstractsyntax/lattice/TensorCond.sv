@@ -256,26 +256,6 @@ Boolean ::= c::TensorCond
     end;
 }
 
-function isSparseCond
-Boolean ::= c::TensorCond
-{
-  return
-    case c of
-    | sparseAccess(_, _, _) -> true
-    | _ -> false
-    end;
-}
-
-function isAndCond
-Boolean ::= c::TensorCond
-{
-  return
-    case c of
-    | andCond(_, _) -> true
-    | _ -> false
-    end;
-}
-
 function condIsAbove
 Boolean ::= c::TensorCond b::TensorCond
 {

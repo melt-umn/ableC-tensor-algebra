@@ -1099,20 +1099,15 @@ Stmt ::=
   local fmtNm::String =
     getTensorFormat(assign, fmts).proceduralName;
   local oC::Integer =
-    getTensorFormat(assign, fmts).dimensions
-    -
-    listLength(
-      filter(
-        \ s::String ->
-          containsBy(
-            stringEq, 
-            s,
-            remain
-          )
-        ,
+    let i :: Integer =
+      positionOf(
+        stringEq,
+        v,
         head(assign.accesses)
       )
-    );
+    in
+    getElem(getTensorFormat(assign, fmts).storage, i).fromJust.snd.fst
+    end;
 
   local subs::[Pair<String TensorExpr>] =
     listSubs(ex, v, remain, fmts);
@@ -1315,7 +1310,7 @@ Stmt ::=
             if doesOut
             then
               ableC_Stmt {
-                idx[$intLiteralExpr{oC-1}] = $name{v};
+                idx[$intLiteralExpr{oC}] = $name{v};
               }
             else
               nullStmt()

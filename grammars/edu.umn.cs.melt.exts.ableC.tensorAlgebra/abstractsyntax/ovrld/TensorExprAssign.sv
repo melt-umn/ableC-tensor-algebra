@@ -1037,34 +1037,3 @@ String ::= fmt::String tensors::[TensorExpr]
       setFormats(fmt, tail(tensors))
       end;
 }
-
-function freeIndices_String
-String ::= fmt::TensorFormat
-{
-  return freeIndices_String_helper(fmt.storage);
-}
-
-function freeIndices_String_helper
-String ::= strg::[Pair<Integer Pair<Integer Integer>>]
-{
-  local p :: Pair<Integer Pair<Integer Integer>> =
-    head(strg);
-
-  return
-    if null(strg)
-    then "free(t->indices);"
-    else if p.snd.snd == storeDense
-    then
-      s"""
-        free(t->indices[${toString(p.snd.fst)}][0]);
-        free(t->indices[${toString(p.snd.fst)}]);
-        ${freeIndices_String_helper(tail(strg))}
-      """
-    else
-      s"""
-        free(t->indices[${toString(p.snd.fst)}][0]);
-        free(t->indices[${toString(p.snd.fst)}][1]);
-        free(t->indices[${toString(p.snd.fst)}]);
-        ${freeIndices_String_helper(tail(strg))}
-      """;
-}
