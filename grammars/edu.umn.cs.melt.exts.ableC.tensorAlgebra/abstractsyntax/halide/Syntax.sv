@@ -81,32 +81,82 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
       tensorFormats
     );
 
-  local lDefs :: [Def] =
-    map(
-      \ v::String ->
-        valueDef(v, 
-          declaratorValueItem(
-            decorate
-              declarator(
-                name(v, location=tns.location),
-                baseTypeExpr(),
-                nilAttribute(),
-                nothingInitializer()
-              )
-            with {
-              typeModifiersIn=[];
-              returnType=nothing();
-              isTypedef=false;
-              isTopLevel=false;
-              givenAttributes=nilAttribute();
-              baseType=builtinType(nilQualifier(), unsignedType(longType()));
-              env=top.env;
-            }
-          )
+  local topVars :: [String] =
+    let i :: Integer =
+      positionOf(
+        stringEq,
+        last(head(out.accesses)),
+        access
+      )
+    in
+    take(i+1, access)
+    end;
+
+  local innerVars :: [String] =
+    let i :: Integer =
+      positionOf(
+        stringEq,
+        last(head(out.accesses)),
+        access
+      )
+    in
+    drop(i+1, access)
+    end;
+
+  local topLoop :: IterVars =
+    foldr(
+      \ s::String var::IterVars ->
+        consIterVar(
+          builtinTypeExpr(
+            nilQualifier(),
+            unsignedType(
+              longType()
+            )
+          ),
+          baseTypeExpr(),
+          name(s, location=val.location),
+          declRefExpr(
+            name("edu_umn_cs_melt_exts_ableC_tensorAlgebra", location=val.location),
+            location=val.location
+          ),
+          var
         )
       ,
-      access
-    ); 
+      nilIterVar(),
+      topVars
+    );
+
+  local innerLoops :: IterStmt =
+    foldr(
+      \ v::String iter::IterStmt ->
+        multiForIterStmt(
+          consIterVar(
+            builtinTypeExpr(
+              nilQualifier(),
+              unsignedType(
+                longType()
+              )
+            ),
+            baseTypeExpr(),
+            name(v, location=val.location),
+            declRefExpr(
+              name("edu_umn_cs_melt_exts_ableC_tensorAlgebra", location=val.location),
+              location=val.location
+            ),
+            nilIterVar()
+          ),
+          iter
+        )
+      ,
+      nullIterStmt(),
+      innerVars
+    );
+
+  local loops :: IterStmt =
+    multiForIterStmt(
+      topLoop,
+      innerLoops
+    );
 
   local sErrors :: [Message] =
     checkTensorHeader(tns.location, top.env)
@@ -141,21 +191,30 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
           map(
             \ msg::Message -> 
               case msg of
-              | err(l, s) -> 
+              | err(l, s) ->
                 let lst::[String] =
                   explode(" ", s)
                 in
-                err(l, s"Cannot transform ${head(lst)} because the index variable is not used in the tensor exprssion")
+                if endsWith("is not a transformable loop", s)
+                then
+                  err(l, s"Cannot transform ${head(lst)} because the index variable is not used in the tensor exprssion")
+                else if startsWith("Loop", s) && endsWith("is not contiguous", s)
+                then
+                  err(l, s"Cannot perform transformation because ${head(tail(lst))} is accessed after the final dimension of the output tensor. If desired, use \"order loops\" to move ${head(tail(lst))} above this.")
+                else if startsWith("Duplicate loop name", s)
+                then 
+                  err(l, s"Duplicate index variable ${last(lst)}")
+                else msg
                 end
               | _ -> msg
               end
             ,
-            (decorate ts with {env=top.env;iterStmtIn=nullIterStmtDefs(lDefs);returnType=nothing();}).errors
+            (decorate ts with {env=top.env;iterStmtIn=loops;returnType=nothing();}).errors
           )
         end
     else [];
 
-  local loops :: IterStmt =
+  local body :: IterStmt =
     halideTensorExpr(tns, idx, val);
 
   local setup :: (Stmt ::= Stmt) =
@@ -163,7 +222,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
 
   local fwrd::Stmt =
     setup(
-      iterateStmt(loops, ts)
+      iterateStmt(body, ts)
     );
   fwrd.env = top.env;
 
@@ -242,33 +301,6 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
     ||
     !containsAll(stringEq, ord, allVars);
 
-  local lDefs :: [Def] =
-    map(
-      \ v::String ->
-        valueDef(v, 
-          declaratorValueItem(
-            decorate
-              declarator(
-                name(v, location=tns.location),
-                baseTypeExpr(),
-                nilAttribute(),
-                nothingInitializer()
-              )
-            with {
-              typeModifiersIn=[];
-              returnType=nothing();
-              isTypedef=false;
-              isTopLevel=false;
-              givenAttributes=nilAttribute();
-              baseType=builtinType(nilQualifier(), unsignedType(longType()));
-              env=top.env;
-            }
-          )
-        )
-      ,
-      ord
-    ); 
-
   local allDense :: [Boolean] =
     map(
       \ fmt::TensorFormat ->
@@ -283,6 +315,83 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
         end
       ,
       tensorFormats
+    );
+
+  local topVars :: [String] =
+    let i :: Integer =
+      lastIndexOf(
+        stringEq,
+        head(out.accesses),
+        ord 
+      )
+    in
+    take(i+1, ord)
+    end;
+
+  local innerVars :: [String] =
+    let i :: Integer =
+      lastIndexOf(
+        stringEq,
+        head(out.accesses),
+        ord
+      )
+    in
+    drop(i+1, ord)
+    end;
+
+  local topLoop :: IterVars =
+    foldr(
+      \ s::String var::IterVars ->
+        consIterVar(
+          builtinTypeExpr(
+            nilQualifier(),
+            unsignedType(
+              longType()
+            )
+          ),
+          baseTypeExpr(),
+          name(s, location=val.location),
+          declRefExpr(
+            name("edu_umn_cs_melt_exts_ableC_tensorAlgebra", location=val.location),
+            location=val.location
+          ),
+          var
+        )
+      ,
+      nilIterVar(),
+      topVars
+    );
+
+  local innerLoops :: IterStmt =
+    foldr(
+      \ v::String iter::IterStmt ->
+        multiForIterStmt(
+          consIterVar(
+            builtinTypeExpr(
+              nilQualifier(),
+              unsignedType(
+                longType()
+              )
+            ),
+            baseTypeExpr(),
+            name(v, location=val.location),
+            declRefExpr(
+              name("edu_umn_cs_melt_exts_ableC_tensorAlgebra", location=val.location),
+              location=val.location
+            ),
+            nilIterVar()
+          ),
+          iter
+        )
+      ,
+      nullIterStmt(),
+      innerVars
+    );
+
+  local loops :: IterStmt =
+    multiForIterStmt(
+      topLoop,
+      innerLoops
     );
 
   local sErrors :: [Message] =
@@ -318,30 +427,36 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
           map(
             \ msg::Message -> 
               case msg of
-              | err(l, s) -> 
+              | err(l, s) ->
+                let lst::[String] =
+                  explode(" ", s)
+                in
                 if endsWith("is not a transformable loop", s)
                 then
-                  let lst::[String] =
-                    explode(" ", s)
-                  in
                   err(l, s"Cannot transform ${head(lst)} because the index variable is not used in the tensor exprssion")
-                  end
+                else if startsWith("Loop", s) && endsWith("is not contiguous", s)
+                then
+                  err(l, s"Cannot perform transformation because ${head(tail(lst))} is accessed after the final dimension of the output tensor. If desired, use \"order loops\" to move ${head(tail(lst))} above this.")
+                else if startsWith("Duplicate loop name", s)
+                then 
+                  err(l, s"Duplicate index variable ${last(lst)}")
                 else msg
+                end
               | _ -> msg
               end
             ,
-            (decorate ts with {env=top.env;iterStmtIn=nullIterStmtDefs(lDefs);returnType=nothing();}).errors
+            (decorate ts with {env=top.env;iterStmtIn=loops;returnType=nothing();}).errors
           )
     else [];
 
-  local loops :: IterStmt =
+  local body :: IterStmt =
     halideTensorExprOrder(tns, idx, val, ord);
 
   local setup :: (Stmt ::= Stmt) =
     halideSetup(tns, idx, val, _);
 
   local fwrd :: Stmt =
-    setup(iterateStmt(loops, ts));
+    setup(iterateStmt(body, ts));
   fwrd.env = top.env;
 
   forwards to
@@ -385,33 +500,6 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
   local access::[String] =
     order.fromJust;
 
-  local lDefs :: [Def] =
-    map(
-      \ v::String ->
-        valueDef(v, 
-          declaratorValueItem(
-            decorate
-              declarator(
-                name(v, location=nm.location),
-                baseTypeExpr(),
-                nilAttribute(),
-                nothingInitializer()
-              )
-            with {
-              typeModifiersIn=[];
-              returnType=nothing();
-              isTypedef=false;
-              isTopLevel=false;
-              givenAttributes=nilAttribute();
-              baseType=builtinType(nilQualifier(), unsignedType(longType()));
-              env=top.env;
-            }
-          )
-        )
-      ,
-      access
-    ); 
-
   local allDense :: [Boolean] =
     map(
       \ fmt::TensorFormat ->
@@ -426,6 +514,32 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
         end
       ,
       tensorFormats
+    );
+
+  local loops :: IterStmt =
+    foldr(
+      \ v::String iter::IterStmt ->
+        multiForIterStmt(
+          consIterVar(
+            builtinTypeExpr(
+              nilQualifier(),
+              unsignedType(
+                longType()
+              )
+            ),
+            baseTypeExpr(),
+            name(v, location=val.location),
+            declRefExpr(
+              name("edu_umn_cs_melt_exts_ableC_tensorAlgebra", location=val.location),
+              location=val.location
+            ),
+            nilIterVar()
+          ),
+          iter
+        )
+      ,
+      nullIterStmt(),
+      access
     );
 
   local sErrors :: [Message] =
@@ -454,28 +568,37 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
         map(
           \ msg::Message -> 
             case msg of
-            | err(l, s) -> 
+            | err(l, s) ->
               let lst::[String] =
                 explode(" ", s)
               in
-              err(l, s"Cannot transform ${head(lst)} because the index variable is not used in the tensor exprssion")
+              if endsWith("is not a transformable loop", s)
+              then
+                err(l, s"Cannot transform ${head(lst)} because the index variable is not used in the tensor exprssion")
+              else if startsWith("Loop", s) && endsWith("is not contiguous", s)
+              then
+                err(l, s"Cannot perform transformation because ${head(tail(lst))} is accessed after the final dimension of the output tensor. If desired, use \"order loops\" to move ${head(tail(lst))} above this.")
+              else if startsWith("Duplicate loop name", s)
+              then 
+                err(l, s"Duplicate index variable ${last(lst)}")
+              else msg
               end
             | _ -> msg
             end
           ,
-          (decorate ts with {env=top.env;iterStmtIn=nullIterStmtDefs(lDefs);returnType=nothing();}).errors
+          (decorate ts with {env=top.env;iterStmtIn=loops;returnType=nothing();}).errors
         )
       end
     else [];
   
-  local loops :: IterStmt =
+  local body :: IterStmt =
     halideScalarTensorExpr(nm, val);
 
   local setup :: (Stmt ::= Stmt) =
     halideScalarSetup(nm, val, _);
 
   local fwrd :: Stmt =
-    setup(iterateStmt(loops, ts));
+    setup(iterateStmt(body, ts));
   fwrd.env = top.env;
 
   forwards to
@@ -525,34 +648,6 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
     ||
     !containsAll(stringEq, ord, allVars);
 
-
-  local lDefs :: [Def] =
-    map(
-      \ v::String ->
-        valueDef(v,
-          declaratorValueItem(
-            decorate
-              declarator(
-                name(v, location=nm.location),
-                baseTypeExpr(),
-                nilAttribute(),
-                nothingInitializer()
-              )
-            with {
-              typeModifiersIn=[];
-              returnType=nothing();
-              isTypedef=false;
-              isTopLevel=false;
-              givenAttributes=nilAttribute();
-              baseType=builtinType(nilQualifier(), unsignedType(longType()));
-              env=top.env;
-            }
-          )
-        )
-      ,
-      ord
-    ); 
-
   local allDense :: [Boolean] =
     map(
       \ fmt::TensorFormat ->
@@ -567,6 +662,32 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
         end
       ,
       tensorFormats
+    );
+
+  local loops :: IterStmt =
+    foldr(
+      \ v::String iter::IterStmt ->
+        multiForIterStmt(
+          consIterVar(
+            builtinTypeExpr(
+              nilQualifier(),
+              unsignedType(
+                longType()
+              )
+            ),
+            baseTypeExpr(),
+            name(v, location=val.location),
+            declRefExpr(
+              name("edu_umn_cs_melt_exts_ableC_tensorAlgebra", location=val.location),
+              location=val.location
+            ),
+            nilIterVar()
+          ),
+          iter
+        )
+      ,
+      nullIterStmt(),
+      ord
     );
 
   local sErrors :: [Message] =
@@ -595,42 +716,40 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
         map(
           \ msg::Message -> 
             case msg of
-            | err(l, s) -> 
+            | err(l, s) ->
               let lst::[String] =
                 explode(" ", s)
               in
-              err(l, s"Cannot transform ${head(lst)} because the index variable is not used in the tensor exprssion")
+              if endsWith("is not a transformable loop", s)
+              then
+                err(l, s"Cannot transform ${head(lst)} because the index variable is not used in the tensor exprssion")
+              else if startsWith("Loop", s) && endsWith("is not contiguous", s)
+              then
+                err(l, s"Cannot perform transformation because ${head(tail(lst))} is accessed after the final dimension of the output tensor. If desired, use \"order loops\" to move ${head(tail(lst))} above this.")
+              else if startsWith("Duplicate loop name", s)
+              then 
+                err(l, s"Duplicate index variable ${last(lst)}")
+              else msg
               end
             | _ -> msg
             end
           ,
-          (decorate ts with {env=top.env;iterStmtIn=nullIterStmtDefs(lDefs);returnType=nothing();}).errors
+          (decorate ts with {env=top.env;iterStmtIn=loops;returnType=nothing();}).errors
         )
     else [];
 
-  local loops :: IterStmt =
+  local body :: IterStmt =
     halideScalarExprOrder(nm, val, ord);
 
   local setup :: (Stmt ::= Stmt) =
     halideScalarSetup(nm, val, _);
 
   local fwrd :: Stmt =
-    setup(iterateStmt(loops, ts));
+    setup(iterateStmt(body, ts));
   fwrd.env = top.env;
 
   forwards to
     if !null(lErrors)
     then warnStmt(lErrors)
     else fwrd;
-}
-
--- A production for producing an empty iterStmt, but injecting defs
--- into it. This is used to generate transformation errors without 
--- errors from the code itself. (Such as undeclared values, since
--- those values were declared in other code produced by the production)
-abstract production nullIterStmtDefs
-top::IterStmt ::= defs::[Def]
-{
-  top.iterDefs = defs;
-  forwards to nullIterStmt();
 }
