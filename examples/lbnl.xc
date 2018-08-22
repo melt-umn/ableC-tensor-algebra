@@ -18,6 +18,9 @@ int main() {
   //  result[sI * dimenof(dta)[1] + sP,
   //        dI * dimenof(dta)[3] + dP] += v;
   //}
+  //foreach(double v : dta[180, sP, dI, dP, t]) {
+  //  result[sP, dI] += v;
+  //}
 
   freeTensor(dta);
 
