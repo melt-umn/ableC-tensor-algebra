@@ -177,10 +177,17 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
   fwrd.env = top.env;
   fwrd.returnType = top.returnType;
 
-  local lErrors :: [Message] =
+  local sErrors :: [Message] =
     checkTensorHeader(var.location, top.env)
     ++
-    fwrd.errors;
+    bounds.errors;
+
+  local lErrors :: [Message] =
+    sErrors
+    ++
+    if null(sErrors)
+    then fwrd.errors
+    else [];
 
   forwards to
     if !null(lErrors)
