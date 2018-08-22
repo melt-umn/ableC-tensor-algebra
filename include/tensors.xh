@@ -61,77 +61,6 @@ static char tensor_checkTree(struct tensor_tree_s* t) {
   return 0;
 }
 
-char _eq_str(char* str1, char* str2, int length) {
-  for(int i = 0; i < length; i++) {
-    if(str1[i] != str2[i]) return 0;
-  }
-  return 1;
-}
-
-char _is_whitespace(char c) {
-  switch(c) {
-    case ' ':
-    case '\n':
-    case '\t':
-    case '\r':
-      return 1;
-    default:
-      return 0;
-  }
-}
-
-char _is_newline(char c) {
-  switch(c) {
-    case '\n':
-    case '\r':
-      return 1;
-    default:
-      return 0;
-  }
-}
-
-char** _read_line(char* file) {
-  char** res = malloc(sizeof(char*) * 2);
-  if(file == 0) {
-    res[0] = 0;
-    res[1] = 0;
-    return res;
-  }
-  
-  int start = 0;
-  while(file[start] != '\0' && _is_whitespace(file[start])) {
-    start++;
-  }
-  if(file[start] == '\0') {
-    res[0] = 0;
-    res[1] = 0;
-    return res;
-  }
-  
-  res[0] = file + start;
-  
-  int length = start;
-  while(file[length] != '\0' && !_is_newline(file[length])) {
-    length++;
-  }
-  
-  if(file[length] != '\0') {
-    char* temp = malloc(sizeof(char) * (length - start + 1));
-    memcpy(temp, res[0], sizeof(char) * (length - start));
-    res[0] = temp;
-    res[0][length - start] = '\0';
-    
-    res[1] = file + length + 1;
-  } else {
-    char* temp = malloc(sizeof(char) * (length - start));
-    memcpy(temp, res[0], sizeof(char) * (length - start));
-    res[0] = temp;
-    res[1] = 0;
-  }
-  
-  return res;
-}
-
 template<a>
 a _read_rb(char* file) {
   fprintf(stderr, "Read RB is not currently supported.\n");
@@ -141,18 +70,21 @@ a _read_rb(char* file) {
 }
 
 template<a>
-a _read_mtx(char* file) {
-  char** lines = _read_line(file);
-  char* header = lines[0];
-  file = lines[1];
+a _read_mtx(char* fileName) {
+  FILE* file = fopen(fileName, "r");
+  if(!file) {
+    fprintf(stderr, "Could not open file '%s'\n", fileName);
+    exit(1);
+  }
 
   char data[32];
   char fmt[32];  
   char dataType;
   char formatType;
 
-  if(sscanf(header, "%%%%MatrixMarket matrix coordinate %s %s", data, fmt) != 2) {
+  if(fscanf(file, "%%%%MatrixMarket matrix coordinate %s %s\n", data, fmt) != 2) {
     fprintf(stderr, "File is not a MatrixMarket format\n");
+    fclose(file);
     exit(1);
   }
 
@@ -162,9 +94,11 @@ a _read_mtx(char* file) {
     dataType = 1;
   } else if(strcmp(data, "complex") == 0) {
     fprintf(stderr, "Complex numbers are not supported in tensors\n");
+    fclose(file);
     exit(1);
   } else {
-    fprintf(stderr, "Data type specifier is not recognized.\n");
+    fprintf(stderr, "Data type specifier '%s' is not recognized.\n", data);
+    fclose(file);
     exit(1);
   }
   
@@ -176,33 +110,38 @@ a _read_mtx(char* file) {
     formatType = 1;
   } else if(strcmp(fmt, "hermitian") == 0) {
     fprintf(stderr, "Complex numbers are not supported in tensors\n");
+    fclose(file);
     exit(1);
   } else {
-    fprintf(stderr, "Symmetry specifer is not recognized.\n");
+    fprintf(stderr, "Symmetry specifer '%s' is not recognized.\n", fmt);
+    fclose(file);
     exit(1);
   }
  
-  free(lines[0]);
-  free(lines);
-  lines = _read_line(file);
-  char* line = lines[0];
-  file = lines[1];
-  while(line[0] == '%') {
-    free(lines[0]);
-    free(lines);
-    lines = _read_line(file);
-    line = lines[0];
-    file = lines[1];
-  }
+  char* line = calloc(128, sizeof(char));
   
+  fgets(line, 128, file);
+  while(!feof(file) && line[0] == '%') {
+    fgets(line, 128, file);
+  }
+  if(feof(file)) {
+    fprintf(stderr, "End of MTX file reached without dimension specifier.\n");
+    fclose(file);
+    free(line);
+    exit(1);
+  }
+
   unsigned long rows, cols, entries;
   if(sscanf(line, "%lu %lu %lu", &rows, &cols, &entries) != 3) {
     fprintf(stderr, "Matrix size specifier line is not valid.\n");
+    fclose(file);
+    free(line);
     exit(1);
   }
+  free(line);
   
   unsigned long arr[] = {rows, cols};
-  a res = build (a)(arr);
+  a res = build(a)(arr);
   
   unsigned long r, c;
   double elem_d;
@@ -211,40 +150,42 @@ a _read_mtx(char* file) {
   unsigned long idx[] = {0, 0};
 
   for(unsigned long i = 0; i < entries; i++) {
-    free(lines[0]);
-    free(lines);
-    lines = _read_line(file);
-    line = lines[0];
-    file = lines[1];
-    
-    if(line == 0) {
+    if(feof(file)) {
       fprintf(stderr, "End of file reached without finding appropriate number of elements\n");
+      fclose(file);
+      freeTensor(res);
       exit(1);
     }
     
     if(dataType == 0) {
-      if(sscanf(line, "%lu %lu %le", &r, &c, &elem_d) != 3) {
+      if(fscanf(file, "%lu %lu %le\n", &r, &c, &elem_d) != 3) {
         fprintf(stderr, "Element specifier is not correct format\n");
+	fclose(file);
+	freeTensor(res);
         exit(1);
       }
    
       idx[0] = r-1;
       idx[1] = c-1;
       res[idx] = elem_d;
+
       if(formatType == 1) {
         idx[0] = c-1;
 	idx[1] = r-1;
         res[idx] = elem_d;
       }
     } else {
-      if(sscanf(line, "%lu %lu %ld", &r, &c, &elem_i) != 3) {
+      if(fscanf(file, "%lu %lu %ld\n", &r, &c, &elem_i) != 3) {
         fprintf(stderr, "Element specifier is not correct format\n");
+	fclose(file);
+	freeTensor(res);
         exit(1);
       }
       
       idx[0] = r-1;
       idx[1] = c-1;
       res[idx] = elem_i;
+
       if(formatType == 1) {
         idx[0] = c-1;
 	idx[1] = r-1;
@@ -252,70 +193,109 @@ a _read_mtx(char* file) {
       }
     }
   }
-  free(lines[0]);
-  free(lines);
-  
+
+  fclose(file);
   return res;
 }
 
-template <a>
-a _read_tns(char* file) {
-  char** lines = _read_line(file);
-  unsigned long* dims = calloc(orderof(a), sizeof(unsigned long));
-  for(unsigned long i = 0; i < orderof(a); i++) {
-    dims[i] = 1;
-  }
-  
-  a res = build(a)(dims);
-  free(dims);
-  dims = res.dims;
-
-  unsigned long* idx = calloc(orderof(a), sizeof(unsigned long));
-  unsigned long* zeroIdx = calloc(orderof(a), sizeof(unsigned long));
-  
-  char* line;
+struct __new_elem {
+  unsigned long* idx;
   double val;
-  char changed = 0;
-  while(lines[0] != 0) {
-    line = lines[0];
-    file = lines[1];
+  struct __new_elem* next;
+};
 
-    if(line[0] != '#') {
-      changed = 0;
+template <a>
+a _read_tns(char* fileName) {
+  FILE* file = fopen(fileName, "r");
+  if(!file) {
+    fprintf(stderr, "Could not open file '%s'\n", fileName);
+    exit(1);
+  }
+
+  unsigned long* dims = calloc(orderof(a), sizeof(unsigned long));
+  
+  struct __new_elem header = {0};
+
+  double val;
+  unsigned long* idx = calloc(orderof(a), sizeof(unsigned long));
+  char* line = calloc(128, sizeof(char));
+
+  fgets(line, 128, file);
+  while(!feof(file)) {
+    if(line[0] == '#') {;} 
+    else {
+      long bytes = 0;
+      int newBytes = 0;
       for(unsigned long i = 0; i < orderof(a); i++) {
-        if(sscanf(line, "%lu", idx + i) != 1) {
+        if(sscanf(line + bytes, "%lu%n", idx + i, &newBytes) != 1) { // %n is number of bytes consumed. Not counted in return
 	  fprintf(stderr, "Error in parsing .tns file, reached end of index before expected.\n");
+	  fclose(file);
+	  free(dims);
+	  free(idx);
+	  free(line);
+	  
+	  struct __new_elem* curr = header.next;
+	  struct __new_elem* tmp;
+	  while(curr) {
+	    tmp = curr;
+	    curr = tmp->next;
+	    free(tmp->idx);
+	    free(tmp);
+	  }
+	  
 	  exit(1);
 	}
-	
-	if(idx[i] > dims[i]) {
-	  dims[i] = idx[i];
-	  changed = 1;
-	}
+	bytes += newBytes;
+
+	if(idx[i] > dims[i]) dims[i] = idx[i];
 	idx[i]--;
-
-	while(!_is_whitespace(line[0])) line++;
-	while(_is_whitespace(line[0])) line++;
       }
-      if(changed) res[zeroIdx]; // Pack tensor
 
-      if(sscanf(line, "%le", &val) != 1) {
+      if(sscanf(line + bytes, "%le", &val) != 1) {
         fprintf(stderr, "Error in parsing .tns file, did not find floating point value\n");
+	fclose(file);
+	free(dims);
+	free(idx);
+	free(line);
+	
+	struct __new_elem* curr = header.next;
+	struct __new_elem* tmp;
+	while(curr) {
+	  tmp = curr;
+	  curr = tmp->next;
+	  free(tmp->idx);
+	  free(tmp);
+	}
+
 	exit(1);
       }
-      res[idx] = val;
-    }
 
-    free(lines[0]);
-    free(lines);
-    lines = _read_line(file);
+      struct __new_elem* elem = calloc(1, sizeof(struct __new_elem));
+      elem->idx = calloc(orderof(a), sizeof(unsigned long));
+      memcpy(elem->idx, idx, sizeof(unsigned long) * orderof(a));
+      elem->val = val;
+      elem->next = header.next;
+      header.next = elem;
+    }
+    fgets(line, 128, file);
   }
 
-  free(lines[0]);
-  free(lines);
-  free(idx);
-  free(zeroIdx);
+  a res = build(a)(dims);
 
+  struct __new_elem* curr = header.next;
+  struct __new_elem* tmp;
+  while(curr) {
+    res[curr->idx] = curr->val;
+    tmp = curr;
+    curr = tmp->next;
+    free(tmp->idx);
+    free(tmp);
+  }
+
+  fclose(file);
+  free(dims);
+  free(idx);
+  free(line);
   return res;
 }
 
@@ -324,27 +304,18 @@ a read(char* fileName) {
   int len = strlen(fileName);
   char* ext = fileName + len - 3;
   
-  int fd = open(fileName, O_RDONLY);
-  struct stat stat_buf;
-  fstat(fd, &stat_buf);
-  int size = stat_buf.st_size;
-  char *file = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-  
   a res;
-  if(_eq_str(ext, "rb", 2)) {
-    res = inst _read_rb<a>(file);
-  } if(_eq_str(ext, "mtx", 3) || _eq_str(ext, "ttx", 3)) {
-    res = inst _read_mtx<a>(file);
-  } else if(_eq_str(ext, "tns", 3)) {
-    res = inst _read_tns<a>(file);
+  if(strcmp(ext, "rb") == 0) {
+    res = inst _read_rb<a>(fileName);
+  } if(strcmp(ext, "mtx") == 0 || strcmp(ext, "ttx") == 0) {
+    res = inst _read_mtx<a>(fileName);
+  } else if(strcmp(ext, "tns") == 0) {
+    res = inst _read_tns<a>(fileName);
   } else {
     fprintf(stderr, "Unknown file extension for tensor: %s\n", ext);
     exit(1);
   }
   
-  munmap(file, size);
-  close(fd);
-
   return res;
 }
 
