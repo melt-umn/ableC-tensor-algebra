@@ -159,7 +159,7 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>] fmtNm::String
             }
           }
           if(!found) {
-            double* res = $name{s"tensor_insertZero_${fmtNm}"}(&(t->buffer), index);
+            double* res = $name{s"tensor_insertZero_${fmtNm}"}(t->buffer, index);
             t->bufferCnt++;
             pthread_rwlock_unlock(&(t->lock));
             return res;
@@ -227,7 +227,7 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>] fmtNm::String
             }
           }
           if(!found) {
-            double* res = $name{s"tensor_insertZero_${fmtNm}"}(&(t->buffer), index);
+            double* res = $name{s"tensor_insertZero_${fmtNm}"}(t->buffer, index);
             t->bufferCnt++;
             return res;
           }

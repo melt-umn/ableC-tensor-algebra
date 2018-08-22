@@ -17,7 +17,7 @@ Decl ::= fmt::TensorFormat
           double* data;
 
           unsigned long bufferCnt;
-          struct tensor_tree_s buffer;
+          struct __tensor_tree* buffer;
           char* form;
           unsigned long dataLen;
 

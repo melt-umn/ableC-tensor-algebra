@@ -28,37 +28,19 @@ struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc
   int x;
 };
 
-struct tensor_tree_s {
+struct __tensor_tree {
   char isLeaf;
   double val;
   unsigned long index;
   unsigned long numChildren;
-  struct tensor_tree_s* children;
+  struct __tensor_tree* children; // Headed linked list
+  struct __tensor_tree* next;
 };
 
-static void __free_tensor_tree(struct tensor_tree_s* t) {
-  for(unsigned long i = 0; i < t->numChildren; i++) {
-    __free_tensor_tree(&(t->children[i]));
-  }
-  if(t->numChildren >  0) free(t->children);
-}
-
-static void __free_tensor_packedTree(struct tensor_tree_s* t) {
-  if(t->children > 0) {
-    __free_tensor_packedTree(t->children);
-    free(t->children);
-  }
-}
-
-static char tensor_checkTree(struct tensor_tree_s* t) {
-  if(t->isLeaf) return t->val != 0.0;
-  unsigned long end = t->numChildren;
-  for(unsigned long i = 0; i < end; i++) {
-    if(tensor_checkTree(&(t->children[i]))) {
-      return 1;
-    }
-  }
-  return 0;
+static void __free_tensor_tree(struct __tensor_tree* t) {
+  if(t->children) __free_tensor_tree(t->children);
+  if(t->next) __free_tensor_tree(t->next);
+  free(t);
 }
 
 template<a>

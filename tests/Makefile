@@ -66,9 +66,7 @@ $(ABLEC_JAR): $(GRAMMAR_SOURCES)
 	silver-ableC -o $@ $(SVFLAGS) $(ARTIFACT)
 
 %.c: %.xc $(XC_INCLUDE_SOURCES) $(ABLEC_JAR)
-	@echo -e "java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)\E[0;31m"
-	@java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)
-	@echo -e "\E[0m"
+	java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)
 
 %.out: %.o $(SRC_SOURCES) | libs
 	$(CC) $(LDFLAGS) $< $(LOADLIBES) $(LDLIBS) -o $@

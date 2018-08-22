@@ -36,8 +36,8 @@ Decl ::= fmt::TensorFormat
   
   return
     ableC_Decl {
-      static void $name{s"tensor_insertBuff_${fmtNm}"}(struct tensor_tree_s* tree, unsigned long* index, double val) {
-        unsigned long idx, end, i, currIdx;
+      static void $name{s"tensor_insertBuff_${fmtNm}"}(struct __tensor_tree* tree, unsigned long* index, double val) {
+        unsigned long idx, currIdx;
         char found = 0;
         $Stmt{generateInsertBody(fmt.storage)}
       }
@@ -60,36 +60,33 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
     else 
       ableC_Stmt {
         idx = index[$intLiteralExpr{dim}];
-        end = tree->numChildren;
+        struct __tensor_tree* prev = tree->children;
+        struct __tensor_tree* curr = prev->next;
         found = 0;
-        i = 0;
-        currIdx = 0;
-        while(!found && i < end && currIdx <= idx) {
-          currIdx = tree->children[i].index;
+        currIdx = -1;
+        while(!found &&  currIdx < idx && curr) {
+          currIdx = curr->index;
           if(currIdx == idx) {
-            tree = &(tree->children[i]);
+            tree = curr;
             found = 1;
           } else if(currIdx < idx) {
-            i++;
+            prev = curr;
+            curr = curr->next;
           }
         }
         if(!found) {
-          struct tensor_tree_s* temp = calloc(end + 1, sizeof(struct tensor_tree_s));
+          struct __tensor_tree* temp = calloc(1, sizeof(struct __tensor_tree));
           
-          memcpy(temp, tree->children, sizeof(struct tensor_tree_s) * i);
-          
-          temp[i].isLeaf = 0;
-          temp[i].index = idx;
-          temp[i].numChildren = 0;
-          
-          memcpy(temp + i + 1, tree->children + i, sizeof(struct tensor_tree_s) * (end - i));
-          
-          tree->numChildren += 1;
-          if(tree->children) free(tree->children);
-          tree->children = temp;
-          tree = temp + i;
+          temp->isLeaf = 0;
+          temp->index = idx;
+          temp->children = calloc(1, sizeof(struct __tensor_tree));
+          temp->next = curr;
+          prev->next = temp;
+
+          (tree->numChildren)++;
+          tree = temp;
         }
-        $Stmt{generateInsertBody(tail(storage))}
+        {$Stmt{generateInsertBody(tail(storage))}}
       };
 }
 
@@ -101,8 +98,8 @@ Decl ::= fmt::TensorFormat
   
   return 
     ableC_Decl {
-      static void $name{s"tensor_insertBuff_mid_${fmtNm}"}(struct tensor_tree_s* tree, unsigned long* index, unsigned long level) {
-        unsigned long idx, end, i, currIdx, currLevel = 0;
+      static void $name{s"tensor_insertBuff_mid_${fmtNm}"}(struct __tensor_tree* tree, unsigned long* index, unsigned long level) {
+        unsigned long idx, currIdx, currLevel = 0;
         char found = 0;
         $Stmt{generateInsertMidBody(fmt.storage)}
       }
@@ -126,34 +123,31 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
       ableC_Stmt {
         if(currLevel <= level) {
           idx = index[$intLiteralExpr{dim}];
-          end = tree->numChildren;
+          struct __tensor_tree* prev = tree->children;
+          struct __tensor_tree* curr = prev->next;
           found = 0;
-          i = 0;
           currIdx = 0;
-          while(!found && i < end && currIdx <= idx) {
-            currIdx = tree->children[i].index;
+          while(!found && curr && currIdx <= idx) {
+            currIdx = curr->index;
             if(currIdx == idx) {
-              tree = &(tree->children[i]);
+              tree = curr;
               found = 1;
             } else if(currIdx < idx) {
-              i++;
+              prev = curr;
+              curr = curr->next;
             }
           }
           if(!found) {
-            struct tensor_tree_s* temp = calloc(end + 1, sizeof(struct tensor_tree_s));
+            struct __tensor_tree* temp = calloc(1, sizeof(struct __tensor_tree));
             
-            memcpy(temp, tree->children, sizeof(struct tensor_tree_s) * i);
-            
-            temp[i].isLeaf = 0;
-            temp[i].index = idx;
-            temp[i].numChildren = 0;
-            
-            memcpy(temp + i + 1, tree->children + i, sizeof(struct tensor_tree_s) * (end - i));
-            
-            tree->numChildren += 1;
-            if(tree->children) free(tree->children);
-            tree->children = temp;
-            tree = temp + i;
+            temp->isLeaf = 0;
+            temp->index = idx;
+            temp->children = calloc(1, sizeof(struct __tensor_tree));
+            temp->next = curr;
+            prev->next = temp;
+
+            (tree->numChildren)++;
+            tree = temp;
           }
           
           currLevel++;
@@ -169,8 +163,8 @@ Decl ::= fmt::TensorFormat
   
   return 
     ableC_Decl {
-      static double* $name{s"tensor_insertZero_${fmtNm}"}(struct tensor_tree_s* tree, unsigned long* index) {
-        unsigned long idx, end, i, currIdx;
+      static double* $name{s"tensor_insertZero_${fmtNm}"}(struct __tensor_tree* tree, unsigned long* index) {
+        unsigned long idx, currIdx;
         char found = 0;
         $Stmt{generateInsertZeroBody(fmt.storage)}
       }
@@ -193,35 +187,32 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
     else 
       ableC_Stmt {
         idx = index[$intLiteralExpr{dim}];
-        end = tree->numChildren;
+        struct __tensor_tree* prev = tree->children;
+        struct __tensor_tree* curr = prev->next;
         found = 0;
-        i = 0;
         currIdx = 0;
-        while(!found && i < end && currIdx <= idx) {
-          currIdx = tree->children[i].index;
+        while(!found && curr && currIdx <= idx) {
+          currIdx = curr->index;
           if(currIdx == idx) {
-            tree = tree->children + i;
+            tree = curr;
             found = 1;
           } else if(currIdx < idx) {
-            i++;
+            prev = curr;
+            curr = curr->next;
           }
         }
         if(!found) {
-          struct tensor_tree_s* temp = calloc(end + 1, sizeof(struct tensor_tree_s));
+          struct __tensor_tree* temp = calloc(1, sizeof(struct __tensor_tree));
           
-          memcpy(temp, tree->children, sizeof(struct tensor_tree_s) * i);
-          
-          temp[i].isLeaf = 0;
-          temp[i].index = idx;
-          temp[i].numChildren = 0;
-          
-          memcpy(temp + i + 1, tree->children + i, sizeof(struct tensor_tree_s) * (end - i));
-          
-          tree->numChildren += 1;
-          if(tree->children) free(tree->children);
-          tree->children = temp;
-          tree = temp + i;
+          temp->isLeaf = 0;
+          temp->index = idx;
+          temp->children = calloc(1, sizeof(struct __tensor_tree));
+          temp->next = curr;
+          prev->next = temp;
+
+          (tree->numChildren)++;
+          tree = temp;
         }
-        $Stmt{generateInsertZeroBody(tail(storage))}
+        {$Stmt{generateInsertZeroBody(tail(storage))}}
       };
 }

@@ -58,12 +58,10 @@ top::Expr ::= l::Expr r::Expr
             if($Expr{l}.dims) free($Expr{l}.dims);
             if($Expr{l}.indices) { $Stmt{freeIndices(l, formatL)}; free($Expr{l}.indices); }
             if($Expr{l}.data) free($Expr{l}.data);
-            __free_tensor_tree(&($Expr{l}.buffer));
+            if($Expr{l}.buffer) __free_tensor_tree($Expr{l}.buffer);
             $Expr{l}.bufferCnt = 0;
-            $Expr{l}.buffer.isLeaf = 0;
-            $Expr{l}.buffer.index = 0;
-            $Expr{l}.buffer.numChildren = 0;
-            $Expr{l}.buffer.children = 0;
+            $Expr{l}.buffer = calloc(1, sizeof(struct __tensor_tree));
+            $Expr{l}.buffer->children = calloc(1, sizeof(struct __tensor_tree));
             $Expr{l}.form = "";
             
             $name{s"tensor_pack_${formatR.proceduralName}"}(&$Expr{r});

@@ -34,10 +34,8 @@ Decl ::= fmt::TensorFormat
         $Stmt{generateMakeBody(fmt.storage)}
 
         t->bufferCnt = 0;
-        t->buffer.isLeaf = 0;
-        t->buffer.index = 0;
-        t->buffer.numChildren = 0;
-        t->buffer.children = 0;
+        t->buffer = calloc(1, sizeof(struct __tensor_tree));
+        t->buffer->children = calloc(1, sizeof(struct __tensor_tree));
 
         t->form = "";
         t->dataLen = count;

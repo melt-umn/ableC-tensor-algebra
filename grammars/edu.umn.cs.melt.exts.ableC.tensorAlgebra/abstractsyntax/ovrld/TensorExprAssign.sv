@@ -377,17 +377,17 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           $Stmt{graph.asmbl}
 
           unsigned long* dims = $name{outNew.tensorName}.dims;
-          $name{s"tensor_packTree_${fmtNm}"}(&($name{outNew.tensorName}.buffer), dims);
+          $name{s"tensor_packTree_${fmtNm}"}($name{outNew.tensorName}.buffer, dims);
 
-          struct tensor_tree_s* buffer = &($name{outNew.tensorName}.buffer);
+          struct __tensor_tree* buffer = $name{outNew.tensorName}.buffer;
 
           if(t->indices) { $Stmt{freeIndicesTPointer(getTensorFormat(outNew, fmts))} }
           t->indices = calloc($intLiteralExpr{outOrder}, sizeof(unsigned long**));
 
           unsigned long numChildren = 1;
-          struct tensor_tree_s** trees = &buffer;
+          struct __tensor_tree** trees = &buffer;
 
-          struct tensor_tree_s** temp_tree;
+          struct __tensor_tree** temp_tree;
           unsigned long total, dimSize, index, newChildren;
 
           $Stmt{generatePackBody_Assemble(getTensorFormat(outNew, fmts).storage)}
@@ -399,11 +399,11 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           }
           if(trees != &buffer) free(trees);
 
-          __free_tensor_packedTree(&(t->buffer));
+          __free_tensor_tree(t->buffer);
           t->dataLen = numChildren;
           t->bufferCnt = 0;
-          t->buffer.numChildren = 0;
-          t->buffer.children = 0;
+          t->buffer = calloc(1, sizeof(struct __tensor_tree));
+          t->buffer->children = calloc(1, sizeof(struct __tensor_tree));
           t->form = "";
 
           $Stmt{inner}

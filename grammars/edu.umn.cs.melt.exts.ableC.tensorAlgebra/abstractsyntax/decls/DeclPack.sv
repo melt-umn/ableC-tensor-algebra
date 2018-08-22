@@ -32,11 +32,7 @@ Decl ::= fmt::TensorFormat
   
   return
     ableC_Decl {
-      static void $name{s"tensor_packTree_${fmtNm}"}(struct tensor_tree_s* tree, unsigned long* dims) {
-        unsigned long count = 1;
-        unsigned long cTemp, index;
-        struct tensor_tree_s* temp;
-
+      static void $name{s"tensor_packTree_${fmtNm}"}(struct __tensor_tree* tree, unsigned long* dims) {
         $Stmt{generatePackTreeBody(fmt.storage)}
       }
     };
@@ -52,113 +48,97 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
     if null(tail(storage))
     then 
       if type == storeDense
-      then 
+      then -- Dense, last
         ableC_Stmt {
-          index = 0;
-          temp = calloc(count * dims[$intLiteralExpr{dim}], sizeof(struct tensor_tree_s));
-          for(unsigned long i = 0; i < count; i++) {
-            unsigned long oldSize = tree[i].numChildren;
-            struct tensor_tree_s* oldChildren = tree[i].children;
-            tree[i].numChildren = dims[$intLiteralExpr{dim}];
-            tree[i].children = &(temp[index]);
+          struct __tensor_tree* prev = tree->children;
+          struct __tensor_tree* curr = prev->next;
+          unsigned long i = 0;
+          unsigned long cEnd = dims[$intLiteralExpr{dim}];
+          while(curr) {
+            if(curr->index != i) {
+              struct __tensor_tree* temp = calloc(1, sizeof(struct __tensor_tree));
 
-            unsigned idx = 0;
-            for(unsigned long j = 0; j < dims[$intLiteralExpr{dim}]; j++) {
-              if(idx < oldSize && oldChildren[idx].index == j) {
-                temp[index].index = j;
-                temp[index].isLeaf = 1;
-                temp[index].val = oldChildren[idx].val;
-                idx++;
-              } else {
-                temp[index].index = j;
-                temp[index].isLeaf = 1;
-                temp[index].val = 0.0;
-              }
-              index++;
+              temp->isLeaf = 1;
+              temp->index = i;
+              temp->children = 0;
+              temp->next = curr;
+              prev->next = temp;
+              curr = temp;
+              (tree->numChildren)++;
             }
-            free(oldChildren);
+            i++;
+            prev = curr;
+            curr = curr->next;
+          }
+          while(i < cEnd) {
+            struct __tensor_tree* temp = calloc(1, sizeof(struct __tensor_tree));
+
+            temp->isLeaf = 1;
+            temp->index = i;
+            temp->children = 0;
+            temp->next = 0;
+            prev->next = temp;
+            (tree->numChildren)++;
+
+            prev = temp;
+            i++;
           }
         }
-      else 
-        ableC_Stmt {
-          cTemp = 0;
-          for(unsigned long i = 0; i < count; i++) {
-            cTemp += tree[i].numChildren;
-          }
-
-          temp = calloc(cTemp, sizeof(struct tensor_tree_s));
-          index = 0;
-          for(unsigned long i = 0; i < count; i++) {
-            unsigned long idx = index;
-            for(unsigned long j = 0; j < tree[i].numChildren; j++) {
-              temp[index] = tree[i].children[j];
-              index++;
-            }
-            if(tree[i].children) free(tree[i].children);
-            tree[i].children = &(temp[idx]);
-          }
-        }
+      else -- Sparse, last
+        nullStmt()
     else 
       if type == storeDense
-      then 
+      then -- Dense, not last
         ableC_Stmt {
-          index = 0;
-          temp = calloc(count * dims[$intLiteralExpr{dim}], sizeof(struct tensor_tree_s));
-          for(unsigned long i = 0; i < count; i++) {
-            unsigned long oldSize = tree[i].numChildren;
-            struct tensor_tree_s* oldChildren = tree[i].children;
-            struct tensor_tree_s* start = &(temp[index]);
-            tree[i].numChildren = dims[$intLiteralExpr{dim}];
-
-            unsigned long idx = 0;
-            for(unsigned long j = 0; j < dims[$intLiteralExpr{dim}]; j++) {
-              if(idx < oldSize && oldChildren[idx].index == j) {
-                temp[index].index = j;
-                temp[index].isLeaf = 0;
-                temp[index].numChildren = oldChildren[idx].numChildren;
-                temp[index].children = oldChildren[idx].children;
-                idx++;
-              } else {
-                temp[index].isLeaf = 0;
-                temp[index].index = j;
-                temp[index].numChildren = 0;
-              }
-              index++;
+          struct __tensor_tree* prev = tree->children;
+          struct __tensor_tree* curr = prev->next;
+          unsigned long i = 0;
+          unsigned long cEnd = dims[$intLiteralExpr{dim}];
+          while(curr) {
+            if(curr->index != i) {
+              struct __tensor_tree* temp = calloc(1, sizeof(struct __tensor_tree));
+              
+              temp->isLeaf = 0;
+              temp->index = i;
+              temp->children = calloc(1, sizeof(struct __tensor_tree));
+              temp->next = curr;
+              prev->next = temp;
+              curr = temp;
+              (tree->numChildren)++;
             }
-
-            tree[i].children = start;
-            free(oldChildren);
+            struct __tensor_tree* tree = curr;
+            {$Stmt{generatePackTreeBody(tail(storage))}}
+            i++;
+            prev = curr;
+            curr = curr->next;
           }
+          while(i < cEnd) {
+            struct __tensor_tree* temp = calloc(1, sizeof(struct __tensor_tree));
 
-          count = count * dims[$intLiteralExpr{dim}];
-          tree = temp;
+            temp->isLeaf = 0;
+            temp->index = i;
+            temp->children = calloc(1, sizeof(struct __tensor_tree));
+            temp->next = 0;
+            prev->next = temp;
+            (tree->numChildren)++;
 
-          $Stmt{generatePackTreeBody(tail(storage))}
+            struct __tensor_tree* tree = temp;
+            {$Stmt{generatePackTreeBody(tail(storage))}}
+
+            prev = temp;
+            i++;
+          }
         }
-      else 
+      else -- Sparse, not last 
         ableC_Stmt {
-          cTemp = 0;
-          for(unsigned long i = 0; i < count; i++) {
-            cTemp += tree[i].numChildren;
+          struct __tensor_tree* prev = tree->children;
+          struct __tensor_tree* curr = prev->next;
+          while(curr) {
+            struct __tensor_tree* tree = curr;
+            {$Stmt{generatePackTreeBody(tail(storage))}}
+            prev = curr;
+            curr = curr->next;
           }
-
-          temp = calloc(cTemp, sizeof(struct tensor_tree_s));
-          index = 0;
-
-          for(unsigned long i = 0; i < count; i++) {
-            unsigned long idx = index;
-            for(unsigned long j = 0; j < tree[i].numChildren; j++) {
-              temp[index] = tree[i].children[j];
-              index++;
-            }
-            if(tree[i].children) free(tree[i].children);
-            tree[i].children = &(temp[idx]);
-          }
-
-          tree = temp;
-          count = cTemp;
-
-          $Stmt{generatePackTreeBody(tail(storage))}
         };
 }
 
@@ -180,7 +160,7 @@ Decl ::= fmt::TensorFormat
           unsigned long* dims = t->dims;
           unsigned long*** indices = t->indices;
           double* data = t->data;
-          struct tensor_tree_s* buffer = &(t->buffer);
+          struct __tensor_tree* buffer = t->buffer;
 
           unsigned long pI0 = 0;
           $Stmt{generatePackBody_Tree(fmt.storage, fmtNm, fmt.dimensions, 1)}
@@ -190,9 +170,9 @@ Decl ::= fmt::TensorFormat
           t->indices = calloc($intLiteralExpr{order}, sizeof(unsigned long**));
 
           unsigned long numChildren = 1;
-          struct tensor_tree_s** trees = &buffer;
+          struct __tensor_tree** trees = &(buffer);
 
-          struct tensor_tree_s** temp_tree;
+          struct __tensor_tree** temp_tree;
           unsigned long total, dimSize, index, newChildren;
 
           $Stmt{generatePackBody_Assemble(fmt.storage)}
@@ -207,11 +187,11 @@ Decl ::= fmt::TensorFormat
             free(trees);
           }
 
-          __free_tensor_packedTree(&(t->buffer));
+          __free_tensor_tree(t->buffer);
           t->dataLen = numChildren;
           t->bufferCnt = 0;
-          t->buffer.numChildren = 0;
-          t->buffer.children = 0;
+          t->buffer = calloc(1, sizeof(struct __tensor_tree));
+          t->buffer->children = calloc(1, sizeof(struct __tensor_tree));
           t->form = "";
         }
 
@@ -298,14 +278,21 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
         dimSize = dims[$intLiteralExpr{dimInt}];
         newChildren = 0;
         for(unsigned long j = 0; j < numChildren; j++) {
-          newChildren += trees[j]->numChildren;
+          struct __tensor_tree* prev = trees[j]->children;
+          struct __tensor_tree* curr = prev->next;
+          while(curr) {
+            newChildren++;
+            curr = curr->next;
+          }
         }
-        temp_tree = calloc(newChildren, sizeof(struct tensor_tree_s*));
+        temp_tree = calloc(newChildren, sizeof(struct __tensor_tree*));
         index = 0;
         for(unsigned long j = 0; j < numChildren; j++) {
-          unsigned long end = trees[j]->numChildren;
-          for(unsigned long k = 0; k < end; k++) {
-            temp_tree[index] = &(trees[j]->children[k]);
+          struct __tensor_tree* prev = trees[j]->children;
+          struct __tensor_tree* curr = prev->next;
+          while(curr) {
+            temp_tree[index] = curr;
+            curr = curr->next;
             index++;
           }
         }
