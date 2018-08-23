@@ -34,13 +34,13 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
   local stmts :: [(Stmt ::= Stmt)] =
     map(
       \ e::Pair<Either<Expr String> Pair<Integer Integer>> ->
-        if e.snd.snd == storeDense
+        if e.snd.snd == storeDense 
         then
           if e.fst.isLeft
           then
             \ bd::Stmt ->
               if e.snd.fst == 0
-              then
+              then -- First dimension, dense, Expr
                 ableC_Stmt {
                   unsigned long $name{s"p${toString(e.snd.fst+1)}"};
                   {
@@ -54,14 +54,14 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                   }
                   $Stmt{bd};
                 }
-              else
+              else -- Not first dimension, dense, Expr
                 ableC_Stmt {
                   unsigned long $name{s"p${toString(e.snd.fst+1)}"};
                   {
                     unsigned long temp = $Expr{e.fst.fromLeft};
                     if(temp >= $name{s"size_${toString(e.snd.fst+1)}"}) {
                       fprintf(stderr, 
-                        $stringLiteralExpr{let loc::Location = e.fst.fromLeft.location in "Size out of bounds in foreach loop. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
+                        $stringLiteralExpr{let loc::Location = e.fst.fromLeft.location in s"Size out of bounds in foreach loop. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
                       exit(1);
                     }
                     $name{s"p${toString(e.snd.fst+1)}"} = ($name{s"p${toString(e.snd.fst)}"} * $name{s"size_${toString(e.snd.fst+1)}"}) + temp;
@@ -71,14 +71,14 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
           else
             \ bd::Stmt ->
               if e.snd.fst == 0
-              then
+              then -- First dimension, dense, indexvar
                 ableC_Stmt {
                   for(unsigned long $name{e.fst.fromRight} = 0; $name{e.fst.fromRight} < $name{s"size_${toString(e.snd.fst+1)}"}; $name{e.fst.fromRight}++) {
                     unsigned long $name{s"p${toString(e.snd.fst+1)}"} = $name{e.fst.fromRight};
                     $Stmt{bd};
                   }
                 }
-              else 
+              else -- Not first dimension, dense, indexvar
                 ableC_Stmt {
                   for(unsigned long $name{e.fst.fromRight} = 0; $name{e.fst.fromRight} < $name{s"size_${toString(e.snd.fst+1)}"}; $name{e.fst.fromRight}++) {
                     unsigned long $name{s"p${toString(e.snd.fst+1)}"} = ($name{s"p${toString(e.snd.fst)}"} * $name{s"size_${toString(e.snd.fst+1)}"}) + $name{e.fst.fromRight};
@@ -90,9 +90,14 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
           then
             \ bd::Stmt ->
               if e.snd.fst == 0
-              then
+              then -- First dimension, sparse, Expr
                 ableC_Stmt {
                   unsigned long target = $Expr{e.fst.fromLeft};
+                  if(target >= $name{s"size_${toString(e.snd.fst+1)}"}) {
+                    fprintf(stderr, 
+                      $stringLiteralExpr{let loc::Location = e.fst.fromLeft.location in s"Size out of bounds in foreach loop. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
+                    exit(1);
+                  }
                   for(unsigned long p1 = pos_1[0]; p1 < pos_1[1]; p1++) {
                     if($name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}] == target) {
                       $Stmt{bd};
@@ -100,9 +105,14 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                     }
                   }
                 }
-              else
+              else -- Not first dimension, sparse, Expr
                 ableC_Stmt {
                   unsigned long target = $Expr{e.fst.fromLeft};
+                  if(target >= $name{s"size_${toString(e.snd.fst+1)}"}) {
+                    fprintf(stderr, 
+                      $stringLiteralExpr{let loc::Location = e.fst.fromLeft.location in s"Size out of bounds in foreach loop. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
+                    exit(1);
+                  }
                   for(unsigned long $name{s"p${toString(e.snd.fst+1)}"} = $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}]; $name{s"p${toString(e.snd.fst+1)}"} < $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}+1]; $name{s"p${toString(e.snd.fst+1)}"}++) {
                     if($name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}] == target){
                       $Stmt{bd};
@@ -113,14 +123,14 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
           else
             \ bd::Stmt ->
               if e.snd.fst == 0
-              then
+              then -- First dimension, sparse, indexvar
                 ableC_Stmt {
                   for(unsigned long p1 = pos_1[0]; p1 < pos_1[1]; p1++) {
                     unsigned long $name{e.fst.fromRight} = $name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}];
                     $Stmt{bd};
                   }
                 }
-              else
+              else -- Not first dimension, sparse, indexvar
                 ableC_Stmt {
                   for(unsigned long $name{s"p${toString(e.snd.fst+1)}"} = $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}]; $name{s"p${toString(e.snd.fst+1)}"} < $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}+1]; $name{s"p${toString(e.snd.fst+1)}"}++) {
                     unsigned long $name{e.fst.fromRight} = $name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}];
@@ -130,8 +140,8 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
       ,
       zipWith(
         pair,
-        access,
-        map(
+        access, -- expr or indexvar 
+        map( -- storage format
           \ p::Pair<Integer Pair<Integer Integer>> ->
             pair(p.fst, p.snd.snd)
           ,
@@ -248,6 +258,9 @@ function tensorVals
           } ::
           ableC_Stmt { 
             unsigned long* $name{s"idx_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][1];
+          } ::
+          ableC_Stmt {
+            unsigned long $name{s"size_${toString(p.fst+1)}"} = $name{nm}.dims[$intLiteralExpr{p.snd.fst}];
           }
           :: []
       ,
