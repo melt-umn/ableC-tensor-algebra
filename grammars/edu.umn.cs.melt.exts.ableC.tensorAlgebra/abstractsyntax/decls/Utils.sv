@@ -24,7 +24,7 @@ Stmt ::= dims::Integer idx::Integer
     else
       ableC_Stmt {
         if(index[$intLiteralExpr{idx}] >= dims[$intLiteralExpr{idx}]) {
-          fprintf(stderr, $stringLiteralExpr{s"Invalid index on dimension ${toString(idx)} of tensor (index %lu requested, size %lu)\n"}, index[$intLiteralExpr{idx}], dims[$intLiteralExpr{idx}]);
+          fprintf(stderr, $stringLiteralExpr{s"Invalid index on dimension ${toString(idx)} of tensor (index %lu requested, size %lu). (%s)\n"}, index[$intLiteralExpr{idx}], dims[$intLiteralExpr{idx}], __tensor_location);
           err = 1;
         }
         $Stmt{indexCheckStmtBody(dims, idx + 1)}
@@ -65,15 +65,6 @@ InitList ::= idx::Integer size::Integer
         ),
         generateIndexInitList(idx+1, size)
       );
-}
-
-function generateIndexArray
-String ::= size::Integer
-{
-  return
-    if size == 1
-    then "i1"
-    else s"${generateIndexArray(size-1)}, i${toString(size)}";
 }
 
 function generateProductDims

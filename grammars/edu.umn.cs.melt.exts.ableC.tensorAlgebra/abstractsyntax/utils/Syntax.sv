@@ -126,7 +126,10 @@ top::Expr ::= tensor::Expr dim::Expr
           struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
           unsigned long dim = $Expr{dim};
           if(dim >= $intLiteralExpr{fmt.dimensions}) {
-            fprintf(stderr, "Attempted to access dimenof at dimension %lu, tensor only has %lu dimensions.\n", dim, $intLiteralExpr{fmt.dimensions});
+            fprintf(stderr, 
+              $stringLiteralExpr{s"Attempted to access dimenof at dimension %lu, tensor only has %d dimensions. (${top.location.filename}, Line ${toString(top.location.line)}, Col ${toString(top.location.column)})\n"}, 
+              dim, 
+              $intLiteralExpr{fmt.dimensions});
             exit(1);
           }
           _tensor->dims[dim];

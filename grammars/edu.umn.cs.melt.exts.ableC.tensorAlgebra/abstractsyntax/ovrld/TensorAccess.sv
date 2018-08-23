@@ -103,6 +103,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
             _idx[__d] = __idx[__d];
           }
           $name{s"tensor_pack_${fmtNm}"}(_tensor);
+          __tensor_access = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
           double res = $name{s"tensor_get_${fmtNm}"}(_tensor, _idx);
           res;
         })
@@ -117,6 +118,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
           struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
           unsigned long __index[$intLiteralExpr{fmt.dimensions}] = $Initializer{idxInitializer};
           $name{s"tensor_pack_${fmtNm}"}(_tensor);
+          __tensor_access = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
           $name{s"tensor_get_${fmtNm}"}(_tensor, __index);
         })
       };

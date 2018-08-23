@@ -46,7 +46,8 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                   {
                     unsigned long temp = $Expr{e.fst.fromLeft};
                     if(temp >= $name{s"size_${toString(e.snd.fst+1)}"}) {
-                      fprintf(stderr, $stringLiteralExpr{"Size out of bounds in foreach loop."});
+                      fprintf(stderr, 
+                        $stringLiteralExpr{let loc::Location = e.fst.fromLeft.location in s"Size out of bounds in foreach loop. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
                       exit(1);
                     }
                     $name{s"p${toString(e.snd.fst+1)}"} = temp;
@@ -59,7 +60,8 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                   {
                     unsigned long temp = $Expr{e.fst.fromLeft};
                     if(temp >= $name{s"size_${toString(e.snd.fst+1)}"}) {
-                      fprintf(stderr, $stringLiteralExpr{"Size out of bounds in foreach loop."});
+                      fprintf(stderr, 
+                        $stringLiteralExpr{let loc::Location = e.fst.fromLeft.location in "Size out of bounds in foreach loop. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
                       exit(1);
                     }
                     $name{s"p${toString(e.snd.fst+1)}"} = ($name{s"p${toString(e.snd.fst)}"} * $name{s"size_${toString(e.snd.fst+1)}"}) + temp;

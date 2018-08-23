@@ -344,7 +344,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       foldl(
         \ inn::Stmt var::String ->
           ableC_Stmt {
-            $Stmt{checkVar(outNew, exNew, var, fmts)}
+            $Stmt{checkVar(outNew, exNew, var, fmts, top.location)}
             $Stmt{inn}
           }
         ,
@@ -374,12 +374,16 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           unsigned long idx[$intLiteralExpr{listLength(head(out.accesses))}];
           struct $name{s"tensor_${fmtNm}"}* t = &$name{outNew.tensorName};
           unsigned long count = 1;
+          __free_tensor_tree(t->buffer);
+          t->buffer = calloc(1, sizeof(struct __tensor_tree));
+          t->buffer->children = calloc(1, sizeof(struct __tensor_tree));
+
           $Stmt{graph.asmbl}
 
           unsigned long* dims = $name{outNew.tensorName}.dims;
           $name{s"tensor_packTree_${fmtNm}"}($name{outNew.tensorName}.buffer, dims);
 
-          struct __tensor_tree* buffer = $name{outNew.tensorName}.buffer;
+          struct __tensor_tree* buffer = t->buffer;
 
           if(t->indices) { $Stmt{freeIndicesTPointer(getTensorFormat(outNew, fmts))} }
           t->indices = calloc($intLiteralExpr{outOrder}, sizeof(unsigned long**));
@@ -770,7 +774,7 @@ top::Expr ::= output::Expr expr::Expr
       foldl(
         \ inn::Stmt var::String ->
           ableC_Stmt {
-            $Stmt{checkVar(out, exNew, var, fmts)}
+            $Stmt{checkVar(out, exNew, var, fmts, top.location)}
             $Stmt{inn}
           }
         ,
@@ -895,26 +899,8 @@ Maybe<[String]> ::= orders::[[String]]
         end;
 }
 
-function check_dims
-String ::= out::TensorExpr ex::TensorExpr acc::[String] fmts::tm:Map<String TensorFormat>
-{
-  return
-    "char error = 0;"
-    ++
-    "\n"
-    ++
-    implode("\n",
-      map(
-        check_var(out, ex, _, fmts),
-        acc
-      )
-    )
-    ++
-    "if(error) exit(1);";
-}
-
 function checkVar
-Stmt ::= out::TensorExpr ex::TensorExpr var::String fmts::tm:Map<String TensorFormat>
+Stmt ::= out::TensorExpr ex::TensorExpr var::String fmts::tm:Map<String TensorFormat> loc::Location
 {
   out.variable = var;
   ex.variable = var;
@@ -939,7 +925,8 @@ Stmt ::= out::TensorExpr ex::TensorExpr var::String fmts::tm:Map<String TensorFo
           \ inn::Stmt p::Pair<String Integer> ->
             ableC_Stmt {
               if($name{nm}.dims[$intLiteralExpr{h.snd}] != $name{p.fst}.dims[$intLiteralExpr{p.snd}]) {
-                fprintf(stderr, $stringLiteralExpr{s"Tensor ${nm} and ${p.fst} do not have the same dimensionality for ${var}.\n"});
+                fprintf(stderr, 
+                  $stringLiteralExpr{s"Tensor ${nm} and ${p.fst} do not have the same dimensionality for ${var}. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n"});
                 error = 1;
               }
               $Stmt{inn}
@@ -954,86 +941,4 @@ Stmt ::= out::TensorExpr ex::TensorExpr var::String fmts::tm:Map<String TensorFo
         $Stmt{checks}
       }
       end end end;
-}
-
-function check_var
-String ::= out::TensorExpr ex::TensorExpr var::String fmts::tm:Map<String TensorFormat>
-{
-  out.variable = var;
-  ex.variable = var;
-  out.fmts = fmts;
-  ex.fmts = fmts;
-
-  local acc::[Pair<String Integer>] =
-    out.sparse_r ++ out.dense_r ++ ex.sparse_r ++ ex.dense_r;
-
-  return
-    if null(acc)
-    then ""
-    else
-      let h::Pair<String Integer> =
-        head(acc)
-      in
-      let nm::String =
-        h.fst
-      in
-      let dim::String =
-        toString(h.snd)
-      in
-      s"unsigned long ${var}_dimensions = ${nm}.dims[${dim}];"
-      ++
-      "\n"
-      ++
-      implode("\n",
-        map(
-          \ p::Pair<String Integer> ->
-            s"if(${nm}.dims[${dim}] != ${p.fst}.dims[${toString(p.snd)}]) {"
-            ++
-            "\n"
-            ++
-            s"  fprintf(stderr, \"Tensor ${nm} and ${p.fst} do not have the same dimensionality for ${var}.\\n\");"
-            ++
-            "\n"
-            ++
-            "  error = 1;"
-            ++
-            "\n"
-            ++
-            "}"
-          ,
-          tail(acc)
-        )
-      )
-      end
-      end
-      end;
-}
-
-function checkFormats
-String ::= fmt::String tensors::[TensorExpr]
-{
-  return
-    case tensors of
-    | [] -> "1"
-    | x::[] -> s"strcmp(${x.tensorName}.form, \"${fmt}\") != 0"
-    | x::tl -> s"strcmp(${x.tensorName}.form, \"${fmt}\") != 0 || ${checkFormats(fmt, tl)}"
-    end;
-}
-
-function setFormats
-String ::= fmt::String tensors::[TensorExpr]
-{
-  return
-    if null(tensors)
-    then ""
-    else
-      let x::TensorExpr =
-        head(tensors)
-      in
-      s"${x.tensorName}.form = \"${fmt}\";"
-      ++
-      "\n"
-      ++
-      setFormats(fmt, tail(tensors))
-      end;
 }

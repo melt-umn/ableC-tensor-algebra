@@ -146,6 +146,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
             _idx[__d] = __idx[__d];
           }
           pthread_rwlock_wrlock(&(_tensor->lock));
+          __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
           double* res = $name{s"tensor_getPointer_locked_${fmtNm}"}(_tensor, _idx);
           $Expr{op(ableC_Expr{*res}, right, top.location)};
           pthread_rwlock_unlock(&(_tensor->lock));
@@ -166,6 +167,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
           struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
           unsigned long __index[$intLiteralExpr{fmt.dimensions}] = $Initializer{idxInit};
           pthread_rwlock_wrlock(&(_tensor->lock));
+          __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
           double* res = $name{s"tensor_getPointer_locked_${fmtNm}"}(_tensor, __index);
           $Expr{op(ableC_Expr{*res}, right, top.location)};
           pthread_rwlock_unlock(&(_tensor->lock));

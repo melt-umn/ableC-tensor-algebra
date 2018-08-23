@@ -1004,7 +1004,8 @@ Stmt ::=
       \ inn::Stmt pr::Pair<String Integer> ->
         ableC_Stmt {
           if($name{nm}.dims[$intLiteralExpr{h.snd}] != $name{pr.fst}.dims[$intLiteralExpr{pr.snd}]) {
-            fprintf(stderr, $stringLiteralExpr{s"Tensor ${nm} and ${pr.fst} do not have the same dimensionality for ${var}.\n"});
+            fprintf(stderr, 
+              $stringLiteralExpr{let loc::Location = out.location in s"Tensor ${nm} and ${pr.fst} do not have the same dimensionality for ${var}. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
             error = 1;
           }
         }
@@ -1738,36 +1739,6 @@ Maybe<TensorExpr> ::=
       | tensorDiv(e, l, r, en) ->
         nothing()
       end;
-}
-
-function denseExprEval
-String ::= 
-  e::Maybe<TensorExpr> fmts::tm:Map<String TensorFormat> 
-  acc::tm:Map<String String>
-{
-  return
-    if e.isJust
-    then
-      case e.fromJust of
-      | tensorBaseExpr(_, _) ->
-        e.fromJust.exprName
-      | tensorAccess(_, _, _, _) ->
-        e.fromJust.tensorName ++ "_data[" ++
-        head(tm:lookup(e.fromJust.tensorName, acc)) ++ "]"
-      | tensorAdd(_, l, r, _) ->
-        "(" ++ denseExprEval(just(l), fmts, acc) ++ "+" ++
-        denseExprEval(just(r), fmts, acc) ++ ")"
-      | tensorSub(_, l, r, _) ->
-        "(" ++ denseExprEval(just(l), fmts, acc) ++ "-" ++
-        denseExprEval(just(r), fmts, acc) ++ ")"
-      | tensorMul(_, l, r, _) ->
-        "(" ++ denseExprEval(just(l), fmts, acc) ++ "*" ++
-        denseExprEval(just(r), fmts, acc) ++ ")"
-      | tensorDiv(_, l, r, _) ->
-        "(" ++ denseExprEval(just(l), fmts, acc) ++ "/" ++
-        denseExprEval(just(r), fmts, acc) ++ ")"
-      end
-    else "";
 }
 
 function denseEvalExpr

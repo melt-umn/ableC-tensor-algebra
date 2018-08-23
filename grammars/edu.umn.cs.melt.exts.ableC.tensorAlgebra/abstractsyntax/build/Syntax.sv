@@ -133,6 +133,7 @@ top::Expr ::= type::TypeName data::TensorConstant
         unsigned long __tensor_dims[] = $Initializer{data.tensor_dimExpr};
 
         struct $name{s"tensor_${fmtNm}"} _tensor = {0};
+        __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
         $name{s"tensor_makeFilled_${fmtNm}"}(&_tensor, __tensor_dims, __tensor_data);
         _tensor;
       })
