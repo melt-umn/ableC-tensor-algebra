@@ -384,8 +384,6 @@ top::IterStmt ::= output::Name expr::Expr
       tm:empty(compareString)
     );
 
-  exNew.accessOrder = access;
-
   local allDense::[Boolean] =
     map(
       \ fmt::TensorFormat ->
@@ -587,8 +585,6 @@ top::IterStmt ::= output::Name expr::Expr access::[String]
       ),
       tm:empty(compareString)
     );
-
-  exNew.accessOrder = access;
 
   local allDense :: [Boolean] =
     map(
@@ -1184,8 +1180,6 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
       tm:empty(compareString)
     );
 
-  exNew.accessOrder = access;
-
   local allDense::[Boolean] =
     map(
       \ fmt::TensorFormat ->
@@ -1514,8 +1508,6 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
       ),
       tm:empty(compareString)
     );
-
-  exNew.accessOrder = access;
 
   local allDense :: [Boolean] =
     map(

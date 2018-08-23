@@ -119,8 +119,6 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       tm:empty(compareString)
     );
 
-  exNew.accessOrder = access;
-
   local isTranspose :: Boolean =
     case order of
     | nothing() ->
@@ -598,8 +596,6 @@ top::Expr ::= output::Expr expr::Expr
       ),
       tm:empty(compareString)
     );
-
-  exNew.accessOrder = access;
 
   local lErrors::[Message] =
     case order of

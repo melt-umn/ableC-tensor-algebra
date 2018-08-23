@@ -727,9 +727,6 @@ Stmt ::=
     | _ -> nothing()
     end;
 
-  local next_sparse :: Maybe<Pair<String Integer>> =
-    assign.next_sparse;
-
   local topAll::Boolean =
     case c of
     | allCond(_) -> true

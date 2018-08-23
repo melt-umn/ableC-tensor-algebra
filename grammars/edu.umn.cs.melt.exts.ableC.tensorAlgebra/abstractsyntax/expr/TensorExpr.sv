@@ -21,9 +21,6 @@ synthesized attribute tensors :: [TensorExpr];
 synthesized attribute exprs :: [Expr];
 synthesized attribute envr :: Decorated Env;
 
--- The order of variables in the current computation
-autocopy attribute accessOrder :: [String];
-
 -- Used by foreach to determine how a dimension is accessed
 synthesized attribute iterAccess :: [Either<Expr String>];
 
@@ -37,18 +34,19 @@ synthesized attribute isAvail :: Boolean;
 autocopy attribute variable :: String;
 
 -- Various ways to determine if layers are dense or sparse.
--- Lists are mapped over the accessOrder.
+-- sparse(_r) and dense(_r) list all dimensions (tensor name and
+-- dimension number) for non _r, this is the dimension of access
+-- for _r this is the dimension in the index
 synthesized attribute sparse :: [Pair<String Integer>];
 synthesized attribute dense :: [Pair<String Integer>];
 synthesized attribute sparse_r :: [Pair<String Integer>];
 synthesized attribute dense_r :: [Pair<String Integer>];
-synthesized attribute next_sparse :: Maybe<Pair<String Integer>>;
 
 nonterminal TensorExpr with
   exprName, tensorName, accesses, envr, 
-  tensors, exprs, accessOrder, remaining, isAvail, 
+  tensors, exprs, remaining, isAvail, 
   variable, fmts, sparse, dense, sparse_r, dense_r,
-  iterAccess, next_sparse, location;
+  iterAccess, location;
 
 abstract production tensorBaseExpr
 top::TensorExpr ::= ex::Expr env::Decorated Env
@@ -70,7 +68,6 @@ top::TensorExpr ::= ex::Expr env::Decorated Env
   top.sparse_r = [];
   top.dense = [];
   top.dense_r = [];
-  top.next_sparse = nothing();
 }
 
 abstract production tensorAccess
@@ -170,18 +167,6 @@ top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
       if type == storeDense
       then [pair(top.tensorName, prs.fromJust.snd.fst)]
       else [];
-
-  top.next_sparse =
-    let dNext::Maybe<Pair<Integer Pair<Integer Integer>>> =
-      getElem(f.storage, dim+1)
-    in
-    if !dNext.isJust
-    then nothing()
-    else
-      if dNext.fromJust.snd.snd == storeSparse
-      then just(pair(top.tensorName, dim+1))
-      else nothing()
-    end;
 }
 
 abstract production tensorAdd
@@ -204,7 +189,6 @@ top::TensorExpr ::= l::TensorExpr r::TensorExpr env::Decorated Env
   top.sparse_r = l.sparse_r ++ r.sparse_r;
   top.dense = l.dense ++ r.dense;
   top.dense_r = l.dense_r ++ r.dense_r;
-  top.next_sparse = nothing();
 }
 
 abstract production tensorSub
@@ -227,7 +211,6 @@ top::TensorExpr ::= l::TensorExpr r::TensorExpr env::Decorated Env
   top.sparse_r = l.sparse_r ++ r.sparse_r;
   top.dense = l.dense ++ r.dense;
   top.dense_r = l.dense_r ++ r.dense_r;
-  top.next_sparse = nothing();
 }
 
 abstract production tensorMul
@@ -250,7 +233,6 @@ top::TensorExpr ::= l::TensorExpr r::TensorExpr env::Decorated Env
   top.sparse_r = l.sparse_r ++ r.sparse_r;
   top.dense = l.dense ++ r.dense;
   top.dense_r = l.dense_r ++ r.dense_r;
-  top.next_sparse = nothing();
 }
 
 abstract production tensorDiv
@@ -273,7 +255,6 @@ top::TensorExpr ::= l::TensorExpr r::TensorExpr env::Decorated Env
   top.sparse_r = l.sparse_r ++ r.sparse_r;
   top.dense = l.dense ++ r.dense;
   top.dense_r = l.dense_r ++ r.dense_r;
-  top.next_sparse = nothing();
 }
 
 abstract production nullTensorExpr
