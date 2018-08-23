@@ -189,10 +189,34 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
   fwrd.env = top.env;
   fwrd.returnType = top.returnType;
 
-  local sErrors :: [Message] =
+  local newEnv :: Decorated Env =
+    addEnv(
+      valueDef(var.name,
+        builtinValueItem(builtinType(nilQualifier(), realType(doubleType()))))
+      ::
+      maybeMap(
+        \ mb::Either<Expr String> ->
+          if mb.isLeft
+          then nothing()
+          else
+            just(
+              valueDef(mb.fromRight,
+                builtinValueItem(
+                  builtinType(nilQualifier(), unsignedType(longType()))))
+            )
+        ,
+        access
+      ),
+      top.env
+    );
+  body.env = newEnv;
+
+  local lErrors :: [Message] =
     checkTensorHeader(var.location, top.env)
     ++
     bounds.errors
+    ++
+    body.errors
     ++
     case moduleName(top.env, bounds.typerep) of
     | just(s) -> 
@@ -201,13 +225,6 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
       else [err(bounds.location, s"Tensor for-each loop expected a tensor access expression. Instead got ${showType(bounds.typerep)}.")]
     | _ -> [err(bounds.location, s"Tensor for-each loop expected a tensor access expression. Instead got ${showType(bounds.typerep)}.")]
     end;
-
-  local lErrors :: [Message] =
-    sErrors
-    ++
-    if null(sErrors)
-    then fwrd.errors
-    else [];
 
   forwards to
     if !null(lErrors)
