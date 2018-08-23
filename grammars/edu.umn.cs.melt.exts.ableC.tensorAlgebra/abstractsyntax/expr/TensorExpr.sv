@@ -48,6 +48,7 @@ nonterminal TensorExpr with
   variable, fmts, sparse, dense, sparse_r, dense_r,
   iterAccess, location;
 
+-- A TensorExpr that is simple an ableC Expr
 abstract production tensorBaseExpr
 top::TensorExpr ::= ex::Expr env::Decorated Env
 {
@@ -70,6 +71,7 @@ top::TensorExpr ::= ex::Expr env::Decorated Env
   top.dense_r = [];
 }
 
+-- Accessing a tensor
 abstract production tensorAccess
 top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
 {
@@ -85,8 +87,8 @@ top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
   top.tensorName = getTensorName(top);
 
   local access::[String] =
-    orderList(
-      getAccess(idx, env),
+    orderList( -- order access based on storage
+      getAccess(idx, env), -- list the vars
       map(
         \ p::Pair<Integer Pair<Integer Integer>>
         -> p.snd.fst

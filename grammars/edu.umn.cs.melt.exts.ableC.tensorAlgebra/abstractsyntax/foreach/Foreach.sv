@@ -182,7 +182,15 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
   local sErrors :: [Message] =
     checkTensorHeader(var.location, top.env)
     ++
-    bounds.errors;
+    bounds.errors
+    ++
+    case moduleName(top.env, bounds.typerep) of
+    | just(s) -> 
+      if s == "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"
+      then []
+      else [err(bounds.location, s"Tensor for-each loop expected a tensor access expression. Instead got ${showType(bounds.typerep)}.")]
+    | _ -> [err(bounds.location, s"Tensor for-each loop expected a tensor access expression. Instead got ${showType(bounds.typerep)}.")]
+    end;
 
   local lErrors :: [Message] =
     sErrors
