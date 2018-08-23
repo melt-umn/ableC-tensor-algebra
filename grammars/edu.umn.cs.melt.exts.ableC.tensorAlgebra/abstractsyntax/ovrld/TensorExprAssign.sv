@@ -121,15 +121,29 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
   exNew.accessOrder = access;
 
+  local isTranspose :: Boolean =
+    case order of
+    | nothing() ->
+      case ex, out of
+      | tensorAccess(_, _, _, _), tensorAccess(_, _, _, _) ->
+        true
+      | _, _ -> false
+      end
+    | _ -> false
+    end;
+
   local lErrors::[Message] =
     if invalidLeftVar
     then [err(top.location, s"Cannot generate code for this tensor expression because the variable(s) ${implode(", ", leftOnly)} only occur on the left-hand side.")]
     else []
     ++
-    case order of
-    | nothing() -> [err(top.location, "Cannot generate code for this tensor expression due to cyclical access patterns")]
-    | just(_) -> []
-    end;
+    if !isTranspose
+    then
+      case order of
+      | nothing() -> [err(top.location, "Cannot generate code for this tensor expression due to cyclical access patterns")]
+      | just(_) -> []
+      end
+    else [];
 
   local graph::ComputeGraph =
     computeGraph(
@@ -469,9 +483,19 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       map(\p::Pair<String String> -> p.fst, originalNames)
     );
 
-  forwards to
-    mkErrorCheck(
-      lErrors,
+  local fwrd :: Expr =
+    if isTranspose
+    then
+      stmtExpr(
+        lockOut(declTensor(tensorSub(
+          ableC_Stmt {
+            $Expr{transpose(outNew.tensorName, head(outNew.accesses), getTensorFormat(outNew, fmts), exNew.tensorName, head(exNew.accesses), getTensorFormat(exNew, fmts), location=top.location)};
+            $Stmt{setFormat}
+          }))),
+        ableC_Expr { $name{outNew.tensorName} },
+        location=top.location
+      )
+    else
       stmtExpr(
         lockOut(declTensor(packTensors(declExpr(tensorSub(tensorPrep(dimsCheck(
           assembleOut(outVal(comp(setFormat)))))))))),
@@ -479,7 +503,12 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           $name{outNew.tensorName}
         },
         location=top.location
-      )
+      );
+
+  forwards to
+    mkErrorCheck(
+      lErrors,
+      fwrd
     );
 }
 

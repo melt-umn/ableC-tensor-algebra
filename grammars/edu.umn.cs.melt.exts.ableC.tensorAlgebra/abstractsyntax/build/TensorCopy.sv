@@ -89,6 +89,8 @@ top::Expr ::= l::Expr r::Expr
           if($Expr{l}.indices) { $Expr{freeTensor(l, location=top.location)}; }
           // uses .indices as a check of whether things are initialized
 
+          __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
+
           memset(&$Expr{l}, 0, sizeof(struct $name{s"tensor_${formatL.proceduralName}"}));
           $name{s"tensor_make_${formatL.proceduralName}"}(&$Expr{l}, $Expr{r}.dims);
 
@@ -171,7 +173,6 @@ top::Expr ::= l::Expr r::Expr
               ableC_Stmt {
                 double v = data[$name{s"p${toString(formatL.dimensions)}"}];
                 if(v != 0) { // TODO: This is unsafe
-                  __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
                   *$name{s"tensor_getPointer_${formatL.proceduralName}"}(&$Expr{l}, __idx) = v;
                 }
               },
