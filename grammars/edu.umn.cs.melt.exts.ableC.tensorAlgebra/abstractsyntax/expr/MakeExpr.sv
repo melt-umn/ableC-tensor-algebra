@@ -2,12 +2,14 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:expr;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Helper functions for working with TensorExpr -}
+
 function getTensorName
 String ::= e::TensorExpr
 {
   return
     case e of
-    | tensorAccess(_, ex, _, _) -> 
+    | tensorAccess(ex, _, _) -> 
       case decorate ex with {env=e.envr; returnType=nothing();} of
       | declRefExpr(name(s)) -> s
       | _ -> s"_tensor_${toString(e.location.line)}_${toString(e.location.column)}"
@@ -21,7 +23,7 @@ TensorFormat ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
 {
   return
     case e of
-    | tensorAccess(_, ex, _, _) ->
+    | tensorAccess(ex, _, _) ->
       case decorate ex with {env=e.envr; returnType=nothing();}.typerep of
       | tensorType(_, f, _) -> new(f.tensorFormat)
       | _ -> 

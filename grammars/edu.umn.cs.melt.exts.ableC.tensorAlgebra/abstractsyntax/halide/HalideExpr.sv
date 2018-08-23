@@ -10,7 +10,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
   top.functionDefs := [];
 
   local out::TensorExpr =
-    tensorAccess(tensor, tensor, idx, top.env, location=tensor.location);
+    tensorAccess(tensor, idx, top.env, location=tensor.location);
   local ex::TensorExpr =
     value.tensorExp;
 
@@ -97,7 +97,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     maybeMap(
       \ e::TensorExpr ->
         case e of
-        | tensorAccess(_, ex, _, _) ->
+        | tensorAccess(ex, _, _) ->
           case decorate ex with {env=e.envr; returnType=nothing();} of
           | declRefExpr(name(_)) -> nothing()
           | _ ->
@@ -787,7 +787,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
     maybeMap(
       \ e::TensorExpr ->
         case e of
-        | tensorAccess(_, ex, _, _) ->
+        | tensorAccess(ex, _, _) ->
           case decorate ex with {env=e.envr; returnType=nothing();} of
           | declRefExpr(name(_)) -> nothing()
           | _ ->
@@ -1048,7 +1048,7 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
     ]);
     
   local out::TensorExpr =
-    tensorAccess(tensor, tensor, idx, top.env, location=tensor.location);
+    tensorAccess(tensor, idx, top.env, location=tensor.location);
   local ex::TensorExpr =
     value.tensorExp;
 
@@ -1381,7 +1381,7 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
     ]);
 
   local out::TensorExpr =
-    tensorAccess(tensor, tensor, idx, top.env, location=tensor.location);
+    tensorAccess(tensor, idx, top.env, location=tensor.location);
   local ex::TensorExpr =
     value.tensorExp;
 
@@ -1711,22 +1711,21 @@ Maybe<TensorExpr> ::=
       case ex of
       | tensorBaseExpr(_, _) ->
         just(ex)
-      | tensorAccess(_, _, _, en) ->
+      | tensorAccess( _, _, en) ->
         nothing()
-      | tensorAdd(_, l, r, en) ->
+      | tensorAdd(l, r, en) ->
         if l.isAvail
         then just(l)
         else if r.isAvail
         then just(r)
         else nothing()
-      | tensorSub(e, l, r, en) ->
+      | tensorSub(l, r, en) ->
         if l.isAvail
         then just(l)
         else if r.isAvail
         then
           just(
             tensorSub(
-              e,
               nullTensorExpr(en, location=ex.location),
               r,
               en,
@@ -1734,9 +1733,9 @@ Maybe<TensorExpr> ::=
             )
           )
         else nothing()
-      | tensorMul(e, l, r, en) ->
+      | tensorMul(l, r, en) ->
         nothing()
-      | tensorDiv(e, l, r, en) ->
+      | tensorDiv(l, r, en) ->
         nothing()
       end;
 }
@@ -1752,23 +1751,23 @@ Expr ::=
       ableC_Expr {
         $name{e.exprName}
       }
-    | tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _) ->
       ableC_Expr {
         $name{s"${e.tensorName}_data"}[$Expr{head(tm:lookup(e.tensorName, acc))}]
       }
-    | tensorAdd(_, l, r, _) ->
+    | tensorAdd(l, r, _) ->
       ableC_Expr {
         ( $Expr{denseEvalExpr(l, fmts, acc)} + $Expr{denseEvalExpr(r, fmts, acc)} )
       }
-    | tensorSub(_, l, r, _) ->
+    | tensorSub(l, r, _) ->
       ableC_Expr {
         ( $Expr{denseEvalExpr(l, fmts, acc)} - $Expr{denseEvalExpr(r, fmts, acc)} )
       }
-    | tensorMul(_, l, r, _) ->
+    | tensorMul(l, r, _) ->
       ableC_Expr {
         ( $Expr{denseEvalExpr(l, fmts, acc)} * $Expr{denseEvalExpr(r, fmts, acc)} )
       }
-    | tensorDiv(_, l, r, _) ->
+    | tensorDiv(l, r, _) ->
       ableC_Expr {
         ( $Expr{denseEvalExpr(l, fmts, acc)} / $Expr{denseEvalExpr(r, fmts, acc)} )
       }

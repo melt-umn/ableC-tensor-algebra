@@ -20,7 +20,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
   top.functionDefs := [];
 
   local out::TensorExpr =
-    tensorAccess(tns, tns, idx, top.env, location=tns.location);
+    tensorAccess(tns, idx, top.env, location=tns.location);
   local ex::TensorExpr =
     val.tensorExp;
 
@@ -251,7 +251,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
   top.functionDefs := [];
 
   local out::TensorExpr =
-    tensorAccess(tns, tns, idx, top.env, location=tns.location);
+    tensorAccess(tns, idx, top.env, location=tns.location);
   local ex::TensorExpr =
     val.tensorExp;
 

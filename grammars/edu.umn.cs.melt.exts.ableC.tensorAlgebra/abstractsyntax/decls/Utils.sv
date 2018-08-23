@@ -1,5 +1,7 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:decls;
 
+-- Check that a requested index (in the variable index) is valid in the
+-- tensor that has it's dimensions in the array dims.
 function indexCheckStmt
 Stmt ::= dims::Integer
 {
@@ -31,6 +33,8 @@ Stmt ::= dims::Integer idx::Integer
       };
 }
 
+-- Generate an array initializer for the values
+-- i1, i2, ...
 function generateIndexInitializer
 Initializer ::= size::Integer
 {
@@ -67,23 +71,10 @@ InitList ::= idx::Integer size::Integer
       );
 }
 
-function generateProductDims
-Expr ::= dims::Integer idx::Integer
-{
-  local index::String = toString(idx);
-  
-  return
-    if dims == idx
-    then 
-      ableC_Expr {
-        1
-      }
-    else 
-      ableC_Expr {
-        dims[$intLiteralExpr{idx}] * $Expr{generateProductDims(dims, idx+1)}
-      };
-}
-
+{- Generates code to free the indices of a tensor stored in the
+   specified format. This function assumes that the tensor is
+   pointed to by 't'
+-}
 function freeIndicesTPointer
 Stmt ::= fmt::TensorFormat
 {

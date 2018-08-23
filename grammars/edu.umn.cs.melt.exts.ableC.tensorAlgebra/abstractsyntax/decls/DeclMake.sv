@@ -2,6 +2,12 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:decls;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Here we declare the tensor_make function, which is responsible for
+   taking a pointer to an unitintialized tensor and filling in all
+   the necessary fields. The only complex portion of this is setting
+   up the indices in such a way that other functions accessing the 
+   tensor will not cause a segfault.
+-}
 function declMakeFunction
 Decl ::= fmt::TensorFormat
 {

@@ -44,12 +44,10 @@ static void __free_tensor_tree(struct __tensor_tree* t) {
   free(t);
 }
 
-template<a>
-a _read_rb(char* file) {
-  fprintf(stderr, "Read RB is not currently supported.\n");
-  exit(1);
-  a res;
-  return res;
+char* _get_extension(char* fileName) {
+  char* end = fileName + strlen(fileName) - 1; // last character
+  if(*end != '.') end--;
+  return end+1; // not the '.'
 }
 
 template<a>
@@ -283,14 +281,11 @@ a _read_tns(char* fileName) {
 }
 
 template<a>
-a read(char* fileName) {
-  int len = strlen(fileName);
-  char* ext = fileName + len - 3;
+a read_tensor(char* fileName) {
+  char* ext = _get_extension(fileName);
   
   a res;
-  if(strcmp(ext, "rb") == 0) {
-    res = inst _read_rb<a>(fileName);
-  } if(strcmp(ext, "mtx") == 0 || strcmp(ext, "ttx") == 0) {
+  if(strcmp(ext, "mtx") == 0 || strcmp(ext, "ttx") == 0) {
     res = inst _read_mtx<a>(fileName);
   } else if(strcmp(ext, "tns") == 0) {
     res = inst _read_tns<a>(fileName);

@@ -2,6 +2,13 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:decls;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Here we declare 3 functions, tensor_get returns the value
+   at a requested index, tensor_getPointer returns a pointer to
+   the data for a specific index (either in the data array or in
+   the buffer), and tensor_getPointer_locked does the same as 
+   tensor_getPointer, but does not request a read pointer, as it
+   is assumed the calling function already has.
+-}
 function declTensorGet
 Decl ::= fmt::TensorFormat
 {

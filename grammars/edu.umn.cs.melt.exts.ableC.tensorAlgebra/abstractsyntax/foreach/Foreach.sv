@@ -204,7 +204,7 @@ function tensorVals
 
   return
     case ex of
-    | tensorAccess(_, e, _, _) ->
+    | tensorAccess(e, _, _) ->
       case decorate e with {env=env; returnType=nothing();} of
       | declRefExpr(name(_)) -> nullStmt()
       | _ -> 

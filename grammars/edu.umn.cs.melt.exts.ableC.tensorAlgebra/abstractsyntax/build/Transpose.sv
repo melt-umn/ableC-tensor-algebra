@@ -1,7 +1,16 @@
+grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:build;
+
+{- Production for transposing a tensor. This is called by TensorExpreAssign,
+   the main code-generation production, in cases where both the left and 
+   right sides are simply tensor accesses, and an order for index variable
+   access cannot be produced. Transpose only works when both tensors are
+   of the same order.
+-}
 abstract production transpose
 top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
               rNm::String rAcc::[String] rFmt::TensorFormat
 {
+  -- Test if either side has variables not on the other
   local missing :: [String] =
     filter(
       \ v::String -> !containsBy(stringEq, v, rAcc),
@@ -13,7 +22,6 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
       rAcc
     );
 
-  -- lNum
   local mapping :: [Integer] =
     map(
       \ v::String ->
@@ -22,7 +30,8 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
       rAcc
     );
 
-  -- pair( rNum , lPos ), pair( rPos, rSpc )
+  -- Pairs used to access the right hand side tensor in proper order and
+  -- then correspond the index to the correct index in on the left-hand side
   local access:: [Pair< Pair<Integer Integer> Pair<Integer Integer> >] =
     zipWith(
       \ r::Pair<Integer Pair<Integer Integer>> lNum :: Integer ->

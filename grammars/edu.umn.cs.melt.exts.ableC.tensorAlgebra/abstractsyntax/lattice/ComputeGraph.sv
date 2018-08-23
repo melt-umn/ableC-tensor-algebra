@@ -314,7 +314,7 @@ function listSubs_helper
     then [pair(s"t${var}${if idx == 0 then "" else toString(idx)}", e)]
     else
       case e of
-      | tensorAdd(_, l, r, _) ->
+      | tensorAdd(l, r, _) ->
         let sbsL::[Pair<String TensorExpr>] = 
           listSubs_helper(l, var, remain, idx, fmts)
         in
@@ -324,7 +324,7 @@ function listSubs_helper
         sbsL ++ sbsR
         end
         end
-      | tensorSub(_, l, r, _) ->
+      | tensorSub(l, r, _) ->
         let sbsL::[Pair<String TensorExpr>] =
           listSubs_helper(l, var, remain, idx, fmts)
         in
@@ -334,7 +334,7 @@ function listSubs_helper
         sbsL ++ sbsR
         end
         end
-      | tensorMul(_, l, r, _) ->
+      | tensorMul(l, r, _) ->
         let sbsL::[Pair<String TensorExpr>] =
           listSubs_helper(l, var, remain, idx, fmts)
         in
@@ -344,7 +344,7 @@ function listSubs_helper
         sbsL ++ sbsR
         end
         end
-      | tensorDiv(_, l, r, _) ->
+      | tensorDiv(l, r, _) ->
         let sbsL::[Pair<String TensorExpr>] =
           listSubs_helper(l, var, remain, idx, fmts)
         in
@@ -390,7 +390,7 @@ Pair<TensorExpr Integer> ::=
       )
     else
       case e of
-      | tensorAdd(ex, l, r, en) ->
+      | tensorAdd(l, r, en) ->
         if l.isAvail && isBelowOut
         then pair(r, idx+1)
         else if r.isAvail && isBelowOut
@@ -401,10 +401,10 @@ Pair<TensorExpr Integer> ::=
           in let sR::Pair<TensorExpr Integer> =
             makeSubs_helper(r, var, remain, isBelowOut, sL.snd, fmts)
           in
-          pair(tensorAdd(ex, sL.fst, sR.fst, en, location=e.location), sR.snd)
+          pair(tensorAdd(sL.fst, sR.fst, en, location=e.location), sR.snd)
           end
           end
-      | tensorSub(ex, l, r, en) ->
+      | tensorSub(l, r, en) ->
         if l.isAvail && isBelowOut
         then pair(r, idx+1)
         else if r.isAvail && isBelowOut
@@ -415,25 +415,25 @@ Pair<TensorExpr Integer> ::=
           in let sR::Pair<TensorExpr Integer> =
             makeSubs_helper(r, var, remain, isBelowOut, sL.snd, fmts)
           in
-          pair(tensorSub(ex, sL.fst, sR.fst, en, location=e.location), sR.snd)
+          pair(tensorSub(sL.fst, sR.fst, en, location=e.location), sR.snd)
           end
           end
-      | tensorMul(ex, l, r, en) ->
+      | tensorMul(l, r, en) ->
         let sL::Pair<TensorExpr Integer> =
           makeSubs_helper(l, var, remain, false, idx, fmts)
         in let sR::Pair<TensorExpr Integer> =
           makeSubs_helper(r, var, remain, false, sL.snd, fmts)
         in
-        pair(tensorMul(ex, sL.fst, sR.fst, en, location=e.location), sR.snd)
+        pair(tensorMul(sL.fst, sR.fst, en, location=e.location), sR.snd)
         end
         end
-      | tensorDiv(ex, l, r, en) ->
+      | tensorDiv(l, r, en) ->
         let sL::Pair<TensorExpr Integer> =
           makeSubs_helper(l, var, remain, false, idx, fmts)
         in let sR::Pair<TensorExpr Integer> = 
           makeSubs_helper(r, var, remain, false, sL.snd, fmts)
         in
-        pair(tensorDiv(ex, sL.fst, sR.fst, en, location=e.location), sR.snd)
+        pair(tensorDiv(sL.fst, sR.fst, en, location=e.location), sR.snd)
         end
         end
       | _ -> pair(e, idx)
@@ -458,24 +458,24 @@ Expr ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
   return
     case e of
     | tensorBaseExpr(_, _) -> ableC_Expr{$name{e.exprName}}
-    | tensorAccess(_, _, _, _) -> 
+    | tensorAccess(_, _, _) -> 
       ableC_Expr {
         $name{s"${e.tensorName}_data"}
           [$name{s"p${e.tensorName}${toString(listLength(head(e.accesses)))}"}]
       }
-    | tensorAdd(_, l, r, _) -> 
+    | tensorAdd(l, r, _) -> 
       ableC_Expr {
         ( $Expr{evalExpr(l, fmts)} + $Expr{evalExpr(r, fmts)} )
       }
-    | tensorSub(_, l, r, _) -> 
+    | tensorSub(l, r, _) -> 
       ableC_Expr {
         ( $Expr{evalExpr(l, fmts)} - $Expr{evalExpr(r, fmts)} )
       }
-    | tensorMul(_, l, r, _) -> 
+    | tensorMul(l, r, _) -> 
       ableC_Expr {
         ( $Expr{evalExpr(l, fmts)} * $Expr{evalExpr(r, fmts)} )
       }
-    | tensorDiv(_, l, r, _) -> 
+    | tensorDiv(l, r, _) -> 
       ableC_Expr {
         ( $Expr{evalExpr(l, fmts)} / $Expr{evalExpr(r, fmts)} )
       }
@@ -494,7 +494,7 @@ Expr ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
       | declRefExpr(nm) -> ableC_Expr{$name{nm.name}}
       | _ -> ableC_Expr{$name{"__error"}}
       end
-    | tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _) ->
       ableC_Expr {
         $name{s"${e.tensorName}_data"}
           [$name{s"p${e.tensorName}${toString(listLength(head(e.accesses)))}"}]
@@ -661,7 +661,7 @@ Stmt ::=
 
   local below::Boolean =
     case assign of
-    | tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _) ->
       let acc::[String] =
         head(assign.accesses)
       in
@@ -676,7 +676,7 @@ Stmt ::=
 
   local output::Boolean =
     case assign of
-    | tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _) ->
       let acc::[String] =
         head(assign.accesses)
       in
@@ -703,7 +703,7 @@ Stmt ::=
 
   local outSparse::Maybe<Pair<String Integer>> =
     case assign of
-    | tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _) ->
       let lst::[Pair<String Integer>] =
         assign.sparse
       in
@@ -716,7 +716,7 @@ Stmt ::=
 
   local outDense::Maybe<Pair<String Integer>> =
     case assign of
-    | tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _) ->
       let lst::[Pair<String Integer>] =
         assign.dense
       in
@@ -1153,7 +1153,7 @@ Stmt ::=
 
   local below::Boolean =
     case assign of
-    | tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _) ->
       let acc::[String] =
         head(assign.accesses)
       in
@@ -1168,7 +1168,7 @@ Stmt ::=
 
   local output::Boolean =
     case assign of
-    | tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _) ->
       let acc::[String] =
         head(assign.accesses)
       in
@@ -1189,7 +1189,7 @@ Stmt ::=
 
   local doesOut::Boolean =
     case assign of
-    | tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _) ->
       !null(assign.dense ++ assign.sparse)
     | _ -> false
     end;
@@ -1202,7 +1202,7 @@ Stmt ::=
 
   local outSparse::Maybe<Pair<String Integer>> =
     case assign of
-    | tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _) ->
       let lst::[Pair<String Integer>] =
         assign.sparse
       in
@@ -1215,7 +1215,7 @@ Stmt ::=
 
   local outDense::Maybe<Pair<String Integer>> =
     case assign of
-    | tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _) ->
       let lst::[Pair<String Integer>] =
         assign.dense
       in
@@ -1471,7 +1471,7 @@ Pair<TensorExpr Integer> ::=
       case ex of
       | tensorBaseExpr(_, _) ->
         pair(ex, idx)
-      | tensorAccess(_, _, _, en) ->
+      | tensorAccess(_, _, en) ->
         pair(
           tensorBaseExpr(
             declRefExpr(
@@ -1484,25 +1484,25 @@ Pair<TensorExpr Integer> ::=
           ,
           idx+1
         )
-      | tensorAdd(ex, l, r, en) ->
+      | tensorAdd(l, r, en) ->
         reduceDeeper_function(
-          tensorAdd(_, _, _, _, location=_), var, remain, 
-          idx, ex, en, l, r, fmts, true
+          tensorAdd(_, _, _, location=_), var, remain, 
+          idx, en, l, r, fmts, true
         )
-      | tensorSub(ex, l, r, en) ->
+      | tensorSub(l, r, en) ->
         reduceDeeper_function(
-          tensorSub(_, _, _, _, location=_), var, remain,
-          idx, ex, en, l, r, fmts, true
+          tensorSub(_, _, _, location=_), var, remain,
+          idx, en, l, r, fmts, true
         )
-      | tensorMul(ex, l, r, en) ->
+      | tensorMul(l, r, en) ->
         reduceDeeper_function(
-          tensorMul(_, _, _, _, location=_), var, remain, 
-          idx, ex, en, l, r, fmts, false
+          tensorMul(_, _, _, location=_), var, remain, 
+          idx, en, l, r, fmts, false
         )
-      | tensorDiv(ex, l, r, en) ->
+      | tensorDiv(l, r, en) ->
         reduceDeeper_function(
-          tensorDiv(_, _, _, _, location=_), var, remain,
-          idx, ex, en, l, r, fmts, false
+          tensorDiv(_, _, _, location=_), var, remain,
+          idx, en, l, r, fmts, false
         )
       end;
 }
@@ -1522,34 +1522,34 @@ Pair<[Pair<String TensorExpr>] Integer> ::=
       case ex of
       | tensorBaseExpr(_, _) ->
         pair([], idx)
-      | tensorAccess(_, _, _, en) ->
+      | tensorAccess(_, _, en) ->
         pair(
           [pair(s"t${head(remain)}${toString(idx)}", ex)],
           idx+1
         )
-      | tensorAdd(ep, l, r, en) ->
+      | tensorAdd(l, r, en) ->
         list_reduceDeeper_function(
-          remain, idx, ep, en, l, r, ex, fmts, true
+          remain, idx, en, l, r, ex, fmts, true
         )
-      | tensorSub(ep, l, r, en) ->
+      | tensorSub(l, r, en) ->
         list_reduceDeeper_function(
-          remain, idx, ep, en, l, r, ex, fmts, true
+          remain, idx, en, l, r, ex, fmts, true
         )
-      | tensorMul(ep, l, r, en) ->
+      | tensorMul(l, r, en) ->
         list_reduceDeeper_function(
-          remain, idx, ep, en, l, r, ex, fmts, false
+          remain, idx, en, l, r, ex, fmts, false
         )
-      | tensorDiv(ep, l, r, en) ->
+      | tensorDiv(l, r, en) ->
         list_reduceDeeper_function(
-          remain, idx, ep, en, l, r, ex, fmts, false
+          remain, idx, en, l, r, ex, fmts, false
         )
       end;
 }
 
 function reduceDeeper_function
 Pair<TensorExpr Integer> ::= 
-  prod::(TensorExpr ::= Expr TensorExpr TensorExpr Decorated Env Location)
-  var::String remain::[String] idx::Integer ex::Expr en::Decorated Env
+  prod::(TensorExpr ::= TensorExpr TensorExpr Decorated Env Location)
+  var::String remain::[String] idx::Integer en::Decorated Env
   l::TensorExpr r::TensorExpr fmts::tm:Map<String TensorFormat>
   addSub::Boolean
 {
@@ -1570,7 +1570,7 @@ Pair<TensorExpr Integer> ::=
           reduceDeeper_helper(r, var, remain, lSub.snd, fmts)
         in
         pair(
-          prod(ex, lSub.fst, rSub.fst, en, ex.location),
+          prod(lSub.fst, rSub.fst, en, l.location),
           rSub.snd
         )
         end
@@ -1586,18 +1586,18 @@ Pair<TensorExpr Integer> ::=
               declRefExpr(
                 name(
                   s"t${head(remain)}${toString(lSub.snd)}",
-                  location=ex.location
+                  location=l.location
                 ),
-                location=ex.location
+                location=l.location
               ),
               en,
-              location=ex.location
+              location=l.location
             ),
             lSub.snd+1
           )
         in
         pair(
-          prod(ex, lSub.fst, rSub.fst, en, ex.location),
+          prod(lSub.fst, rSub.fst, en, l.location),
           rSub.snd
         )
         end
@@ -1610,12 +1610,12 @@ Pair<TensorExpr Integer> ::=
               declRefExpr(
                 name(
                   s"t${head(remain)}${toString(idx)}",
-                  location=ex.location
+                  location=l.location
                 ),
-                location=ex.location
+                location=l.location
               ),
               en,
-              location=ex.location
+              location=l.location
             ),
             idx+1
           )
@@ -1624,7 +1624,7 @@ Pair<TensorExpr Integer> ::=
           reduceDeeper_helper(r, var, remain, lSub.snd, fmts)
         in
         pair(
-          prod(ex, lSub.fst, rSub.fst, en, ex.location),
+          prod(lSub.fst, rSub.fst, en, l.location),
           rSub.snd
         )
         end
@@ -1635,12 +1635,12 @@ Pair<TensorExpr Integer> ::=
             declRefExpr(
               name(
                 s"t${head(remain)}${toString(idx)}",
-                location=ex.location
+                location=l.location
               ),
-              location=ex.location
+              location=l.location
             ),
             en,
-            location=ex.location
+            location=l.location
           )
           ,
           idx+1
@@ -1653,12 +1653,12 @@ Pair<TensorExpr Integer> ::=
             declRefExpr(
               name(
                 s"t${head(remain)}${toString(idx)}",
-                location=ex.location
+                location=l.location
               ),
-              location=ex.location
+              location=l.location
             ),
             en,
-            location=ex.location
+            location=l.location
           ),
           idx+1
         )
@@ -1668,7 +1668,7 @@ Pair<TensorExpr Integer> ::=
           reduceDeeper_helper(r, var, remain, idx, fmts)
         in
         pair(
-          prod(ex, l, rSub.fst, en, ex.location),
+          prod(l, rSub.fst, en, l.location),
           rSub.snd
         )
         end
@@ -1679,12 +1679,12 @@ Pair<TensorExpr Integer> ::=
             declRefExpr(
               name(
                 s"t${head(remain)}${toString(idx)}",
-                location=ex.location
+                location=l.location
               ),
-              location=ex.location
+              location=l.location
             ),
             en,
-            location=ex.location
+            location=l.location
           ),
           idx+1
         )
@@ -1694,7 +1694,7 @@ Pair<TensorExpr Integer> ::=
           reduceDeeper_helper(l, var, remain, idx, fmts)
         in
         pair(
-          prod(ex, lSub.fst, r, en, ex.location),
+          prod(lSub.fst, r, en, l.location),
           lSub.snd
         )
         end
@@ -1704,12 +1704,12 @@ Pair<TensorExpr Integer> ::=
             declRefExpr(
               name(
                 s"t${head(remain)}${toString(idx)}",
-                location=ex.location
+                location=l.location
               ),
-              location=ex.location
+              location=l.location
             ),
             en,
-            location=ex.location
+            location=l.location
           ),
           idx+1
         );
@@ -1717,7 +1717,7 @@ Pair<TensorExpr Integer> ::=
 
 function list_reduceDeeper_function
 Pair<[Pair<String TensorExpr>] Integer> ::= 
-  remain::[String] idx::Integer ex::Expr
+  remain::[String] idx::Integer
   env::Decorated Env l::TensorExpr r::TensorExpr
   expr::TensorExpr fmts::tm:Map<String TensorFormat>
   addSub::Boolean
@@ -1835,13 +1835,13 @@ Boolean ::= ex::TensorExpr remain::[String] fmts::tm:Map<String TensorFormat>
     ex.isAvail
     ||
     case ex of
-    | tensorAdd(_, l, r, _) ->
+    | tensorAdd(l, r, _) ->
       anyAvail(l, remain, fmts) || anyAvail(r, remain, fmts)
-    | tensorSub(_, l, r, _) ->
+    | tensorSub(l, r, _) ->
       anyAvail(l, remain, fmts) || anyAvail(r, remain, fmts)
-    | tensorMul(_, l, r, _) ->
+    | tensorMul(l, r, _) ->
       anyAvail(l, remain, fmts) || anyAvail(r, remain, fmts)
-    | tensorDiv(_, l, r, _) ->
+    | tensorDiv(l, r, _) ->
       anyAvail(l, remain, fmts) || anyAvail(r, remain, fmts)
     | _ -> false
     end;
@@ -1856,20 +1856,20 @@ Boolean ::= top::TensorExpr pc::TensorExpr fmts::tm:Map<String TensorFormat>
     else 
       case top of
       | tensorBaseExpr(_, _) -> false
-      | tensorAccess(_, _, _, _) -> false
-      | tensorAdd(_, l, r, _) ->
+      | tensorAccess(_, _, _) -> false
+      | tensorAdd(l, r, _) ->
         exprContained(l, pc, fmts) 
         ||
         exprContained(r, pc, fmts)
-      | tensorSub(_, l, r, _) ->
+      | tensorSub(l, r, _) ->
         exprContained(l, pc, fmts)
         ||
         exprContained(r, pc, fmts)
-      | tensorMul(_, l, r, _) ->
+      | tensorMul(l, r, _) ->
         exprContained(l, pc, fmts)
         ||
         exprContained(r, pc, fmts)
-      | tensorDiv(_, l, r, _) ->
+      | tensorDiv(l, r, _) ->
         exprContained(l, pc, fmts)
         ||
         exprContained(r, pc, fmts)
@@ -1882,50 +1882,50 @@ function exprCanZero
   return
     case ex of
     | tensorBaseExpr(_, _) -> [ex]
-    | tensorAccess(_, _, _, _) -> [ex]
-    | tensorAdd(e, l, r, n) ->
+    | tensorAccess(_, _, _) -> [ex]
+    | tensorAdd(l, r, n) ->
       ex :: exprCanZero(l) ++ exprCanZero(r)
       ++
       flatMap(
         \ eL::TensorExpr ->
           map(
             \ eR::TensorExpr ->
-              tensorAdd(e, eL, eR, n, location=ex.location)
+              tensorAdd(eL, eR, n, location=ex.location)
             ,
             exprCanZero(r)
           ),
         exprCanZero(l)
       )
-    | tensorSub(e, l, r, n) ->
+    | tensorSub(l, r, n) ->
       ex :: exprCanZero(l) ++ exprCanZero(r)
       ++
       flatMap(
         \ eL::TensorExpr ->
           map(
             \ eR::TensorExpr ->
-              tensorSub(e, eL, eR, n, location=ex.location)
+              tensorSub(eL, eR, n, location=ex.location)
             ,
             exprCanZero(r)
           ),
         exprCanZero(l)
       )
-    | tensorMul(e, l, r, n) ->
+    | tensorMul(l, r, n) ->
       flatMap(
         \ eL::TensorExpr ->
           map(
             \ eR::TensorExpr ->
-              tensorMul(e, eL, eR, n, location=ex.location)
+              tensorMul(eL, eR, n, location=ex.location)
             ,
             exprCanZero(r)
           ),
         exprCanZero(l)
       )
-    | tensorDiv(e, l, r, n) ->
+    | tensorDiv(l, r, n) ->
       flatMap(
         \ eL::TensorExpr ->
           map(
             \ eR::TensorExpr ->
-              tensorDiv(e, eL, eR, n, location=ex.location)
+              tensorDiv(eL, eR, n, location=ex.location)
             ,
             exprCanZero(r)
           ),
@@ -1944,23 +1944,23 @@ Boolean ::= a::TensorExpr b::TensorExpr fmts::tm:Map<String TensorFormat>
     case a, b of
     | tensorBaseExpr(e1, _), tensorBaseExpr(e2, _) ->
       a.exprName == b.exprName
-    | tensorAccess(_, _, _, _), tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _), tensorAccess(_, _, _) ->
       a.tensorName == b.tensorName
       &&
       lstEqual(head(a.accesses), head(b.accesses))
-    | tensorAdd(_, l1, r1, _), tensorAdd(_, l2, r2, _) ->
+    | tensorAdd(l1, r1, _), tensorAdd(l2, r2, _) ->
       exprEqual(l1, l2, fmts)
       &&
       exprEqual(r1, r2, fmts)
-    | tensorSub(_, l1, r1, _), tensorSub(_, l2, r2, _) ->
+    | tensorSub(l1, r1, _), tensorSub(l2, r2, _) ->
       exprEqual(l1, l2, fmts)
       &&
       exprEqual(r1, r2, fmts)
-    | tensorMul(_, l1, r1, _), tensorMul(_, l2, r2, _) ->
+    | tensorMul(l1, r1, _), tensorMul(l2, r2, _) ->
       exprEqual(l1, l2, fmts)
       && 
       exprEqual(r1, r2, fmts)
-    | tensorDiv(_, l1, r1, _), tensorDiv(_, l2, r2, _) ->
+    | tensorDiv(l1, r1, _), tensorDiv(l2, r2, _) ->
       exprEqual(l1, l2, fmts)
       &&
       exprEqual(r1, r2, fmts)
@@ -2018,34 +2018,30 @@ TensorExpr ::=
     else
       case ex of
       | tensorBaseExpr(_, _) -> ex
-      | tensorAccess(_, _, _, _) -> ex
-      | tensorAdd(e, l, r, n) ->
+      | tensorAccess(_, _, _) -> ex
+      | tensorAdd(l, r, n) ->
         tensorAdd(
-          e,
           performSub_helper(l, sb, fmts),
           performSub_helper(r, sb, fmts),
           n,
           location=ex.location
         )
-      | tensorSub(e, l, r, n) ->
+      | tensorSub(l, r, n) ->
         tensorSub(
-          e,
           performSub_helper(l, sb, fmts),
           performSub_helper(r, sb, fmts),
           n,
           location=ex.location
         )
-      | tensorMul(e, l, r, n) ->
+      | tensorMul(l, r, n) ->
         tensorMul(
-          e,
           performSub_helper(l, sb, fmts),
           performSub_helper(r, sb, fmts),
           n,
           location=ex.location
         )
-      | tensorDiv(e, l, r, n) ->
+      | tensorDiv(l, r, n) ->
         tensorDiv(
-          e,
           performSub_helper(l, sb, fmts),
           performSub_helper(r, sb, fmts),
           n,

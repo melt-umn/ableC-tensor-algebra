@@ -29,7 +29,7 @@ LatticePoint ::=
   return
     case value of
     | tensorBaseExpr(_, _) -> latticePoint([], value, allCond(var))
-    | tensorAccess(_, _, _, _) -> 
+    | tensorAccess(_, _, _) -> 
       let i::Integer =
         positionOf(stringEq, var, head(value.accesses))
       in
@@ -41,7 +41,7 @@ LatticePoint ::=
       else latticePoint([], value, accessCond(value.tensorName, i, var, f))
       end
       end
-    | tensorAdd(_, l, r, _) ->
+    | tensorAdd(l, r, _) ->
       let lP::LatticePoint =
         lattice_points(assign, fmts, l, var, loc, env, loop)
       in let rP::LatticePoint =
@@ -67,7 +67,7 @@ LatticePoint ::=
       end
       end
       end
-    | tensorSub(_, l, r, _) -> 
+    | tensorSub(l, r, _) -> 
       let lP::LatticePoint =
         lattice_points(assign, fmts, l, var, loc, env, loop)
       in let rP::LatticePoint =
@@ -93,7 +93,7 @@ LatticePoint ::=
       end
       end
       end
-    | tensorMul(_, l, r, _) -> 
+    | tensorMul(l, r, _) -> 
       let lP::LatticePoint =
         lattice_points(assign, fmts, l, var, loc, env, loop)
       in let rP::LatticePoint =
@@ -109,7 +109,7 @@ LatticePoint ::=
         value, condAnd(lP.cond, rP.cond, loop))
       end
       end
-    | tensorDiv(_, l, r, _) ->
+    | tensorDiv(l, r, _) ->
       let lP::LatticePoint =
         lattice_points(assign, fmts, l, var, loc, env, loop)
       in let rP::LatticePoint =
@@ -148,7 +148,7 @@ LatticePoint ::=
         ) ::
         map(pointAdd(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts)
         ,
-        tensorAdd(addExpr(pnt.value.tensorExpr, expr.tensorExpr, location=loc), pnt.value, expr, env, location=loc),
+        tensorAdd(pnt.value, expr, env, location=loc),
         condOr(pnt.cond, generateCond(expr, var, loc, fmts, loop), loop)
       )
     | 1 -> -- expr is on the left
@@ -164,7 +164,7 @@ LatticePoint ::=
         ) ::
         map(pointAdd(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts)
         ,
-        tensorAdd(addExpr(expr.tensorExpr, pnt.value.tensorExpr, location=loc), expr, pnt.value, env, location=loc),
+        tensorAdd(expr, pnt.value, env, location=loc),
         condOr(generateCond(expr, var, loc, fmts, loop), pnt.cond, loop)
       )
     end;
@@ -190,7 +190,7 @@ LatticePoint ::=
         ) ::
         map(pointSub(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts)
         ,
-        tensorSub(subExpr(pnt.value.tensorExpr, expr.tensorExpr, location=loc), pnt.value, expr, env, location=loc),
+        tensorSub(pnt.value, expr, env, location=loc),
         condOr(pnt.cond, generateCond(expr, var, loc, fmts, loop), loop)
       )
     | 1 -> -- expr is on the left
@@ -206,7 +206,7 @@ LatticePoint ::=
         ) ::
         map(pointSub(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts)
         ,
-        tensorSub(subExpr(expr.tensorExpr, pnt.value.tensorExpr, location=loc), expr, pnt.value, env, location=loc),
+        tensorSub(expr, pnt.value, env, location=loc),
         condOr(generateCond(expr, var, loc, fmts, loop), pnt.cond, loop)
       )
     end;
@@ -222,13 +222,13 @@ LatticePoint ::=
     | 0 -> -- expr is on the right
       latticePoint(
         map(pointMul(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts),
-        tensorMul(mulExpr(pnt.value.tensorExpr, expr.tensorExpr, location=loc), pnt.value, expr, env, location=loc),
+        tensorMul(pnt.value, expr, env, location=loc),
         condAnd(pnt.cond, generateCond(expr, var, loc, fmts, loop), loop)
       )
     | 1 -> -- expr is on the left
       latticePoint(
         map(pointMul(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts),
-        tensorMul(mulExpr(expr.tensorExpr, pnt.value.tensorExpr, location=loc), expr, pnt.value, env, location=loc),
+        tensorMul(expr, pnt.value, env, location=loc),
         condAnd(generateCond(expr, var, loc, fmts, loop), pnt.cond, loop)
       )
     end;
@@ -244,13 +244,13 @@ LatticePoint ::=
     | 0 -> -- expr is on the right
       latticePoint(
         map(pointDiv(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts),
-        tensorDiv(divExpr(pnt.value.tensorExpr, expr.tensorExpr, location=loc), pnt.value, expr, env, location=loc),
+        tensorDiv(pnt.value, expr, env, location=loc),
         condAnd(pnt.cond, generateCond(expr, var, loc, fmts, loop), loop)
       )
     | 1 -> -- expr is on the left
       latticePoint(
         map(pointDiv(_, assign, fmts, expr, lc, var, loc, env, loop), pnt.pnts),
-        tensorDiv(divExpr(expr.tensorExpr, pnt.value.tensorExpr, location=loc), expr, pnt.value, env, location=loc),
+        tensorDiv(expr, pnt.value, env, location=loc),
         condAnd(generateCond(expr, var, loc, fmts, loop), pnt.cond, loop)
       )
     end;
@@ -265,7 +265,7 @@ TensorCond ::=
   return
     case expr of
     | tensorBaseExpr(_, _) -> allCond(var)
-    | tensorAccess(_, _, _, _) ->
+    | tensorAccess(_, _, _) ->
       let i::Integer = 
         positionOf(stringEq, var, head(expr.accesses))
       in
@@ -277,7 +277,7 @@ TensorCond ::=
       else accessCond(expr.tensorName, i, var, f)
       end
       end
-    | tensorAdd(_, l, r, _) ->
+    | tensorAdd(l, r, _) ->
       let lC::TensorCond =
         generateCond(l, var, loc, fmts, loop)
       in let rC::TensorCond =
@@ -286,7 +286,7 @@ TensorCond ::=
       condOr(lC, rC, loop)
       end
       end
-    | tensorSub(_, l, r, _) ->
+    | tensorSub(l, r, _) ->
       let lC::TensorCond =
         generateCond(l, var, loc, fmts, loop)
       in let rC::TensorCond =
@@ -295,7 +295,7 @@ TensorCond ::=
       condOr(lC, rC, loop)
       end
       end
-    | tensorMul(_, l, r, _) ->
+    | tensorMul(l, r, _) ->
       let lC::TensorCond =
         generateCond(l, var, loc, fmts, loop)
       in let rC::TensorCond =
@@ -304,7 +304,7 @@ TensorCond ::=
       condAnd(lC, rC, loop)
       end
       end
-    | tensorDiv(_, l, r, _) ->
+    | tensorDiv(l, r, _) ->
       let lC::TensorCond =
         generateCond(l, var, loc, fmts, loop)
       in let rC::TensorCond =

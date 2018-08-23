@@ -17,7 +17,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     ]);
   
   local out::TensorExpr =
-    tensorAccess(tensor, tensor, idx, top.env, location=top.location);
+    tensorAccess(tensor, idx, top.env, location=top.location);
   
   local ex::TensorExpr =
     right.tensorExp;
@@ -125,7 +125,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     case order of
     | nothing() ->
       case ex, out of
-      | tensorAccess(_, _, _, _), tensorAccess(_, _, _, _) ->
+      | tensorAccess(_, _, _), tensorAccess(_, _, _) ->
         true
       | _, _ -> false
       end
@@ -223,7 +223,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     maybeMap(
       \ t::TensorExpr ->
         case t of
-        | tensorAccess(_, ex, _, _) ->
+        | tensorAccess(ex, _, _) ->
           case decorate ex with{env=top.env; returnType=nothing();} of
           | declRefExpr(name(_)) -> nothing()
           | _ ->
@@ -668,7 +668,7 @@ top::Expr ::= output::Expr expr::Expr
     maybeMap(
       \ t::TensorExpr ->
         case t of
-        | tensorAccess(_, ex, _, _) ->
+        | tensorAccess(ex, _, _) ->
           case decorate ex with {env=top.env; returnType=nothing();} of
           | declRefExpr(name(_)) -> nothing()
           | _ ->

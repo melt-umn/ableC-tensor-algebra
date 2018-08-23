@@ -8,7 +8,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
   propagate substituted;
 
   top.tensorExp =
-    tensorAccess(top, tensor, idx, env, location=top.location);
+    tensorAccess(tensor, idx, env, location=top.location);
 
   local fmt::TensorFormat =
     case tensor.typerep of

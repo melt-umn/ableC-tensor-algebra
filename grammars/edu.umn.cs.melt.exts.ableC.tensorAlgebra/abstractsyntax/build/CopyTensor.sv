@@ -2,6 +2,13 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:build;
 
 imports edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Performs a deep copy of a tensor. Since we dynamically
+   allocate and free arrays (and the buffer), it is not safe to
+   make shallow copies of tensors, because the array that one
+   points to may be free'd by a function call to the other.
+   This production can also perform format changes for tensors.
+   This is not a thread-safe operation.
+-}
 abstract production tensorDeepCopy
 top::Expr ::= l::Expr r::Expr
 {
@@ -42,14 +49,12 @@ top::Expr ::= l::Expr r::Expr
     ++
     r.errors;
 
+  {- We only want to perform a deep copy if the right-hand side is a tensor,
+     not a function (or a build) that creates a tensor. Unfortunatly, there's
+     no perfect way to detect this, we we only deep copy for declRefExpr's 
+  -}
   local fwrd :: Expr =
     case r of
-    | build_empty(_, _) ->
-      eqExpr(l, r, location=top.location)
-    | build_data(_, _) -> 
-      eqExpr(l, r, location=top.location)
-    | buildTensorExpr(_, _) -> 
-      eqExpr(l, r, location=top.location)
     | declRefExpr(_) ->
       if formatL.proceduralName == formatR.proceduralName
       then

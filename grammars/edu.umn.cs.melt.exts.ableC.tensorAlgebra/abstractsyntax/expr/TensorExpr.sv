@@ -1,24 +1,43 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:expr;
 
-imports silver:langutil:pp;
-
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- A nonterminal representing an expression that can be used in a 
+   tensor expression.
+-}
+
+-- If this TensorExpr is just an Expr, a procedural name 
+-- based on location (prevents multiple calls to functions)
 synthesized attribute exprName :: String;
+
+-- The name of the tensor if this is a tensor access
 synthesized attribute tensorName :: String;
+
+-- The variables and needed order of all tensor accesses 
+-- in this TensorExpr
 synthesized attribute accesses :: [[String]];
-synthesized attribute tensorExpr :: Expr;
+
 synthesized attribute tensors :: [TensorExpr];
 synthesized attribute exprs :: [Expr];
 synthesized attribute envr :: Decorated Env;
 
+-- The order of variables in the current computation
 autocopy attribute accessOrder :: [String];
+
+-- Used by foreach to determine how a dimension is accessed
 synthesized attribute iterAccess :: [Either<Expr String>];
 
+-- Setting remaining and querying isAvail tells whether
+-- at the current position in the codegen a TensorExpr
+-- is available to calculate.
 autocopy attribute remaining :: [String];
 synthesized attribute isAvail :: Boolean;
 
+-- The variable that is currently used (being queried of)
 autocopy attribute variable :: String;
+
+-- Various ways to determine if layers are dense or sparse.
+-- Lists are mapped over the accessOrder.
 synthesized attribute sparse :: [Pair<String Integer>];
 synthesized attribute dense :: [Pair<String Integer>];
 synthesized attribute sparse_r :: [Pair<String Integer>];
@@ -26,7 +45,7 @@ synthesized attribute dense_r :: [Pair<String Integer>];
 synthesized attribute next_sparse :: Maybe<Pair<String Integer>>;
 
 nonterminal TensorExpr with
-  exprName, tensorName, accesses, tensorExpr, envr, 
+  exprName, tensorName, accesses, envr, 
   tensors, exprs, accessOrder, remaining, isAvail, 
   variable, fmts, sparse, dense, sparse_r, dense_r,
   iterAccess, next_sparse, location;
@@ -41,7 +60,6 @@ top::TensorExpr ::= ex::Expr env::Decorated Env
   top.exprName = getExprName(ex, env);
   top.exprs = [ex];
 
-  top.tensorExpr = ex;
   top.envr = env;
   
   top.tensors = [];
@@ -56,7 +74,7 @@ top::TensorExpr ::= ex::Expr env::Decorated Env
 }
 
 abstract production tensorAccess
-top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
+top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
 {
   tensor.env = env;
   tensor.returnType = nothing();
@@ -91,7 +109,6 @@ top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
       )
     );
 
-  top.tensorExpr = ex;
   top.envr = env;
   
   top.accesses = [access];
@@ -168,7 +185,7 @@ top::TensorExpr ::= ex::Expr tensor::Expr idx::Expr env::Decorated Env
 }
 
 abstract production tensorAdd
-top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
+top::TensorExpr ::= l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__none";
   top.accesses = l.accesses ++ r.accesses;
@@ -177,7 +194,6 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
   top.exprName = "__none";
   top.exprs = l.exprs ++ r.exprs;
 
-  top.tensorExpr = ex;
   top.envr = env;
 
   top.tensors = l.tensors ++ r.tensors;
@@ -192,7 +208,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 }
 
 abstract production tensorSub
-top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
+top::TensorExpr ::= l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__none";
   top.accesses = l.accesses ++ r.accesses;
@@ -201,7 +217,6 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
   top.exprName = "__none";
   top.exprs = l.exprs ++ r.exprs;
 
-  top.tensorExpr = ex;
   top.envr = env;
 
   top.tensors = l.tensors ++ r.tensors;
@@ -216,7 +231,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 }
 
 abstract production tensorMul
-top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
+top::TensorExpr ::= l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__none";
   top.accesses = l.accesses ++ r.accesses;
@@ -225,7 +240,6 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
   top.exprName = "__none";
   top.exprs = l.exprs ++ r.exprs;
 
-  top.tensorExpr = ex;
   top.envr = env;
 
   top.tensors = l.tensors ++ r.tensors;
@@ -240,7 +254,7 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
 }
 
 abstract production tensorDiv
-top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
+top::TensorExpr ::= l::TensorExpr r::TensorExpr env::Decorated Env
 {
   top.tensorName = "__none";
   top.accesses = l.accesses ++ r.accesses;
@@ -249,7 +263,6 @@ top::TensorExpr ::= ex::Expr l::TensorExpr r::TensorExpr env::Decorated Env
   top.exprName = "__none";
   top.exprs = l.exprs ++ r.exprs;
 
-  top.tensorExpr = ex;
   top.envr = env;
 
   top.tensors = l.tensors ++ r.tensors;
@@ -274,6 +287,10 @@ top::TensorExpr ::= env::Decorated Env
     );
 }
 
+{- Takes idx, a comma-seperated list of the index
+   variables used to access a tensor, and returns
+   the indexvar names
+-}
 function getAccess
 [String] ::= idx::Expr env::Decorated Env
 {
@@ -293,6 +310,9 @@ function getAccess
     end;
 }
 
+{- Similar to getAccess, but works with foreach when
+   may be indexvar or an Expr
+-}
 function getIterAccess
 [Either<Expr String>] ::= idx::Expr env::Decorated Env
 {
@@ -335,32 +355,35 @@ String ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
 
   return
     case e of
-    | tensorAdd(_, l, r, _) ->
+    | tensorAdd(l, r, _) ->
       "(" ++ exprToString(l, fmts) ++ "+" ++ exprToString(r, fmts) ++ ")"
-    | tensorSub(_, l, r, _) ->
+    | tensorSub(l, r, _) ->
       "(" ++ exprToString(l, fmts) ++ "-" ++ exprToString(r, fmts) ++ ")"
-    | tensorMul(_, l, r, _) ->
+    | tensorMul(l, r, _) ->
       "(" ++ exprToString(l, fmts) ++ "*" ++ exprToString(r, fmts) ++ ")"
-    | tensorDiv(_, l, r, _) ->
+    | tensorDiv(l, r, _) ->
       "(" ++ exprToString(l, fmts) ++ "/" ++ exprToString(r, fmts) ++ ")"
     | tensorBaseExpr(ex, _) -> 
       show(100, ex.pp)
-    | tensorAccess(_, t, i, _) ->
+    | tensorAccess(t, i, _) ->
       e.tensorName ++ "[" ++ implode(",", head(e.accesses)) ++ "]"
     end;
 }
 
+{- Changes names of tensors in a TensorExpr based on the names
+   passed in. This is used for resolving equations like 
+   a[i] = b[i] * b[i]
+-}
 function modifyNames
 TensorExpr ::= names::[String] ex::TensorExpr
 {
   return
     case ex of
     | tensorBaseExpr(_, _) -> ex
-    | tensorAccess(e, t, i, n) ->
+    | tensorAccess(t, i, n) ->
       if ex.tensorName != head(names)
       then 
         tensorAccess(
-          e,
           declRefExpr(
             name(
               head(names),
@@ -373,9 +396,8 @@ TensorExpr ::= names::[String] ex::TensorExpr
           location=ex.location
         )
       else ex
-    | tensorAdd(e, l, r, n) ->
+    | tensorAdd(l, r, n) ->
       tensorAdd(
-        e,
         modifyNames(
           take(
             listLength(l.tensors),
@@ -393,9 +415,8 @@ TensorExpr ::= names::[String] ex::TensorExpr
         n,
         location=ex.location
       )
-    | tensorSub(e, l, r, n) ->
+    | tensorSub(l, r, n) ->
       tensorSub(
-        e,
         modifyNames(
           take(
             listLength(l.tensors),
@@ -413,9 +434,8 @@ TensorExpr ::= names::[String] ex::TensorExpr
         n,
         location=ex.location
       )
-    | tensorMul(e, l, r, n) ->
+    | tensorMul(l, r, n) ->
       tensorMul(
-        e,
         modifyNames(
           take(
             listLength(l.tensors),
@@ -433,9 +453,8 @@ TensorExpr ::= names::[String] ex::TensorExpr
         n,
         location=ex.location
       )
-    | tensorDiv(e, l, r, n) ->
+    | tensorDiv(l, r, n) ->
       tensorDiv(
-        e,
         modifyNames(
           take(
             listLength(l.tensors),

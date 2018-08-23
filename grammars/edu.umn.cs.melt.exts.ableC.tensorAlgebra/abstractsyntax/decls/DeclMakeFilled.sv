@@ -2,6 +2,11 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:decls;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Here we declare the tensor_makeFilled function, used to create a tensor
+   with pre-filled values. This uses tensor_make to construct the initial 
+   tensor and then uses tensor_getPointer to insert every element through
+   nested loops.
+-}
 function declMakeFilledFunction
 Decl ::= fmt::TensorFormat
 {

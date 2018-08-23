@@ -13,7 +13,7 @@ top::Expr ::= l::Expr r::Expr
            ]);
 
   top.tensorExp =
-    tensorMul(top, l.tensorExp, r.tensorExp, top.env, location=top.location);
+    tensorMul(l.tensorExp, r.tensorExp, top.env, location=top.location);
 
   forwards to 
     mkErrorCheck(

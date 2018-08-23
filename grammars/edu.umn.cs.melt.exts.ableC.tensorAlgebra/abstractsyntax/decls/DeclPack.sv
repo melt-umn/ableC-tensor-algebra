@@ -2,6 +2,13 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:decls;
 
 imports edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Here we define the functions used to pack a tensor's buffer. The
+   tensor_packTree function is responsible for taking the buffer and
+   properly filling dense layers. This method is used by tensor_pack
+   after adding all elements in the tensor's body to the buffer. Because
+   of this, it is most efficient to pack a tensor once only. If there 
+   is no data in the buffer, calls to pack have no effect.
+-}
 function declPackFunction
 Decl ::= fmt::TensorFormat
 {
@@ -38,6 +45,13 @@ Decl ::= fmt::TensorFormat
     };
 }
 
+{- This generates a nested loop structure iterating over the nodes in
+   the tree. If a dimension is sparse, we just pack the tree beneath 
+   each node. If a dimension is dense, we require that every possible
+   node exist (a node for each index) as this is the definition of
+   dense. In that case, we add any necessary nodes and pack each
+   sub-tree.
+-}
 function generatePackTreeBody
 Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
 {
@@ -48,7 +62,7 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
     if null(tail(storage))
     then 
       if type == storeDense
-      then -- Dense, last
+      then -- This is the last dimension, it is Dense
         ableC_Stmt {
           struct __tensor_tree* prev = tree->children;
           struct __tensor_tree* curr = prev->next;
@@ -84,11 +98,11 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
             i++;
           }
         }
-      else -- Sparse, last
+      else -- This is the last dimension, it is Sparse (nothing to do)
         nullStmt()
     else 
       if type == storeDense
-      then -- Dense, not last
+      then -- This is not the last dimension, it is Dense
         ableC_Stmt {
           struct __tensor_tree* prev = tree->children;
           struct __tensor_tree* curr = prev->next;
@@ -107,7 +121,7 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
               (tree->numChildren)++;
             }
             struct __tensor_tree* tree = curr;
-            {$Stmt{generatePackTreeBody(tail(storage))}}
+            {$Stmt{generatePackTreeBody(tail(storage))}} // Parentheses prevent name conflicts
             i++;
             prev = curr;
             curr = curr->next;
@@ -129,7 +143,7 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
             i++;
           }
         }
-      else -- Sparse, not last 
+      else -- This is not the last dimension, it is Sparse
         ableC_Stmt {
           struct __tensor_tree* prev = tree->children;
           struct __tensor_tree* curr = prev->next;
@@ -142,7 +156,14 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
         };
 }
 
-
+{- The pack function checks if anything is in the buffer. If there are things,
+   it must acquire a write lock to be able to modify the tensor. After acquiring
+   this lock, it checks that the buffer still is filled. If it has emptied while
+   waiting, it releases the lock and exits. Otherwise, we add every element
+   from the tensor's body into the buffer, and then pack the buffer. Finally,
+   iterating through the buffer layer by layer, we build up the arrays to 
+   keep track of elements.
+-}
 function declPack
 Decl ::= fmt::TensorFormat
 {
@@ -200,6 +221,7 @@ Decl ::= fmt::TensorFormat
     };
 }
 
+{- Iterate over all elements in the tensor -}
 function generatePackBody_Tree
 Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>] fmtNm::String order::Integer dim::Integer
 {
@@ -238,6 +260,10 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>] fmtNm::String order::Int
         };
 }
 
+{- Use the now packed buffer to fill in the indices array of the
+   tensor. This also calculates the number of elements that 
+   need to be allocated in the data array.
+-}
 function generatePackBody_Assemble
 Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
 {
@@ -251,13 +277,13 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
     else
       let inner :: Stmt =
         if type == storeDense
-        then
+        then -- For dense, indices just stores the dimension
           ableC_Stmt {
             t->indices[$intLiteralExpr{dimInt}] = calloc(1, sizeof(unsigned long*));
             t->indices[$intLiteralExpr{dimInt}][0] = calloc(1, sizeof(unsigned long));
             t->indices[$intLiteralExpr{dimInt}][0][0] = dimSize;
           }
-        else 
+        else -- For sparse, indices store a description of what exists
           ableC_Stmt {
             t->indices[$intLiteralExpr{dimInt}] = calloc(2, sizeof(unsigned long*));
             t->indices[$intLiteralExpr{dimInt}][0] = calloc(numChildren + 1, sizeof(unsigned long));
@@ -297,7 +323,7 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
           }
         }
 
-        $Stmt{inner}
+        $Stmt{inner} // What we do to build up the indices depends on the format
 
         if(trees != &buffer) {
           free(trees);
