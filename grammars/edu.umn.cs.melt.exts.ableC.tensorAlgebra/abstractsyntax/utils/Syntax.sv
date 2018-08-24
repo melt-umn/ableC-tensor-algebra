@@ -112,7 +112,6 @@ top::Expr ::= tensor::Expr dim::Expr
   
   local fmt::Decorated TensorFormat = format.tensorFormat;
   local fmtNm::String = fmt.proceduralName;
-  local dimens::String = toString(fmt.dimensions);
   
   local fwrd::Expr =
     if dim.integerConstantValue.isJust
