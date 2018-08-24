@@ -2,12 +2,11 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:tensor;
 
 synthesized attribute tensor_dims::Integer;
 synthesized attribute tensor_size::Integer;
-synthesized attribute tensor_data::Either<[TensorConstant] [Expr]>;
 
 synthesized attribute tensor_asExpr :: Initializer;
 synthesized attribute tensor_dimExpr :: Initializer;
 
-nonterminal TensorConstant with location, pp, errors, env, tensor_dims, tensor_size, tensor_data, tensor_asExpr, tensor_dimExpr;
+nonterminal TensorConstant with location, pp, errors, env, tensor_dims, tensor_size, tensor_asExpr, tensor_dimExpr;
 
 abstract production tensor_higher
 t::TensorConstant ::= sub::[TensorConstant]
@@ -90,8 +89,6 @@ t::TensorConstant ::= sub::[TensorConstant]
         end
       )
     );
-
-  t.tensor_data = left(sub);
 }
 
 function concatInitList
@@ -167,8 +164,6 @@ t::TensorConstant ::= sub::[Expr]
         nilInit()
       )
     );
-
-  t.tensor_data = right(sub);
 }
 
 function combineErrors

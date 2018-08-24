@@ -8,13 +8,12 @@ synthesized attribute ifCnd :: [[TensorCond]];
 synthesized attribute frthr :: [[ComputeGraph]];
 synthesized attribute asmbl :: Stmt;
 synthesized attribute compute :: Stmt;
-synthesized attribute var :: String;
 
 inherited attribute canPar :: Boolean;
 inherited attribute thdCnt :: Maybe<Integer>;
 
 nonterminal ComputeGraph with 
-  conds, exprs, ifCnd, frthr, asmbl, compute, var,
+  conds, exprs, ifCnd, frthr, asmbl, compute,
   canPar, thdCnt;
 
 abstract production nullGraph
@@ -26,7 +25,6 @@ top::ComputeGraph ::=
   top.frthr = [];
   top.asmbl = nullStmt();
   top.compute = nullStmt();
-  top.var = "";
 }
 
 abstract production computeGraph
@@ -214,8 +212,6 @@ top::ComputeGraph ::=
       ,
       sbLts
     );
-
-  top.var = head(vars);
 
   local exs::[TensorExpr] =
     map(
@@ -1106,9 +1102,6 @@ Stmt ::=
     getElem(getTensorFormat(assign, fmts).storage, i).fromJust.snd.fst
     end;
 
-  local subs::[Pair<String TensorExpr>] =
-    listSubs(ex, v, remain, fmts);
-
   local forLoop::Boolean =
     canEmitFor 
     &&
@@ -1191,37 +1184,8 @@ Stmt ::=
     | _ -> false
     end;
 
-  local above :: Boolean =
-    !output && !below;
-
   assign.variable = v;
   assign.fmts = fmts;
-
-  local outSparse::Maybe<Pair<String Integer>> =
-    case assign of
-    | tensorAccess(_, _, _) ->
-      let lst::[Pair<String Integer>] =
-        assign.sparse
-      in
-      if null(lst)
-      then nothing()
-      else just(head(lst))
-      end
-    | _ -> nothing()
-    end;
-
-  local outDense::Maybe<Pair<String Integer>> =
-    case assign of
-    | tensorAccess(_, _, _) ->
-      let lst::[Pair<String Integer>] =
-        assign.dense
-      in
-      if null(lst)
-      then nothing()
-      else just(head(lst))
-      end
-    | _ -> nothing()
-    end;
 
   local topAll::Boolean =
     case c of

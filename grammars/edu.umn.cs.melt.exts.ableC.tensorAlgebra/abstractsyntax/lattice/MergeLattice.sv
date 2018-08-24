@@ -7,9 +7,8 @@ synthesized attribute cond :: TensorCond;
 synthesized attribute pnts :: [LatticePoint];
 
 autocopy attribute fmts :: tm:Map<String TensorFormat>;
-autocopy attribute assign :: TensorExpr;
 
-nonterminal LatticePoint with value, assign, fmts, cond, pnts;
+nonterminal LatticePoint with value, fmts, cond, pnts;
 
 abstract production latticePoint
 top::LatticePoint ::= pnts::[LatticePoint] value::TensorExpr cond::TensorCond
