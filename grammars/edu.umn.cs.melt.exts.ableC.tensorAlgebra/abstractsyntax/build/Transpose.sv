@@ -91,7 +91,7 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
         $name{s"tensor_pack_${rFmt.proceduralName}"}(&$name{rNm});
         pthread_rwlock_rdlock(&($name{rNm}.lock));
 
-        double* data = $name{rNm}.data;
+        double* __data = $name{rNm}.data;
         $Stmt {
           foldl(
             \ abv::Stmt p::Pair<Integer Pair<Integer Integer>> ->
@@ -167,7 +167,7 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
                   }
             ,
             ableC_Stmt {
-              double v = data[$name{s"p${toString(lFmt.dimensions)}"}];
+              double v = __data[$name{s"p${toString(lFmt.dimensions)}"}];
               if(v != 0.0) {
                 *$name{s"tensor_getPointer_locked_${lFmt.proceduralName}"}(&$name{lNm}, __idx) = v;
               }

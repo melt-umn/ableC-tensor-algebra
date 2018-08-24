@@ -189,7 +189,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
         fnc(s)
       ,
       ableC_Stmt {
-        double $name{var.name} = data[$name{s"p${toString(fmt.dimensions)}"}];
+        double $name{var.name} = __data[$name{s"p${toString(fmt.dimensions)}"}];
         $Stmt{body}
       },
       stmts
@@ -210,7 +210,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
       ableC_Stmt {
         $name{s"tensor_pack_${fmt.proceduralName}"}(&$name{nm});
         pthread_rwlock_rdlock(&($name{nm}.lock));
-        double* data = $name{nm}.data;
+        double* __data = $name{nm}.data;
         unsigned long index[$intLiteralExpr{fmt.dimensions}];
       }
       ::
@@ -344,7 +344,7 @@ function tensorVals
     }
     ::
     ableC_Stmt {
-      double* data = $name{nm}.data;
+      double* __data = $name{nm}.data;
     }
     ::
     flatMap(

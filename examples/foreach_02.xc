@@ -1,6 +1,6 @@
 #include "tensors.xh"
 
-tensor format mat ({sparse, sparse}, {0, 1});
+tensor format mat ({sparse, sparse}, {1, 0});
 
 int main() {
   tensor<mat> A = build(tensor<mat>)({1000, 1000});

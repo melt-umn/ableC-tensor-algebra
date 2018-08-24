@@ -101,7 +101,7 @@ top::Expr ::= l::Expr r::Expr
 
           unsigned long __idx[$intLiteralExpr{formatL.dimensions}];
 
-          double* data = $Expr{r}.data;
+          double* __data = $Expr{r}.data;
           $Stmt {
             foldl(
               \ abv::Stmt p::Pair<Integer Pair<Integer Integer>> ->
@@ -176,7 +176,7 @@ top::Expr ::= l::Expr r::Expr
                     }
               ,
               ableC_Stmt {
-                double v = data[$name{s"p${toString(formatL.dimensions)}"}];
+                double v = __data[$name{s"p${toString(formatL.dimensions)}"}];
                 if(v != 0) { // TODO: This is unsafe
                   *$name{s"tensor_getPointer_${formatL.proceduralName}"}(&$Expr{l}, __idx) = v;
                 }
