@@ -21,20 +21,53 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
 
   bounds.env = top.env;
 
+  local tensorAcc :: Boolean =
+    case moduleName(top.env, bounds.typerep) of
+    | just("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc") -> true
+    | _ -> false
+    end;
+
+  local justTensor :: Boolean =
+    case moduleName(top.env, bounds.typerep) of
+    | just("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor") -> true
+    | _ -> false
+    end;
+
   local tensor :: TensorExpr =
     bounds.tensorExp;
   tensor.fmts = tm:empty(compareString);
 
-  local access :: [Either<Expr String>] =
-    tensor.iterAccess;
-
   local fmt :: TensorFormat =
-    getTensorFormat(tensor, tm:empty(compareString));
+    if tensorAcc
+    then getTensorFormat(tensor, tm:empty(compareString))
+    else 
+      case bounds.typerep of
+      | tensorType(_, f, _) -> new(f.tensorFormat)
+      end;
+
+  local access :: [Either<Expr String>] =
+    if tensorAcc
+    then tensor.iterAccess
+    else
+      map(
+        \ i::Integer ->
+          right(s"__v${toString(i)}")
+        ,
+        makeList(integerCompare, inc, 0, fmt.dimensions)
+      );
 
   local stmts :: [(Stmt ::= Stmt)] =
     map(
-      \ e::Pair<Either<Expr String> Pair<Integer Integer>> ->
-        if e.snd.snd == storeDense 
+      \ e::Pair<Either<Expr String> Pair<Integer Pair<Integer Integer>>> ->
+        let indexEmit :: Stmt =
+          if justTensor
+          then
+            ableC_Stmt {
+              index[$intLiteralExpr{e.snd.snd.fst}] = $name{e.fst.fromRight};
+            }
+          else nullStmt()
+        in
+        if e.snd.snd.snd == storeDense 
         then
           if e.fst.isLeft
           then
@@ -52,7 +85,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                     }
                     $name{s"p${toString(e.snd.fst+1)}"} = temp;
                   }
-                  $Stmt{bd};
+                  $Stmt{bd}
                 }
               else -- Not first dimension, dense, Expr
                 ableC_Stmt {
@@ -66,7 +99,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                     }
                     $name{s"p${toString(e.snd.fst+1)}"} = ($name{s"p${toString(e.snd.fst)}"} * $name{s"size_${toString(e.snd.fst+1)}"}) + temp;
                   }
-                  $Stmt{bd};
+                  $Stmt{bd}
                 }
           else
             \ bd::Stmt ->
@@ -75,14 +108,16 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                 ableC_Stmt {
                   for(unsigned long $name{e.fst.fromRight} = 0; $name{e.fst.fromRight} < $name{s"size_${toString(e.snd.fst+1)}"}; $name{e.fst.fromRight}++) {
                     unsigned long $name{s"p${toString(e.snd.fst+1)}"} = $name{e.fst.fromRight};
-                    $Stmt{bd};
+                    $Stmt{indexEmit}
+                    $Stmt{bd}
                   }
                 }
               else -- Not first dimension, dense, indexvar
                 ableC_Stmt {
                   for(unsigned long $name{e.fst.fromRight} = 0; $name{e.fst.fromRight} < $name{s"size_${toString(e.snd.fst+1)}"}; $name{e.fst.fromRight}++) {
                     unsigned long $name{s"p${toString(e.snd.fst+1)}"} = ($name{s"p${toString(e.snd.fst)}"} * $name{s"size_${toString(e.snd.fst+1)}"}) + $name{e.fst.fromRight};
-                    $Stmt{bd};
+                    $Stmt{indexEmit}
+                    $Stmt{bd}
                   }
                 }
         else
@@ -100,7 +135,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                   }
                   for(unsigned long p1 = pos_1[0]; p1 < pos_1[1]; p1++) {
                     if($name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}] == target) {
-                      $Stmt{bd};
+                      $Stmt{bd}
                       break;
                     }
                   }
@@ -115,7 +150,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                   }
                   for(unsigned long $name{s"p${toString(e.snd.fst+1)}"} = $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}]; $name{s"p${toString(e.snd.fst+1)}"} < $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}+1]; $name{s"p${toString(e.snd.fst+1)}"}++) {
                     if($name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}] == target){
-                      $Stmt{bd};
+                      $Stmt{bd}
                       break;
                     }
                   }
@@ -127,26 +162,24 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                 ableC_Stmt {
                   for(unsigned long p1 = pos_1[0]; p1 < pos_1[1]; p1++) {
                     unsigned long $name{e.fst.fromRight} = $name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}];
-                    $Stmt{bd};
+                    $Stmt{indexEmit}
+                    $Stmt{bd}
                   }
                 }
               else -- Not first dimension, sparse, indexvar
                 ableC_Stmt {
                   for(unsigned long $name{s"p${toString(e.snd.fst+1)}"} = $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}]; $name{s"p${toString(e.snd.fst+1)}"} < $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}+1]; $name{s"p${toString(e.snd.fst+1)}"}++) {
                     unsigned long $name{e.fst.fromRight} = $name{s"idx_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst+1)}"}];
-                    $Stmt{bd};
+                    $Stmt{indexEmit}
+                    $Stmt{bd}
                   }
                 }
+        end
       ,
       zipWith(
         pair,
         access, -- expr or indexvar 
-        map( -- storage format
-          \ p::Pair<Integer Pair<Integer Integer>> ->
-            pair(p.fst, p.snd.snd)
-          ,
-          fmt.storage
-        )
+        fmt.storage
       )
     );
 
@@ -155,20 +188,57 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
       \ fnc::(Stmt ::= Stmt) s::Stmt ->
         fnc(s)
       ,
-      seqStmt(
-        ableC_Stmt {
-          double $name{var.name} = data[$name{s"p${toString(fmt.dimensions)}"}];
-        },
-        body
-      ),
+      ableC_Stmt {
+        double $name{var.name} = data[$name{s"p${toString(fmt.dimensions)}"}];
+        $Stmt{body}
+      },
       stmts
     );
 
   local init :: [Stmt] =
-    tensorVals(tensor, fmt, top.env);
+    if tensorAcc
+    then tensorVals(tensor, fmt, top.env)
+    else 
+      case bounds of
+      | declRefExpr(_) -> nullStmt()
+      | _ -> 
+        ableC_Stmt {
+          struct $name{s"tensor_${fmt.proceduralName}"} __t = $Expr{bounds};
+        }
+      end
+      ::
+      ableC_Stmt {
+        $name{s"tensor_pack_${fmt.proceduralName}"}(&$name{nm});
+        pthread_rwlock_rdlock(&($name{nm}.lock));
+        double* data = $name{nm}.data;
+        unsigned long index[$intLiteralExpr{fmt.dimensions}];
+      }
+      ::
+      map(
+        \ p::Pair<Integer Pair<Integer Integer>> ->
+          if p.snd.snd == storeDense
+          then
+            ableC_Stmt {
+              unsigned long $name{s"size_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0][0];
+            }
+          else
+            ableC_Stmt {
+              unsigned long* $name{s"pos_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0];
+              unsigned long* $name{s"idx_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][1];
+              unsigned long $name{s"size_${toString(p.fst+1)}"} = $name{nm}.dims[$intLiteralExpr{p.snd.fst}];
+            }
+        ,
+        fmt.storage
+      );
 
   local nm :: String =
-    getTensorName(tensor);
+    if tensorAcc
+    then getTensorName(tensor)
+    else 
+      case bounds of
+      | declRefExpr(nm) -> nm.name
+      | _ -> "__t"
+      end;
 
   local fwrd :: Stmt =
     compoundStmt(
@@ -194,19 +264,32 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
       valueDef(var.name,
         builtinValueItem(builtinType(nilQualifier(), realType(doubleType()))))
       ::
-      maybeMap(
-        \ mb::Either<Expr String> ->
-          if mb.isLeft
-          then nothing()
-          else
-            just(
-              valueDef(mb.fromRight,
-                builtinValueItem(
-                  builtinType(nilQualifier(), unsignedType(longType()))))
+      if tensorAcc
+      then
+        maybeMap(
+          \ mb::Either<Expr String> ->
+            if mb.isLeft
+            then nothing()
+            else
+              just(
+                valueDef(mb.fromRight,
+                  builtinValueItem(
+                    builtinType(nilQualifier(), unsignedType(longType()))))
+              )
+          ,
+          access
+        )
+      else
+        valueDef("index",
+          builtinValueItem(
+            arrayType(
+              builtinType(nilQualifier(), unsignedType(longType())),
+              nilQualifier(),
+              normalArraySize(),
+              constantArrayType(fmt.dimensions)
             )
-        ,
-        access
-      ),
+          )
+        ) :: [],
       top.env
     );
   body.env = newEnv;
@@ -218,13 +301,15 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
     ++
     body.errors
     ++
-    case moduleName(top.env, bounds.typerep) of
-    | just(s) -> 
-      if s == "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"
-      then []
-      else [err(bounds.location, s"Tensor for-each loop expected a tensor access expression. Instead got ${showType(bounds.typerep)}.")]
-    | _ -> [err(bounds.location, s"Tensor for-each loop expected a tensor access expression. Instead got ${showType(bounds.typerep)}.")]
-    end;
+    if tensorAcc
+    then []
+    else if justTensor
+    then 
+      case bounds.typerep of
+      | tensorType(_, _, _) -> []
+      | _ -> [err(bounds.location, s"Tensor for-each loop expected a tensor type. Instead got ${showType(bounds.typerep)}.")]
+      end
+    else [err(bounds.location, s"Tensor for-each loop expected a tensor access expression. Instead got ${showType(bounds.typerep)}.")];
 
   forwards to
     if !null(lErrors)

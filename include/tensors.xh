@@ -46,7 +46,7 @@ static void __free_tensor_tree(struct __tensor_tree* t) {
 
 char* _get_extension(char* fileName) {
   char* end = fileName + strlen(fileName) - 1; // last character
-  if(*end != '.') end--;
+  while(*end != '.') end--;
   return end+1; // not the '.'
 }
 

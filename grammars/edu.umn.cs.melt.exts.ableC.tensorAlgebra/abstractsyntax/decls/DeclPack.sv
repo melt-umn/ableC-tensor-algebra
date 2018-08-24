@@ -184,6 +184,7 @@ Decl ::= fmt::TensorFormat
           struct __tensor_tree* buffer = t->buffer;
 
           unsigned long pI0 = 0;
+          unsigned long _index[$intLiteralExpr{fmt.dimensions}];
           $Stmt{generatePackBody_Tree(fmt.storage, fmtNm, fmt.dimensions, 1)}
           $name{s"tensor_packTree_${fmtNm}"}(buffer, dims);
 
@@ -234,9 +235,9 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>] fmtNm::String order::Int
     if null(storage)
     then 
       ableC_Stmt {
-        unsigned long index[] = $Initializer{generateIndexInitializer(order)};
         double value = data[$name{s"pI${toString(dim-1)}"}];
-        $name{s"tensor_insertBuff_${fmtNm}"}(buffer, index, value);
+        double* pnt = $name{s"tensor_insertZero_${fmtNm}"}(buffer, _index);
+        if(*pnt == 0.0) *pnt = value;
       }
     else
       if type == storeDense
@@ -246,6 +247,7 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>] fmtNm::String order::Int
               $name{s"i${toString(dim)}"} < indices[$intLiteralExpr{dimen}][0][0];
               $name{s"i${toString(dim)}"}++) {
             unsigned long $name{s"pI${toString(dim)}"} = ($name{s"pI${toString(dim-1)}"} * indices[$intLiteralExpr{dimen}][0][0]) + $name{s"i${toString(dim)}"};
+            _index[$intLiteralExpr{dimen}] = $name{s"i${toString(dim)}"};
             $Stmt{generatePackBody_Tree(tail(storage), fmtNm, order, dim+1)}
           }
         }
@@ -255,6 +257,7 @@ Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>] fmtNm::String order::Int
               $name{s"pI${toString(dim)}"} < indices[$intLiteralExpr{dimen}][0][$name{s"pI${toString(dim-1)}"}+1];
               $name{s"pI${toString(dim)}"}++) {
             unsigned long $name{s"i${toString(dim)}"} = indices[$intLiteralExpr{dimen}][1][$name{s"pI${toString(dim)}"}];
+            _index[$intLiteralExpr{dimen}] = $name{s"i${toString(dim)}"};
             $Stmt{generatePackBody_Tree(tail(storage), fmtNm, order, dim+1)}
           }
         };

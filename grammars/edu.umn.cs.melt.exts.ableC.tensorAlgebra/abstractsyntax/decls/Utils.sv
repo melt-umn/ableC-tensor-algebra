@@ -33,44 +33,6 @@ Stmt ::= dims::Integer idx::Integer
       };
 }
 
--- Generate an array initializer for the values
--- i1, i2, ...
-function generateIndexInitializer
-Initializer ::= size::Integer
-{
-  return
-    objectInitializer(generateIndexInitList(1, size));
-}
-
-function generateIndexInitList
-InitList ::= idx::Integer size::Integer
-{
-  return
-    if idx == size
-    then
-      consInit(
-        positionalInit(
-          exprInitializer(
-            ableC_Expr {
-              $name{s"i${toString(idx)}"}
-            }
-          )
-        ),
-        nilInit()
-      )
-    else
-      consInit(
-        positionalInit(
-          exprInitializer(
-            ableC_Expr {
-              $name{s"i${toString(idx)}"}
-            }
-          )
-        ),
-        generateIndexInitList(idx+1, size)
-      );
-}
-
 {- Generates code to free the indices of a tensor stored in the
    specified format. This function assumes that the tensor is
    pointed to by 't'

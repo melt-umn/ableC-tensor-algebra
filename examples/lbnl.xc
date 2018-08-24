@@ -9,7 +9,7 @@ indexvar sI, sP, dI, dP, t;
 indexvar snd, dst;
 
 int main() {
-  tensor<src> dta = inst read<tensor<src>>("lbnl-network.tns");
+  tensor<src> dta = inst read_tensor<tensor<src>>("lbnl-network.tns");
   tensor<out> result = 
     build(tensor<out>) ({dimenof(dta)[0], dimenof(dta)[2]});
 

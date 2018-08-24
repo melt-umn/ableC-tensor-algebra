@@ -14,80 +14,10 @@ Decl ::= fmt::TensorFormat
   local fmtNm::String = fmt.proceduralName;
 
   return
-    decls(consDecl(
-      maybeValueDecl(
-        s"tensor_insertBuff_${fmtNm}",
-        declInsertFunc(fmt)
-      ),
-      consDecl(
-        maybeValueDecl(
-          s"tensor_insertZero_${fmtNm}",
-          declInsertZeroFunction(fmt)
-        ),
-        nilDecl()
-      )
-    ));
-}
-
-function declInsertFunc
-Decl ::= fmt::TensorFormat
-{
-  local fmtNm::String = fmt.proceduralName;
-  
-  return
-    ableC_Decl {
-      static void $name{s"tensor_insertBuff_${fmtNm}"}(struct __tensor_tree* tree, unsigned long* index, double val) {
-        unsigned long idx, currIdx;
-        char found = 0;
-        $Stmt{generateInsertBody(fmt.storage)}
-      }
-    };
-}
-
-function generateInsertBody
-Stmt ::= storage::[Pair<Integer Pair<Integer Integer>>]
-{
-  local dim::Integer = head(storage).snd.fst;
-  
-  return
-    if null(storage)
-    then 
-      ableC_Stmt {
-        tree->isLeaf = 1;
-        tree->val = val;
-        tree->index = idx;
-      }
-    else 
-      ableC_Stmt {
-        idx = index[$intLiteralExpr{dim}];
-        struct __tensor_tree* prev = tree->children;
-        struct __tensor_tree* curr = prev->next;
-        found = 0;
-        currIdx = -1;
-        while(!found &&  currIdx < idx && curr) {
-          currIdx = curr->index;
-          if(currIdx == idx) {
-            tree = curr;
-            found = 1;
-          } else if(currIdx < idx) {
-            prev = curr;
-            curr = curr->next;
-          }
-        }
-        if(!found) {
-          struct __tensor_tree* temp = calloc(1, sizeof(struct __tensor_tree));
-          
-          temp->isLeaf = 0;
-          temp->index = idx;
-          temp->children = calloc(1, sizeof(struct __tensor_tree));
-          temp->next = curr;
-          prev->next = temp;
-
-          (tree->numChildren)++;
-          tree = temp;
-        }
-        {$Stmt{generateInsertBody(tail(storage))}}
-      };
+    maybeValueDecl(
+      s"tensor_insertZero_${fmtNm}",
+      declInsertZeroFunction(fmt)
+    );
 }
 
 function declInsertZeroFunction

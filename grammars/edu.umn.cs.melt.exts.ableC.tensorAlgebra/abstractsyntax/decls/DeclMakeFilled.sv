@@ -31,6 +31,7 @@ Decl ::= fmt::TensorFormat
 
         unsigned long index = 0;
 
+        unsigned long idx[$intLiteralExpr{fmt.dimensions}];
         $Stmt{generateMakeFilledBody(fmt.dimensions, 0, fmtNm)}
       }
     };
@@ -46,7 +47,6 @@ Stmt ::= dims::Integer idx::Integer fmtNm::String
     if idx == dims
     then
       ableC_Stmt {
-        unsigned long idx[] = $Initializer{generateIndexInitializer(dims)};
         *$name{s"tensor_getPointer_${fmtNm}"}(res, idx) = data[index];
         index++;
       }
@@ -55,6 +55,7 @@ Stmt ::= dims::Integer idx::Integer fmtNm::String
         for(unsigned long $name{s"i${next}"} = 0; 
             $name{s"i${next}"} < dims[$intLiteralExpr{idx}]; 
             $name{s"i${next}"}++) {
+          idx[$intLiteralExpr{idx}] = $name{s"i${next}"};
           $Stmt{generateMakeFilledBody(dims, idx+1, fmtNm)}
         }
       };

@@ -33,14 +33,18 @@ top::Expr ::= t::TypeName exs::[Expr]
 
   forwards to
     if option.isJust then option.fromJust
-    else explicitCastExpr(t, head(exs), location=top.location);
+    else
+      case t.typerep of
+      | tensorType(_, _, _) -> buildTensorExpr(t, exs, location=top.location)
+      | _ -> explicitCastExpr(t, head(exs), location=top.location)
+      end;
 }
 
 function getBuildOverloadProd
 Maybe<(Expr ::= TypeName [Expr] Location)> ::= t::Type env::Decorated Env
 {
   production attribute overloads :: [Pair<String (Expr ::= TypeName [Expr] Location)>] with ++;
-  overloads := [pair("edu_umn_cs_melt_exts_ableC_tensorAlgebra_tensor", buildTensorExpr(_, _, location=_))];
+  overloads := [];
   return
     do(bindMaybe, returnMaybe) {
       n :: String <- moduleName(env, t);
