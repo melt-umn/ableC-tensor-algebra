@@ -23,7 +23,7 @@ top::Decl ::= nm::Name specs::[Integer] order::[Integer]
     (
     if containsAll(integerEqual, makeList(integerCompare, inc, 0, listLength(order)), order)
     then []
-    else [err(nm.location, "Tensor format's order must contain each dimension once, represented as an integer 0, 1, ..., d-1.")]
+    else [err(nm.location, s"Tensor format's order must contain each dimension once, represented as an integer 0, 1, ..., ${toString(listLength(specs)-1)}.")]
     )
     ++
     nm.tensorFormatRedeclarationCheck;

@@ -20,43 +20,20 @@ top::Decl ::= nms::[Name]
              text(";")
            ]);
 
-  local vars::[IndexVar] =
-    map(
-      \ n::Name -> indexVar(n, n.location),
-      nms
-    );
-  
   local fwrd::Decl =
-    decls(
+    variableDecls(
+      [],
+      nilAttribute(),
+      directTypeExpr(indexVarType(head(nms).location)),
       foldl(
-        \ d::Decls v::IndexVar
-        -> 
-        consDecl(
-          defsDecl([indexVarDef(v.variable, v)]),
-          d
-        )
+        \ d::Declarators nm::Name
+        -> consDeclarator(
+             declarator(nm, baseTypeExpr(), nilAttribute(), nothingInitializer()), 
+             d
+           )
         ,
-        consDecl(
-          variableDecls(
-            [], 
-            nilAttribute(), 
-            directTypeExpr(
-              indexVarType(head(nms).location)
-            ),
-            foldl(
-              \ d::Declarators nm::Name
-              -> consDeclarator(
-                   declarator(nm, baseTypeExpr(), nilAttribute(), nothingInitializer()), 
-                   d
-                 )
-              ,
-              nilDeclarator(),
-              nms
-            )
-          ),
-          nilDecl()
-        ),
-        vars
+        nilDeclarator(),
+        nms
       )
     );
   
