@@ -188,6 +188,18 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   local lockOut :: (Stmt ::= Stmt) =
     \ inner::Stmt ->
       ableC_Stmt {
+        $Stmt{
+          case outNew of
+          | tensorAccess(ex, _, _) ->
+            case ex of
+            | declRefExpr(name(_)) -> nullStmt()
+            | _ -> 
+              ableC_Stmt {
+                struct $name{s"tensor_${fmtNm}"} $name{getTensorName(outNew)} = $Expr{ex};
+              }
+            end
+          end
+        }
         pthread_rwlock_wrlock(&($name{outNew.tensorName}.lock));
         $Stmt{inner}
         pthread_rwlock_unlock(&($name{outNew.tensorName}.lock));
