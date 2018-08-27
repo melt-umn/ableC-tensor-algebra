@@ -202,5 +202,6 @@ threads to run. If not defined, OpenMP will determine this automatically.
 
 ### Part 10: Tools
 The tensors.xh header file contains a few tools for working with tensors.
-Currently, it includes functions to read .mtx files, which can contain
-dense or sparse matrix data in them.
+Currently, it includes functions to read and write .mtx and .tns files.
+MTX files support matrix data, while TNS files support tensors of all
+dimensions.
