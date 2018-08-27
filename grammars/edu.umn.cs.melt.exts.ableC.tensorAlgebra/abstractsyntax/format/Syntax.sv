@@ -2,6 +2,10 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:format;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Production for declaring a tensor format. Checks that the format
+   being created is valid, and not a redeclaration (preventing a 
+   single name being declared twice. Internally we could allow this,
+   but then the type becomes dependent on the scope. -}
 abstract production format
 top::Decl ::= nm::Name specs::[Integer] order::[Integer]
 {
@@ -45,7 +49,7 @@ top::Decl ::= nm::Name specs::[Integer] order::[Integer]
   
   local fwrd::Decl =
     decls(consDecl(
-      declAll(fmt),
+      declAll(fmt), -- Add all tensor methods for accessing, packing, etc.
       consDecl(
         defsDecl([tensorFormatDef(nm.name, fmt)]),
         nilDecl()

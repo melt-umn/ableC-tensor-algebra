@@ -2,271 +2,8 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:halide;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
-abstract production halideSetup
-top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
-{
-  propagate substituted;
-  top.pp = text("// Halide Tensor Expr Setup");
-  top.functionDefs := [];
-
-  local out::TensorExpr =
-    tensorAccess(tensor, idx, top.env, location=tensor.location);
-  local ex::TensorExpr =
-    value.tensorExp;
-
-  local tensors::[TensorExpr] =
-    ex.tensors ++ out.tensors;
-
-  local tensorNames::[String] =
-    map(
-      getTensorName,
-      tensors
-    );
-
-  local tensorFormats::[TensorFormat] =
-    map(
-      \ e::TensorExpr ->
-        getTensorFormat(e, tm:empty(compareString))
-      ,
-      tensors
-    );
-
-  local newNames::[String] =
-    mapWithTail(
-      \ n::String o::[String] ->
-        let c::Integer = 
-          count(stringEq, n, o)
-        in
-        if c > 0
-        then n ++ toString(c) ++ "_"
-        else n
-        end
-      ,
-      tensorNames
-    );
-
-  local outNew :: TensorExpr =
-    modifyNames(
-      drop(
-        listLength(ex.tensors),
-        newNames
-      ),
-      out
-    );
-
-  local exNew :: TensorExpr =
-    modifyNames(
-      take(
-        listLength(ex.tensors),
-        newNames
-      ),
-      ex
-    );
-
-  out.fmts = fmts;
-  ex.fmts = fmts;
-  outNew.fmts = fmts;
-  exNew.fmts = fmts;
-
-  local access :: [String] =
-    nubBy(
-      stringEq, 
-      concat(out.accesses ++ ex.accesses)
-    );
-
-  local fmts::tm:Map<String TensorFormat> =
-    tm:add(
-      zipWith(
-        pair,
-        newNames,
-        tensorFormats
-      ),
-      tm:empty(compareString)
-    );
-
-  local originalNames :: [String] =
-    nubBy(
-      stringEq,
-      map(
-        getTensorName(_),
-        ex.tensors
-      )
-    );
-
-  local tensorDecls :: [Stmt] =
-    maybeMap(
-      \ e::TensorExpr ->
-        case e of
-        | tensorAccess(ex, _, _) ->
-          case decorate ex with {env=e.envr; returnType=nothing();} of
-          | declRefExpr(name(_)) -> nothing()
-          | _ ->
-            let fmt::TensorFormat =
-              getTensorFormat(e, fmts)
-            in
-            let nm::String = 
-              getTensorName(e)
-            in
-            just(
-              ableC_Stmt {
-                struct $name{s"tensor_${fmt.proceduralName}"} $name{nm} = $Expr{ex};
-              }
-            )
-            end
-            end
-          end
-        | _ -> nothing()
-        end
-      ,
-      exNew.tensors
-    );
-
-  local exprDecls :: [Stmt] =
-    maybeMap(
-      \ e::Expr ->
-        case decorate e with {env=top.env; returnType=nothing();} of
-        | declRefExpr(name(_)) -> nothing()
-        | _ ->
-          let nm::String =
-            getExprName(e, top.env)
-          in
-          just(
-            ableC_Stmt {
-              double $name{nm} = $Expr{e};
-            }
-          )
-          end
-        end
-      ,
-      exNew.exprs
-    );
-
-  local requestLocks :: Stmt =
-    foldl(
-      \ inn::Stmt t::String ->
-        ableC_Stmt {
-          pthread_rwlock_rdlock(&($name{t}.lock));
-          $Stmt{inn}
-        }
-      ,
-      ableC_Stmt {
-        pthread_rwlock_wrlock(&($name{outNew.tensorName}.lock));
-      },
-      originalNames
-    );
-
-  local releaseLocks :: Stmt =
-    foldl(
-      \ inn::Stmt t::String ->
-        ableC_Stmt {
-          pthread_rwlock_unlock(&($name{t}.lock));
-          $Stmt{inn}
-        }
-      ,
-      ableC_Stmt {
-        pthread_rwlock_unlock(&($name{outNew.tensorName}.lock));
-      },
-      originalNames
-    );
-
-  local tensorDecl :: Stmt =
-    foldl(
-      \ s1::Stmt s2::Stmt ->
-        seqStmt(s1, s2)
-      ,
-      nullStmt(),
-      tensorDecls
-    );
-
-  local exprDecl :: Stmt =
-    foldl(
-      \ inn::Stmt s::Stmt ->
-        ableC_Stmt {
-          $Stmt{s}
-          $Stmt{inn}
-        }
-      ,
-      nullStmt(),
-      exprDecls
-    );
-
-  local tensorNameSub :: Stmt =
-    foldl(
-      \ s1::Stmt pr::Pair<String Pair<String String>> ->
-        seqStmt(s1,
-          if pr.snd.fst == pr.snd.snd
-          then
-            nullStmt()
-          else
-            ableC_Stmt {
-              struct $name{s"tensor_${pr.fst}"} $name{pr.snd.fst} = $name{pr.snd.snd};
-            }
-        )
-      ,
-      nullStmt(),
-      zipWith(
-        pair,
-        map(
-          \ f::TensorFormat ->
-            f.proceduralName
-          ,
-          tensorFormats
-        ),
-        zipWith(pair, newNames, tensorNames)
-      )
-    );
-
-  local checkDims :: Stmt =
-    halide_check_dims(out, exNew, access, fmts);
-
-  local initData :: Stmt =
-    foldl(
-      \ s1::Stmt t::String ->
-        seqStmt(
-         s1,
-         ableC_Stmt {
-           double* $name{s"${t}_data"} = $name{t}.data;
-         }
-        )
-      ,
-      nullStmt(),
-      newNames
-    );
-
-  local zeroOut :: Stmt =
-    ableC_Stmt {
-      memset($name{outNew.tensorName}.data, 0, $name{outNew.tensorName}.dataLen * sizeof(double));
-    };
-
-  local lErrors :: [Message] =
-    checkTensorHeader(tensor.location, top.env);
-
-  local fwrd::Stmt =
-    ableC_Stmt {
-    {
-      $Stmt{tensorDecl}
-      $Stmt{requestLocks}
-      $Stmt{tensorNameSub}
-      $Stmt{exprDecl}
-      $Stmt{checkDims}
-      $Stmt{initData}
-      $Stmt{zeroOut}
-      $Stmt{inner}
-      $Stmt{releaseLocks}
-    }
-    };
-
-  fwrd.env = top.env;
-  fwrd.returnType = top.returnType;
-
-  forwards to
-    if !null(lErrors)
-    then warnStmt(lErrors)
-    else if !null(fwrd.errors)
-    then warnStmt(fwrd.errors)
-    else fwrd;
-}
-
+{- Generate the Halide IterStmt for a tensor expression 
+   with the lhs being a scalar. -}
 abstract production halideScalarTensorExpr
 top::IterStmt ::= output::Name expr::Expr
 {
@@ -306,6 +43,8 @@ top::IterStmt ::= output::Name expr::Expr
       tensors
     );
 
+  {- For each tensor, figure out the expression that we use to
+     access elements from the tensor. -}
   local accessCalc :: [Expr] =
     map(
       \ e::TensorExpr ->
@@ -363,6 +102,7 @@ top::IterStmt ::= output::Name expr::Expr
   ex.fmts = fmts;
   exNew.fmts = fmts;
 
+  -- Automatically determine the merge order (if possible)
   local order::Maybe<[String]> =
     mergeOrder(ex.accesses);
 
@@ -384,6 +124,7 @@ top::IterStmt ::= output::Name expr::Expr
       tm:empty(compareString)
     );
 
+  -- Check that all tensors are dense tensors
   local allDense::[Boolean] =
     map(
       \ fmt::TensorFormat ->
@@ -420,6 +161,8 @@ top::IterStmt ::= output::Name expr::Expr
     | just(_) -> []
     end;
 
+  {- For each dimension, figure out what part of the expression can 
+     be calculated at that level -}
   local innerVars :: [Pair<String Maybe<TensorExpr>>] =
     mapWithTail(
       \ v::String rm::[String] ->
@@ -428,6 +171,7 @@ top::IterStmt ::= output::Name expr::Expr
       access
     );
 
+  {- Build all the loops and output any available expressions -}
   local innerLoops :: IterStmt =
     foldr(
       \ p::Pair<String Maybe<TensorExpr>> iter::IterStmt ->
@@ -471,6 +215,9 @@ top::IterStmt ::= output::Name expr::Expr
     else innerLoops;
 }
 
+{- Production for scalar valued Halide tensor expression, if
+   the order loops construct is used to specify the order of 
+   the loops to use -}
 abstract production halideScalarExprOrder
 top::IterStmt ::= output::Name expr::Expr access::[String]
 {
@@ -571,6 +318,9 @@ top::IterStmt ::= output::Name expr::Expr access::[String]
       concat(exNew.accesses)
     );
 
+  {- Check that all variables in the equation are in 
+     the provided order, and no extra variables are 
+     added -}
   local missingVar :: Boolean =
     !containsAll(stringEq, allVars, access)
     ||
@@ -672,364 +422,8 @@ top::IterStmt ::= output::Name expr::Expr access::[String]
     else innerLoops;
 }
 
-abstract production halideScalarSetup
-top::Stmt ::= output::Name expr::Expr inner::Stmt
-{
-  propagate substituted;
-  top.pp = text("// Halide Tensor Expr Setup");
-  top.functionDefs := [];
-
-  local ex::TensorExpr =
-    expr.tensorExp;
-
-  local tensors::[TensorExpr] =
-    ex.tensors;
-
-  local tensorNames::[String] =
-    map(
-      getTensorName,
-      tensors
-    );
-
-  local originalNames :: [String] =
-    nubBy(
-      stringEq,
-      tensorNames
-    );
-
-  local requestLocks :: Stmt =
-    foldl(
-      \ inn::Stmt t::String ->
-        ableC_Stmt {
-          pthread_rwlock_rdlock(&($name{t}.lock));
-          $Stmt{inn}
-        }
-      ,
-      nullStmt(),
-      originalNames
-    );
-
-  local releaseLocks :: Stmt =
-    foldl(
-      \ inn::Stmt t::String ->
-        ableC_Stmt {
-          pthread_rwlock_unlock(&($name{t}.lock));
-          $Stmt{inn}
-        }
-      ,
-      nullStmt(),
-      originalNames
-    );
-
-  local tensorFormats::[TensorFormat] =
-    map(
-      getTensorFormat(_, tm:empty(compareString)),
-      tensors
-    );
-
-  local newNames::[String] =
-    mapWithTail(
-      \ n::String o::[String] ->
-        let c::Integer =
-          count(stringEq, n, o)
-        in
-        if c > 0
-        then n ++ toString(c) ++ "_"
-        else n
-        end
-      ,
-      tensorNames
-    );
-
-  local exNew :: TensorExpr =
-    modifyNames(
-      newNames,
-      ex
-    );
-
-  ex.fmts = fmts;
-  exNew.fmts = fmts;
-
-  local out::TensorExpr =
-    tensorBaseExpr( 
-      declRefExpr(
-        name(
-          "__out__",
-          location=expr.location
-        ),
-        location=expr.location
-      ),
-      top.env,
-      location=expr.location
-    );
-
-  local access::[String] =
-    nubBy(
-      stringEq,
-      concat(ex.accesses)
-    );
-
-  local fmts::tm:Map<String TensorFormat> =
-    tm:add(
-      zipWith(
-        pair,
-        newNames,
-        tensorFormats
-      ),
-      tm:empty(compareString)
-    );
-
-  local tensorDecls :: [Stmt] =
-    maybeMap(
-      \ e::TensorExpr ->
-        case e of
-        | tensorAccess(ex, _, _) ->
-          case decorate ex with {env=e.envr; returnType=nothing();} of
-          | declRefExpr(name(_)) -> nothing()
-          | _ ->
-            let fmt::TensorFormat =
-              getTensorFormat(e, fmts)
-            in
-            let nm::String = 
-              getTensorName(e)
-            in
-            just(
-              ableC_Stmt {
-                struct $name{s"tensor_${fmt.proceduralName}"} $name{nm} = $Expr{ex};
-              }
-            )
-            end
-            end
-          end
-        | _ -> nothing()
-        end
-      ,
-      exNew.tensors
-    );
-
-  local exprDecls :: [Stmt] =
-    maybeMap(
-      \ e::Expr ->
-        case decorate e with {env=top.env; returnType=nothing();} of
-        | declRefExpr(name(_)) -> nothing()
-        | _ ->
-          let nm::String =
-            getExprName(e, top.env)
-          in
-          just(
-            ableC_Stmt {
-              double $name{nm} = $Expr{e};
-            }
-          )
-          end
-        end
-      ,
-      exNew.exprs
-    );
-
-  local tensorDecl :: Stmt =
-    foldl(
-      \ s1::Stmt s2::Stmt ->
-        seqStmt(s1, s2)
-      ,
-      nullStmt(),
-      tensorDecls
-    );
-
-  local exprDecl :: Stmt =
-    foldl(
-      \ s1::Stmt s2::Stmt ->
-        seqStmt(s1, s2)
-      ,
-      nullStmt(),
-      exprDecls
-    );
-
-  local tensorNameSub :: Stmt =
-    foldl(
-      \ s1::Stmt pr::Pair<String Pair<String String>> ->
-        seqStmt(s1,
-          if pr.snd.fst == pr.snd.snd
-          then nullStmt()
-          else
-            ableC_Stmt {
-              struct $name{s"tensor_${pr.fst}"} $name{pr.snd.fst} = $name{pr.snd.snd};
-            }
-        )
-      ,
-      nullStmt(),
-      zipWith(
-        pair,
-        map(
-          \ f::TensorFormat ->
-            f.proceduralName
-          ,
-          tensorFormats
-        ),
-        zipWith(pair, newNames, tensorNames)
-      )
-    );
-
-  local initData :: Stmt =
-    foldl(
-      \ s1::Stmt t::String ->
-        ableC_Stmt {
-          $Stmt{s1}
-          double* $name{s"${t}_data"} = $name{t}.data;
-        }
-      ,
-      nullStmt(),
-      newNames
-    );
-
-  local checkDims :: Stmt =
-    halide_check_dims(out, exNew, access, fmts);
-
-  local lErrors :: [Message] =
-    checkTensorHeader(output.location, top.env);
-
-  local fwrd::Expr =
-    stmtExpr(
-      compoundStmt(
-        seqStmt(
-          tensorDecl,
-          seqStmt(
-            requestLocks,
-            seqStmt(
-              tensorNameSub,
-              seqStmt(
-                exprDecl,
-                seqStmt(
-                  checkDims,
-                  seqStmt(
-                    initData,
-                    seqStmt(
-                      inner,
-                      releaseLocks
-                    )
-                  )
-                )
-              )
-            )
-          )
-        )
-      ),
-      declRefExpr(
-        name("__result", location=expr.location),
-        location=expr.location
-      ),
-      location=expr.location
-    );
-
-  local finalFwrd :: Stmt =
-    exprStmt(
-      eqExpr(
-        declRefExpr(
-          output,
-          location=output.location
-        ),
-        stmtExpr(
-          ableC_Stmt {
-            double __result = 0.0;
-          },
-          fwrd,
-          location=expr.location
-        ),
-        location=expr.location
-      )
-    );
-
-  finalFwrd.returnType = top.returnType;
-  finalFwrd.env = top.env;
-
-  forwards to
-    if !null(lErrors)
-    then warnStmt(lErrors)
-    else if !null(finalFwrd.errors)
-    then warnStmt(finalFwrd.errors)
-    else finalFwrd;
-
-}
-
-function halide_check_dims
-Stmt ::= 
-  out::TensorExpr ex::TensorExpr acc::[String] 
-  fmts::tm:Map<String TensorFormat>
-{
-  local checks :: Stmt =
-    foldl(
-      \ inn::Stmt v::String ->
-        ableC_Stmt {
-          $Stmt{halide_check_var(out, ex, v, fmts)}
-          $Stmt{inn}
-        }
-      ,
-      nullStmt(),
-      acc
-    );
-
-  return
-    ableC_Stmt {
-      char error = 0;
-      $Stmt{checks}
-      if(error) exit(1);
-    };
-}
-
-function halide_check_var
-Stmt ::=
-  out::TensorExpr ex::TensorExpr var::String
-  fmts::tm:Map<String TensorFormat>
-{
-  out.variable = var;
-  ex.variable = var;
-  out.fmts = fmts;
-  ex.fmts = fmts;
-
-  local acc::[Pair<String Integer>] =
-    out.sparse_r ++ out.dense_r ++ ex.sparse_r ++ ex.dense_r;
-
-  local check :: Stmt =
-    let h::Pair<String Integer> =
-      head(acc)
-    in
-    let nm::String =
-      h.fst
-    in
-    foldl(
-      \ inn::Stmt pr::Pair<String Integer> ->
-        ableC_Stmt {
-          if($name{nm}.dims[$intLiteralExpr{h.snd}] != $name{pr.fst}.dims[$intLiteralExpr{pr.snd}]) {
-            fprintf(stderr, 
-              $stringLiteralExpr{let loc::Location = out.location in s"Tensor ${nm} and ${pr.fst} do not have the same dimensionality for ${var}. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
-            error = 1;
-          }
-        }
-      ,
-      nullStmt(),
-      tail(acc)
-    )
-    end
-    end;
-
-  return
-    if null(acc) 
-    then nullStmt()
-    else
-      let h::Pair<String Integer> = 
-        head(acc)
-      in
-      let nm::String =
-        h.fst
-      in
-      ableC_Stmt {
-        unsigned long $name{s"${var}_dimension"} = $name{nm}.dims[$intLiteralExpr{h.snd}];
-        $Stmt{check}
-      }
-      end
-      end;
-}
-
+{- Production for IterStmt of a Halide tensor expression without
+   a provided order for the loops, and where the lhs is not a scalar -}
 abstract production halideTensorExpr
 top::IterStmt ::= tensor::Expr idx::Expr value::Expr
 {
@@ -1130,6 +524,8 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
       ex
     );
 
+  {- Check for any indexvars appearing on only the lhs.
+     (This is not allowed) -}
   local leftOnly::[String] =
     let lAcc::[String] =
       nubBy(
@@ -1224,6 +620,10 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
     | just(_) -> []
     end;
 
+  {- Determine all loops before we can access elements
+     in the output. Until we reach this point, we cannot
+     put values into the output tensor, so we emit them
+     all together -}
   local topVars :: [String] =
     let i::Integer =
       positionOf(
@@ -1235,6 +635,8 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
     take(i+1, access)
     end;
 
+  {- If there's any expression that can be emitted inside 
+     the final loop that accesses the output tensor -}
   local topExpr :: Maybe<TensorExpr> =
     let i::Integer =
       positionOf(
@@ -1251,6 +653,8 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
     )
     end;
 
+  {- Variables below the last indexvar that accesses the
+     output tensor -}
   local innerVars :: [Pair<String Maybe<TensorExpr>>] =
     let i::Integer = 
       positionOf(
@@ -1361,6 +765,7 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
     else fwrd;
 }
 
+{- IterStmt production for tensor expression with an order provided -}
 abstract production halideTensorExprOrder
 top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
 {
@@ -1688,6 +1093,9 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
     else fwrd;
 }
 
+{- Determine if any part of the TensorExpr can be 
+   emitted at the current var with remain index
+   vars left to be looped over. -}
 function denseReduce
 Maybe<TensorExpr> ::= 
   ex::TensorExpr var::String remain::[String] 
@@ -1705,7 +1113,7 @@ Maybe<TensorExpr> ::=
         just(ex)
       | tensorAccess( _, _, en) ->
         nothing()
-      | tensorAdd(l, r, en) ->
+      | tensorAdd(l, r, en) -> -- need just one side avail
         if l.isAvail
         then just(l)
         else if r.isAvail
@@ -1718,20 +1126,24 @@ Maybe<TensorExpr> ::=
         then
           just(
             tensorSub(
-              nullTensorExpr(en, location=ex.location),
+              nullTensorExpr(en, location=ex.location), -- the value 0
               r,
               en,
               location=ex.location
             )
           )
         else nothing()
-      | tensorMul(l, r, en) ->
+      | tensorMul(l, r, en) -> -- need both side avail
         nothing()
       | tensorDiv(l, r, en) ->
         nothing()
       end;
 }
 
+{- Evaluate the TensorExpr into an ableC Expr. The only
+   difference from a normal evalExpr is that we use the
+   previously calculated access Expr's to access the data
+   field. -}
 function denseEvalExpr
 Expr ::=
   e::TensorExpr fmts::tm:Map<String TensorFormat>

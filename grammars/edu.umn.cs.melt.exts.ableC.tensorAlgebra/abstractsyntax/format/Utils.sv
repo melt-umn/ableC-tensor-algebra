@@ -2,6 +2,8 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:format;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Produce the procedural name of a tensor format, given the list of
+   specifiers (sparse or dense) and the order of the dimensions. -}
 function formName
 String ::= specs::[Integer] order::[Integer]
 {
@@ -20,6 +22,7 @@ String ::= specs::[Integer] order::[Integer]
     end;
 }
 
+{- Build the 'storage' attribute of the TensorFormat nonterminal -}
 function formStorage
 [Pair<Integer Pair<Integer Integer>>] ::= specs::[Integer] order::[Integer] idx::Integer
 {
@@ -34,6 +37,8 @@ function formStorage
     end;
 }
 
+{- Test if a tensor format only has dense dimensions. Used in Halide and
+   a few other places to remove unecessary code. -}
 function allDense
 Boolean ::= fmt::TensorFormat
 {

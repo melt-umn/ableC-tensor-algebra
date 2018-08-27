@@ -2,6 +2,8 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:format;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Adding tensor formats to the ableC Env -}
+
 synthesized attribute proceduralName::String;
 synthesized attribute dimensions::Integer;
 synthesized attribute storage::[Pair<Integer Pair<Integer Integer>>]; -- pair(order, pair(dimen, spec))
