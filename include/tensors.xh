@@ -50,6 +50,12 @@ char* _get_extension(char* fileName) {
   return end+1; // not the '.'
 }
 
+struct __new_elem {
+  unsigned long* idx;
+  double val;
+  struct __new_elem* next;
+};
+
 template<a>
 a _read_mtx(char* fileName) {
   FILE* file = fopen(fileName, "r");
@@ -124,66 +130,80 @@ a _read_mtx(char* fileName) {
   unsigned long arr[] = {rows, cols};
   a res = build(a)(arr);
   
-  unsigned long r, c;
-  double elem_d;
-  long elem_i;
-
+  double val;
   unsigned long idx[] = {0, 0};
+
+  struct __new_elem header = {0};
+  struct __new_elem* elem;
 
   for(unsigned long i = 0; i < entries; i++) {
     if(feof(file)) {
       fprintf(stderr, "End of file reached without finding appropriate number of elements\n");
       fclose(file);
       freeTensor(res);
+      
+      struct __new_elem* curr = header.next;
+      struct __new_elem* tmp;
+      while(curr) {
+        tmp = curr;
+	curr = tmp->next;
+	free(tmp->idx);
+	free(tmp);
+      }
+
       exit(1);
     }
     
-    if(dataType == 0) {
-      if(fscanf(file, "%lu %lu %le\n", &r, &c, &elem_d) != 3) {
-        fprintf(stderr, "Element specifier is not correct format\n");
-	fclose(file);
-	freeTensor(res);
-        exit(1);
-      }
-   
-      idx[0] = r-1;
-      idx[1] = c-1;
-      res[idx] = elem_d;
-
-      if(formatType == 1) {
-        idx[0] = c-1;
-	idx[1] = r-1;
-        res[idx] = elem_d;
-      }
-    } else {
-      if(fscanf(file, "%lu %lu %ld\n", &r, &c, &elem_i) != 3) {
-        fprintf(stderr, "Element specifier is not correct format\n");
-	fclose(file);
-	freeTensor(res);
-        exit(1);
-      }
+    if(fscanf(file, "%lu %lu %le\n", idx, idx+1, &val) != 3) {
+      fprintf(stderr, "Element specifier is not correct format\n");
+      fclose(file);
+      freeTensor(res);
       
-      idx[0] = r-1;
-      idx[1] = c-1;
-      res[idx] = elem_i;
-
-      if(formatType == 1) {
-        idx[0] = c-1;
-	idx[1] = r-1;
-        res[idx] = elem_i;
+      struct __new_elem* curr = header.next;
+      struct __new_elem* tmp;
+      while(curr) {
+        tmp = curr;
+	curr = tmp->next;
+	free(tmp->idx);
+	free(tmp);
       }
+
+      exit(1);
+    }
+
+    elem = calloc(1, sizeof(struct __new_elem));
+    elem->idx = calloc(2, sizeof(unsigned long));
+    elem->idx[0] = idx[0] - 1;
+    elem->idx[1] = idx[1] - 1;
+    elem->val = val;
+    elem->next = header.next;
+    header.next = elem;
+
+    if(formatType == 1) {
+      elem = calloc(1, sizeof(struct __new_elem));
+      elem->idx = calloc(2, sizeof(unsigned long));
+      elem->idx[0] = idx[1] - 1;
+      elem->idx[1] = idx[0] - 1;
+      elem->val = val;
+      elem->next = header.next;
+      header.next = elem;
     }
   }
 
   fclose(file);
+
+  struct __new_elem* curr = header.next;
+  struct __new_elem* tmp;
+  while(curr) {
+    res[curr->idx] = curr->val;
+    tmp = curr;
+    curr = tmp->next;
+    free(tmp->idx);
+    free(tmp);
+  }
+
   return res;
 }
-
-struct __new_elem {
-  unsigned long* idx;
-  double val;
-  struct __new_elem* next;
-};
 
 template <a>
 a _read_tns(char* fileName) {
@@ -286,6 +306,10 @@ a read_tensor(char* fileName) {
   
   a res;
   if(strcmp(ext, "mtx") == 0 || strcmp(ext, "ttx") == 0) {
+    if(orderof(a) != 2) {
+      fprintf(stderr, "MatrixMarket format supports only matrices. Cannot load a %d order tensor\n", orderof(a));
+      exit(1);
+    }
     res = inst _read_mtx<a>(fileName);
   } else if(strcmp(ext, "tns") == 0) {
     res = inst _read_tns<a>(fileName);
@@ -295,6 +319,66 @@ a read_tensor(char* fileName) {
   }
   
   return res;
+}
+
+template<a>
+void _write_mtx(char* fileName, a tns) {
+  FILE* file = fopen(fileName, "w");
+  if(!file) {
+    fprintf(stderr, "Could not open file '%s'\n", fileName);
+    exit(1);
+  }
+
+  fprintf(file, "%%%%MatrixMarket matrix coordinate real general\n");
+  fprintf(file, "%lu %lu %lu\n", dimenof(tns)[(0)], dimenof(tns)[(1)], tns.dataLen);
+
+  unsigned long count = 0;
+  foreach(double v : tns) {
+    fprintf(file, "%lu %lu %f\n", index[0], index[1], v);
+    count++;
+  }
+
+  // TODO: For debug only
+  if(count != tns.dataLen)
+    fprintf(stderr, "Wrong!!!\n");
+
+  fclose(file);
+}
+
+template<a>
+void _write_tns(char* fileName, a tns) {
+  FILE* file = fopen(fileName, "w");
+  if(!file) {
+    fprintf(stderr, "Could not open file '%s'\n", fileName);
+    exit(1);
+  }
+
+  foreach(double v : tns) {
+    for(int c = 0; c < orderof(a); c++) {
+      fprintf(file, "%lu ", index[c]);
+    }
+    fprintf(file, "%f\n", v);
+  }
+
+  fclose(file);
+}
+
+template<a>
+void write_tensor(char* fileName, a tns) {
+  char* ext = _get_extension(fileName);
+
+  if(strcmp(ext, "mtx") == 0 || strcmp(ext, "ttx") == 0) {
+    if(orderof(a) != 2) {
+      fprintf(stderr, "MatrixMarket format supports only matrices. Cannot write a %d order tensor\n", orderof(a));
+      exit(1);
+    }
+    inst _write_mtx<a>(fileName, tns);
+  } else if(strcmp(ext, "tns") == 0) {
+    inst _write_tns<a>(fileName, tns);
+  } else {
+    fprintf(stderr, "Unknown file extension for tensor: %s\n", ext);
+    exit(1);
+  }
 }
 
 #endif
