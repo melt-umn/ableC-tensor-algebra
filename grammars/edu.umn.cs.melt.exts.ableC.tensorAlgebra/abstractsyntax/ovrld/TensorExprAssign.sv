@@ -2,6 +2,10 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:ovrld;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Production to perform the code generation process and setup
+   for a tensor expression where both the left and right hand
+   sides are tensor expresssions (e.g. A[i] = B[i,j] * C[j]) 
+   where i and j are indexvar's -}
 abstract production tensorAssignToTensor
 top::Expr ::= tensor::Expr idx::Expr right::Expr
 {
@@ -39,6 +43,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       tensors
     );
 
+  -- New names to remove any duplicate tensor uses
   local newNames::[String] =
     mapWithTail(
       \ n::String o::[String] ->
@@ -53,6 +58,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       tensorNames
     );
 
+  {- Replace names of tensors, as needed -}
   local outNew::TensorExpr =
     modifyNames(
       drop(
@@ -71,6 +77,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       ex
     );
 
+  {- Any indexvars that appear only on the lhs -}
   local leftOnly::[String] =
     let lAcc::[String] =
       nubBy(
@@ -97,6 +104,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
   out.fmts = fmts;
   ex.fmts = fmts;
+
+  -- Attempt to determine an order for the indexvars
   local order::Maybe<[String]> =
     mergeOrder(out.accesses ++ ex.accesses);
 
@@ -119,6 +128,10 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       tm:empty(compareString)
     );
 
+  {- Determine if the expression can be turned into a tensor
+     transpose. This is only done if a valid order for the 
+     expression cannot be determined, and both lhs and rhs
+     are each just a tensorAccess -}
   local isTranspose :: Boolean =
     case order of
     | nothing() ->
@@ -149,12 +162,19 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       top.location, top.env
     );
 
+  {- Lookup to see whether the programmer enabled OpenMP
+     parallelization -}
   local canParallel :: Boolean =
     case lookupValue(emitParallel, top.env) of
     | [] -> false
     | _::_ -> true
     end;
 
+  {- Lookup to see whether the programmer specified a 
+     number of threads to use for OpenMP parallelization,
+     if so, read out the value if possible (Since OpenMP
+     is a compiler addon, we must specify the number of
+     threads as an integer constant) -}
   local thdCnt :: Maybe<Integer> =
     case lookupValue(emitThreads, top.env) of
     | [] -> nothing()
@@ -176,15 +196,20 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   local computeStmt::Stmt =
     graph.compute;
 
+  -- Procedural name of the output tensor's format
   local fmtNm::String =
     getTensorFormat(outNew, fmts).proceduralName;
 
+  -- The order of the output tensor
   local outOrder::Integer = 
     getTensorFormat(outNew, fmts).dimensions;
 
   exNew.fmts = fmts;
   outNew.fmts = fmts;
 
+  {- Lock the output tensor with a write lock. This is a 
+     lambda allowing us to pass the body of the code gen
+     to it, and that will safely be wrapped by the locking -}
   local lockOut :: (Stmt ::= Stmt) =
     \ inner::Stmt ->
       ableC_Stmt {
@@ -205,6 +230,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
         pthread_rwlock_unlock(&($name{outNew.tensorName}.lock));
       };
 
+  {- A list of all Expr's used in the tensor expression that must 
+     be given a temporary name to prevent wasting computation time -}
   local exprs :: [Pair<String Expr>] =
     maybeMap(
       \ e::Expr ->
@@ -217,6 +244,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       exNew.exprs
     );
 
+  {- Declare any Expr's that need to be given an internal name -}
   local declExpr :: (Stmt ::= Stmt) =
     foldl(
       \ inn::Stmt p::Pair<String Expr> ->
@@ -229,6 +257,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       exprs
     );
 
+  {- If any tensor is not just a name, we must store it in a variable -}
   local preSubs :: [Pair<Pair<String String> Expr>] = -- (newName, fmt), expr
     maybeMap(
       \ t::TensorExpr ->
@@ -265,6 +294,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       preSubs
     );
 
+  {- All the tensors used, without repeats -}
   local originalNames :: [Pair<String String>] =
     nubBy(
       \ p1::Pair<String String> p2::Pair<String String> ->
@@ -278,6 +308,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       )
     );
 
+  {- Pack all of the input tensors, and aquire read-locks -}
   local packTensors :: (Stmt ::= Stmt) =
     foldl(
       \ inn::Stmt t::Pair<String String> ->
@@ -291,6 +322,9 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       originalNames
     );
 
+  {- Find any tensor's that are used multiple times. We rename
+     these so that the codegen system does not have to handled
+     these tensors specially -}
   local postSubs :: [Pair<Pair<String String> String>] = -- (newName, fmt) oldName
     maybeMapWithTail(
       \ n ::Pair<String TensorFormat> o :: [Pair<String TensorFormat>] ->
@@ -328,6 +362,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       postSubs
     );
 
+  {- Declare sizes and position and index arrays for each tensor and
+     dimension -}
   local tensorPrep :: (Stmt ::= Stmt) =
     foldl(
       \ inn::Stmt t::TensorExpr ->
@@ -363,6 +399,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       exNew.tensors
     );
 
+  {- Check that all dimensions accessed by the same indexvar
+     have the same length -}
   local dimsCheck :: (Stmt ::= Stmt) =
     let varChecks :: Stmt =
       foldl(
@@ -385,6 +423,10 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     }
     end;
 
+  {- Assemble the output tensor, this uses the computeGraph's asmbl
+     attribute, as well as some other setup code provided here. It 
+     also makes use of some of the code generation used for declaring
+     the pack function. -}
   local assembleOut :: (Stmt ::= Stmt) =
     \ inner::Stmt ->
       if allDense(getTensorFormat(outNew, fmts))
@@ -437,6 +479,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           $Stmt{inner}
         };
 
+  {- Declare the sizes and index and position arrays for the output tensor -}
   local outVal :: (Stmt ::= Stmt) =
     let nm :: String =
       getTensorName(head(outNew.tensors))
@@ -469,6 +512,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     }
     end end;
 
+  {- Actually use the generate compute code -}
   local comp :: (Stmt ::= Stmt) =
     \ inner::Stmt ->
     ableC_Stmt {
@@ -478,6 +522,10 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     }
     };
 
+  {- We set the .form field of each tensor to a string representing this
+     expression, hoping to use this to avoid unecessary packing and assembly
+     when it can be avoided. This also releases the locks on the input 
+     tensors -}
   local setFormat :: Stmt =
     foldl(
       \ inn::Stmt nm::String ->
@@ -495,7 +543,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
   local fwrd :: Expr =
     if isTranspose
-    then
+    then -- If this is a tranpose, we perform the basic setup, and then transpose
       stmtExpr(
         lockOut(declTensor(tensorSub(
           ableC_Stmt {
@@ -522,6 +570,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     );
 }
 
+{- Code generation system for when the output of the tensor
+   expression is just a scalar (e.g. s = x[i] * y[j];) -}
 abstract production tensorAssignToScalar
 top::Expr ::= output::Expr expr::Expr
 {
@@ -828,6 +878,10 @@ top::Expr ::= output::Expr expr::Expr
     }
     end;
 
+  {- If the output tensor is a scalar, the code gen system
+     will store the final value in tx0 (where x is the first
+     indexvar in the order). This is due to the recursive
+     nature of the algorithm, and is the easiest way -}
   local outVal :: (Stmt ::= Stmt) =
     \ inner::Stmt ->
       ableC_Stmt {
@@ -861,11 +915,11 @@ top::Expr ::= output::Expr expr::Expr
     mkErrorCheck(
       lErrors,
       eqExpr(
-        output,
-        stmtExpr(
+        output, -- set output equal to ...
+        stmtExpr( -- perform the compute
           declExpr(declTensor(packTensors(tensorSub(tensorPrep(dimsCheck(
             outVal(comp(setFormats)))))))),
-          ableC_Expr {
+          ableC_Expr { -- the value tx0
             $name{s"t${head(access)}0"}
           },
           location=top.location
@@ -875,9 +929,14 @@ top::Expr ::= output::Expr expr::Expr
     );
 }
 
+{- Attempts to merge the access orders from several tensors
+   into a single valid order -}
 function mergeOrder
 Maybe<[String]> ::= orders::[[String]]
 {
+  -- A list of all indexvar's that appear in a list after
+  -- the first element (meaning they cannot be the next
+  -- element in the order).
   local lowers::[String] =
     flatMap(
       \ var::[String] ->
@@ -888,6 +947,8 @@ Maybe<[String]> ::= orders::[[String]]
       orders
     );
 
+  -- A list of all variables appearing as the first element
+  -- of any of the accesses
   local top::[String] =
     map(
       \ var::[String] ->
@@ -896,6 +957,8 @@ Maybe<[String]> ::= orders::[[String]]
       orders
     );
 
+  -- Whether or not a variable at the beginning of a list 
+  -- can be next (meaning it is not in the lowers list)
   local safe::[Boolean] =
     map(
       \ v::String ->
@@ -904,9 +967,13 @@ Maybe<[String]> ::= orders::[[String]]
       top
     );
 
+  -- Taking the top list and safe list, produce a list of 
+  -- the variables that can be the next element of the list
   local vars::[String] =
     filterWith(top, safe);
 
+  -- Remove the first element of vars from all lists, and 
+  -- remove any now empty lists
   local newOrder::[[String]] =
     filter(
       \ lst::[String] -> !null(lst),
@@ -920,24 +987,28 @@ Maybe<[String]> ::= orders::[[String]]
       )
     );
 
+  -- Perform a recursive merge call
   local next::Maybe<[String]> =
     mergeOrder(newOrder);
 
   return
-    if null(vars)
+    if null(vars) -- if there is no variable that can be next
     then nothing()
     else
-      if null(newOrder)
+      if null(newOrder) -- if we're done now
       then just(head(vars) :: [])
       else 
-        case next of
+        case next of -- ensure recursive call is successful
         | nothing() -> nothing()
         | just(lst) -> just(head(vars) :: lst)
         end;
 }
 
+{- Function to check that dimensions that need to match have the same
+   size -}
 function checkVar
-Stmt ::= out::TensorExpr ex::TensorExpr var::String fmts::tm:Map<String TensorFormat> loc::Location
+Stmt ::= out::TensorExpr ex::TensorExpr var::String 
+         fmts::tm:Map<String TensorFormat> loc::Location
 {
   out.variable = var;
   ex.variable = var;

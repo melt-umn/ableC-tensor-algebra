@@ -2,6 +2,8 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:ovrld;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Add the tensorExp attribute to Expr, and provide a default
+   production and a production for parentheses -}
 synthesized attribute tensorExp :: TensorExpr occurs on Expr;
 
 aspect default production

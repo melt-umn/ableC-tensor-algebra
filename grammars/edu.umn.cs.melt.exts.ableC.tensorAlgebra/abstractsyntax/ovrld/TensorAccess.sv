@@ -2,6 +2,8 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:ovrld;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Read a value out of a tensor (or access a tensor using
+   indexvars) -}
 abstract production accessTensor
 top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
 {
@@ -17,6 +19,8 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
     end;
 
 
+  {- Check if idx is an array, in which case we handle
+     the forward separately -}
   local arrayAccess :: Boolean =
     case idx.typerep of
     | pointerType(_, _) -> true
@@ -24,6 +28,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
     | _ -> false
     end;
 
+  {- If idx is an array, the type of the values in it -}
   local arrType :: Type =
     case idx.typerep of
     | pointerType(_, t) -> t
@@ -31,6 +36,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
     | _ -> idx.typerep
     end;
 
+  {- Check if any value in the index is an indexvar -}
   local anyIndexVars::Boolean =
     foldl(
       \ b::Boolean t::Type
@@ -41,7 +47,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
          end
       ,
       false,
-      getTypereps(idx, env)
+      getTypereps(idx, env) -- Function to parse commaExpr
     );
 
   local lErrors::[Message] = tensor.errors ++ idx.errors;
@@ -100,7 +106,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
           unsigned long _idx[$intLiteralExpr{fmt.dimensions}];
           
           for(unsigned long __d = 0; __d < $intLiteralExpr{fmt.dimensions}; __d++) {
-            _idx[__d] = __idx[__d];
+            _idx[__d] = __idx[__d]; // Copy to get type right
           }
           $name{s"tensor_pack_${fmtNm}"}(_tensor);
           __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
@@ -111,7 +117,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
     else
     if anyIndexVars
     then
-      emptyAccess
+      emptyAccess -- a tensor_acc
     else
       ableC_Expr {
         ({
@@ -143,6 +149,9 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
     );
 }
 
+-- Function to parse an index, which uses 
+-- commaExpr, into an InitList which can be used
+-- to initialize an array.
 function generateInitList
 InitList ::= ex::Expr env::Decorated Env
 {
@@ -168,6 +177,8 @@ InitList ::= ex::Expr env::Decorated Env
     end;
 }
 
+-- Function to get the types of all elements in
+-- the index
 function getTypereps
 [Type] ::= idx::Expr env::Decorated Env
 {
@@ -182,6 +193,7 @@ function getTypereps
     end;
 }
 
+-- Count the number of elements in the index
 function getCount
 Integer ::= idx::Expr env::Decorated Env
 {

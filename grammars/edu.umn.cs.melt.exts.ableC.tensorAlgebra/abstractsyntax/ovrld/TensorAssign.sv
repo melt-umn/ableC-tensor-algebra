@@ -2,11 +2,18 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:ovrld;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- Production to assign a value to an element in a tensor. This
+   also handles the needed forwarding to the code generation 
+   system. This system uses op as long as it is not a tensor 
+   expression. If it is a tensor expression, then the op is 
+   ignored. -}
 abstract production accessTensorAssign
 top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Expr env::Decorated Env
 {
   propagate substituted;
 
+  -- Whether the right side of the expression is a tensor_acc or
+  -- An actual value
   local rightTensorExpr :: Boolean =
     case moduleName(env, right.typerep) of
     | nothing() -> false
@@ -105,7 +112,11 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
     case tensor.typerep of
     | tensorType(_, f, _) -> f.tensorFormatLookupCheck
     | x -> [err(tensor.location, s"Expected a tensor type, got ${showType(x)}")]
-    end;
+    end
+    ++
+    if !rightTensorExpr && allIndexVars
+    then [err(tensor.location, s"Cannot have indexvars on only the left-hand side.")]
+    else [];
 
   local sErrors::[Message] =
     if !arrayAccess && getCount(idx, env) != fmt.dimensions
@@ -159,7 +170,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
       if allIndexVars
       then -- x[i] = A[i,j]
         tensorAssignToTensor(tensor, idx, right, location=top.location) -- perhaps we should add op to this
-      else -- x = A[i,j]
+      else -- x = A[i,j] (handled by seperate overload)
         errorExpr([err(top.location, "This should not occur")], location=top.location)
     else -- x[i] = a
       ableC_Expr {
