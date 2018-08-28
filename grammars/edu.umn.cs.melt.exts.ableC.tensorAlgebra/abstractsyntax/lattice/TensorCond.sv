@@ -2,13 +2,21 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:lattice;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
-synthesized attribute cnd :: Expr;
-synthesized attribute ifCondition :: Expr;
+{- The conditions used by Merge Lattices to represent how
+   tensors are merged. It also generates the Expr and String
+   used in emitting (we use condition :: String, when generating
+   OpenMP code because their system is very picky about how the
+   code looks). ifCond :: String is used in a few places to 
+   check whether the condition is "1" -}
+
+synthesized attribute cnd :: Expr; -- The condition used in the loop
+synthesized attribute ifCondition :: Expr; -- The condition used in the if
 synthesized attribute condition :: String;
 synthesized attribute ifCond :: String;
 
 nonterminal TensorCond with condition, ifCond, cnd, ifCondition;
 
+-- All for this variable (Expr in the expression)
 abstract production allCond
 top::TensorCond ::= v::String
 {
@@ -18,6 +26,7 @@ top::TensorCond ::= v::String
   top.ifCondition = ableC_Expr { 1 };
 }
 
+-- Not accessed by this variable
 abstract production nullCond
 top::TensorCond ::=
 {
@@ -27,6 +36,7 @@ top::TensorCond ::=
   top.ifCondition = ableC_Expr { 0 };
 }
 
+-- A sparse access of the tensor with name tNm, at dimension dim, for variable v
 abstract production sparseAccess
 top::TensorCond ::= tNm::String dim::Integer var::String
 {
@@ -36,6 +46,7 @@ top::TensorCond ::= tNm::String dim::Integer var::String
   top.ifCondition = ableC_Expr { $name{s"${var}${tNm}"} == $name{var} };
 }
 
+-- A dense access
 abstract production denseAccess
 top::TensorCond ::= tNm::String dim::Integer var::String
 {
@@ -45,6 +56,8 @@ top::TensorCond ::= tNm::String dim::Integer var::String
   top.ifCondition = ableC_Expr { 1 };
 }
 
+-- Taking a tensor name, dimension, variable name, and format, automatically
+-- determines the proper condition
 function accessCond
 TensorCond ::= tNm::String dim::Integer var::String fmt::TensorFormat
 {
@@ -63,6 +76,7 @@ TensorCond ::= tNm::String dim::Integer var::String fmt::TensorFormat
       else denseAccess(tNm, dim, var);
 }
 
+-- Merge condition.
 abstract production andCond
 top::TensorCond ::= l::TensorCond r::TensorCond
 {
@@ -72,88 +86,93 @@ top::TensorCond ::= l::TensorCond r::TensorCond
   top.ifCondition = ableC_Expr { ( $Expr{l.ifCondition} && $Expr{r.ifCondition} ) };
 }
 
+{- We don't provide an orCond production, because we remove or 
+   conditions and replace them with and's, and loops to finish
+   off extra values, like described in Kjolstad. -}
 function condAnd
 TensorCond ::= l::TensorCond r::TensorCond loop::Boolean
 {
   return
-    if isNullCond(l) && isNullCond(r)
+    if isNullCond(l) && isNullCond(r) -- null && null
     then nullCond()
-    else if isNullCond(l) && isAllCond(r)
+    else if isNullCond(l) && isAllCond(r) -- null && all
     then nullCond()
-    else if isAllCond(l) && isNullCond(r)
+    else if isAllCond(l) && isNullCond(r) -- null && all
     then nullCond()
-    else if isNullCond(l)
+    else if isNullCond(l) -- null && r
     then r
-    else if isNullCond(r)
+    else if isNullCond(r) -- l && null
     then l
-    else if isAllCond(l) && isAllCond(r)
+    else if isAllCond(l) && isAllCond(r) -- all && all
     then l
-    else if isAllCond(l)
+    else if isAllCond(l) -- all && r
     then r
-    else if isAllCond(r)
+    else if isAllCond(r) -- l && all
     then l
-    else if isDenseCond(l) && isDenseCond(r)
+    else if isDenseCond(l) && isDenseCond(r) -- dense && dense
     then l
-    else if isDenseCond(l)
+    else if isDenseCond(l) -- dense && r
     then r
-    else if isDenseCond(r)
+    else if isDenseCond(r) -- l && dense
     then l
-    else andCond(l, r);
+    else andCond(l, r); -- l && r
 }
 
 function condOr
 TensorCond ::= l::TensorCond r::TensorCond loop::Boolean
-{
+{ -- How we merge with or is different if we're looking at a loop or an if
   return
     if loop
     then
-      if isNullCond(l) && isNullCond(r)
+      if isNullCond(l) && isNullCond(r) -- null || null
       then nullCond()
-      else if isNullCond(l)
+      else if isNullCond(l) -- null || r
       then r
-      else if isNullCond(r)
+      else if isNullCond(r) -- l || null
       then l
-      else if isAllCond(l) && isAllCond(r)
+      else if isAllCond(l) && isAllCond(r) -- all || all
       then l
-      else if isAllCond(l)
+      else if isAllCond(l) -- all || r
       then l
-      else if isAllCond(r)
+      else if isAllCond(r) -- l || all
       then r
-      else if isDenseCond(l) && isDenseCond(r)
+      else if isDenseCond(l) && isDenseCond(r) -- dense || dense
       then l
-      else if isDenseCond(l) 
+      else if isDenseCond(l) -- dense || r
       then l
-      else if isDenseCond(r)
+      else if isDenseCond(r) -- l || dense
       then r
-      else andCond(l, r)
+      else andCond(l, r) -- l || r
     else
-      if isNullCond(l) && isNullCond(r)
+      if isNullCond(l) && isNullCond(r) -- null || null
       then nullCond()
-      else if isNullCond(l)
+      else if isNullCond(l) -- null || r
       then r
-      else if isNullCond(r)
+      else if isNullCond(r) -- l || null
       then l
-      else if isAllCond(l) && isAllCond(r)
+      else if isAllCond(l) && isAllCond(r) -- all || all
       then l
-      else if isAllCond(l)
-      then r
-      else if isAllCond(r)
+      else if isAllCond(l) -- all || r
+      then r -- difference (can't drop r, must know for if)
+      else if isAllCond(r) -- l || all
+      then l -- difference (can't drop l, must know for if)
+      else if isDenseCond(l) && isDenseCond(r) -- dense || dense
       then l
-      else if isDenseCond(l) && isDenseCond(r)
-      then l
-      else if isDenseCond(l)
-      then r
-      else if isDenseCond(r)
-      then l
-      else andCond(l, r);
+      else if isDenseCond(l) -- dense || r
+      then r -- difference (can't drop r, must known for if)
+      else if isDenseCond(r) -- l || dense
+      then l -- difference (can't drop l, must known for if)
+      else andCond(l, r); -- l || r
 }
 
+{- Optimize / cleanup a condition -}
 function optimizeCond
 TensorCond ::= c::TensorCond
 {
   local dense::[TensorCond] =
-    findDenseAccess(c);
+    findDenseAccess(c); -- find the dense accesses
 
+  -- remove uneeded dense conditions (all dense conditions are the same)
   local denseAcc::[TensorCond] =
     if listLength(dense) > 1
     then
@@ -175,6 +194,9 @@ TensorCond ::= c::TensorCond
       end
     else dense;
 
+  {- If there's a dense access in the condition, we only need one 
+     dense. The condition generators prevent a situation where we
+     have (and need) sparse && dense -}
   return
     if !null(dense)
     then head(denseAcc)
@@ -186,7 +208,7 @@ TensorCond ::= c::TensorCond
         in let oR::TensorCond =
           optimizeCond(r)
         in
-        andCond(l, r)
+        andCond(oL, oR)
         end
         end
       | _ -> c
@@ -256,13 +278,19 @@ Boolean ::= c::TensorCond
     end;
 }
 
+{- Used to determine if one condition totally
+   covers another. This tests for:
+     if(c) then ... else if (b) then ...never occurs...
+   This allows for nicer code emission.
+-}
 function condIsAbove
 Boolean ::= c::TensorCond b::TensorCond
 {
   return
     case c, b of
-    | allCond(_), allCond(_) -> false 
+    | allCond(_), allCond(_) -> false
     | allCond(_), _ -> true
+    -- nullCond should never actually occur in the codegen
     | nullCond(), nullCond() -> true
     | nullCond(), _ -> true
     | _, nullCond() -> true
