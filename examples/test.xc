@@ -47,5 +47,34 @@ int main() {
   printf("\n");
   printf("0.00 3.00 0.00 2.00 5.00 5.00 0.00 3.00\n");
 
+  freeTensor(a);
+  freeTensor(b);
+  freeTensor(c);
+  freeTensor(d);
+
+  tensor<mat> X = build(tensor<mat>)({8, 8});
+  tensor<vec> y = build(tensor<vec>)({8});
+  tensor<vec> z = build(tensor<vec>)({8});
+
+  X[0,1] = 1.0;
+  X[1,2] = 2.0;
+  X[3,1] = 3.0;
+  X[7,5] = 4.0;
+
+  y[0] = 1.0;
+  y[4] = 2.0;
+
+  z[j] = X[i,j] + y[i];
+
+  printf("\n");
+  for(int i = 0; i < 8; i++)
+    printf("%2.2f ", z[i]);
+  printf("\n");
+  printf("3.00 7.00 5.00 3.00 3.00 7.00 3.00 3.00\n");
+
+  freeTensor(X);
+  freeTensor(y);
+  freeTensor(z);
+
   return 0;
 }

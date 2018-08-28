@@ -135,7 +135,8 @@ top::ComputeGraph ::=
       filtered
     );
 
-  local sbLts :: [[LatticePoint]] =
+  -- For each loop, find all possible points inside of it
+  local sbLts :: [[LatticePoint]] = 
     map(
       \ e::LatticePoint ->
          let lattice::LatticePoint =
@@ -180,7 +181,7 @@ top::ComputeGraph ::=
 
   top.frthr = 
     if listLength(vars) == 1
-    then
+    then -- If now on last var, use nullGraph to signify end
       map(
         \ lst::[LatticePoint] ->
           map(
@@ -201,7 +202,10 @@ top::ComputeGraph ::=
                 assign, fmts, 
                 (
                 if above
-                then
+                then -- If we are above the output layer (where we
+                     -- actually write data to the tensor), we can
+                     -- make substitutions between values that are
+                     -- available and generated names.
                   makeSubs(
                     lp.value, head(vars),
                     tail(vars), isBelowOut,
@@ -226,7 +230,7 @@ top::ComputeGraph ::=
         nubBy(
           \ c1::TensorCond c2::TensorCond ->
             c1.ifCond == "1" && c2.ifCond == "1"
-          ,
+          , -- ^ We don't want multiple 'all' conditions
           map(
             \ lp::LatticePoint ->
               lp.cond
@@ -248,7 +252,7 @@ top::ComputeGraph ::=
 
   top.asmbl =
     if outDense || null(top.conds)
-    then nullStmt()
+    then nullStmt() -- if out is dense, there's no need for assemble
     else
       foldl(
         \ above::Stmt nu::Stmt ->
@@ -256,7 +260,8 @@ top::ComputeGraph ::=
             $Stmt{above}
             $Stmt{nu}
           }
-        ,
+        , -- We use this odd method, because of the last boolean, signifying whether what is
+          -- being generated is the first loop (in which case it emits certain variables)
         generateAssemble(head(top.conds), head(exs), head(top.exprs), head(top.ifCnd), 
           head(top.frthr), head(vars), fmts, listLength(top.conds) == 1, assign, tail(vars), true),
         zip5(
@@ -333,6 +338,8 @@ function extractPoints_helper
     );
 }
 
+{- Find the possible subs given a TensorExpr, the current variable, and what 
+   variables are left to compute. -}
 function listSubs
 [Pair<String TensorExpr>] ::= 
   e::TensorExpr var::String remain::[String] fmts::tm:Map<String TensorFormat>
@@ -397,6 +404,12 @@ function listSubs_helper
       end;
 }
 
+{- Perform all possible subs on a TensorExpr given the current variable
+   and what variables remain to be computed. This also depends on whether
+   we are below the output layer or not. If we are below, when subexpresions
+   of addition and subtration are available, we just drop the side that is
+   available, simplifying the expression as we proceed deeper into the loops.
+-}
 function makeSubs
 TensorExpr ::= 
   e::TensorExpr var::String remain::[String] isBelowOut::Boolean
@@ -489,6 +502,7 @@ Boolean ::= e::TensorExpr
     end;
 }
 
+{- Generate an Expr from a TensorExpr -}
 function evalExpr
 Expr ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
 {
@@ -521,6 +535,8 @@ Expr ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
     end;
 }
 
+{- Produce an Expr that will properly access and index into the
+   output tensor's data. -}
 function evalOut
 Expr ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
 {
@@ -542,6 +558,10 @@ Expr ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
     end;
 }
 
+{- Taking a TensorCond and the current variable and TensorExpr, this produces
+   the full condition needed in the loop. This is needed because of how we handle
+   or (+ / -) with mixing dense and sparse dimensions. This uses the .cnd generated
+   by the condition, an adds checks to ensure sparse dimensions are in bounds. -}
 function fullCondition
 Expr ::= c::TensorCond e::TensorExpr var::String fmts::tm:Map<String TensorFormat>
 {
@@ -584,58 +604,24 @@ Expr ::= c::TensorCond e::TensorExpr var::String fmts::tm:Map<String TensorForma
     end;
 }
 
-function generateFullCondition
-String ::= c::TensorCond e::TensorExpr var::String fmts::tm:Map<String TensorFormat>
-{
-  e.fmts = fmts;
-  e.variable = var;
-
-  return
-    c.condition
-    ++
-    case c of
-    | allCond(_) ->
-      if null(e.sparse)
-      then ""
-      else
-        "&&"
-        ++
-        "("
-        ++
-        implode(
-          "&&",
-          map(
-            \ p::Pair<String Integer> ->
-              s"(p${p.fst}${toString(p.snd+1)} < ${p.fst}${toString(p.snd+1)}_pos[${if p.snd == 0 then "1" else s"p${p.fst}${toString(p.snd)} + 1"}])"
-            ,
-            e.sparse
-          )
-        )
-        ++
-        ")"
-    | denseAccess(_, _, _) ->
-      if null(e.sparse)
-      then ""
-      else
-        "&&"
-        ++
-        "("
-        ++
-        implode(
-          "&&",
-          map(
-            \ p::Pair<String Integer> ->
-              s"(p${p.fst}${toString(p.snd+1)} < ${p.fst}${toString(p.snd+1)}_pos[${if p.snd == 0 then "1" else s"p${p.fst}${toString(p.snd)} + 1"}])"
-            ,
-            e.sparse
-          )
-        )
-        ++
-        ")"
-    | _ -> ""
-    end;
-}
-
+{- The code generation algorithm itself. The params are as follows:
+     c  : The condition for the loop being created here
+     ex : The expression encompasing this loop
+     e  : The list of expressions which correspond with ic and g
+     ic : The list of conditions for the if statements
+     g  : The list of compute graphs corresponding to each if statement
+     v  : The variable being emitted
+     fmts : Map of tensor name to TensorFormat
+     canEmitFor : Whether a for loop can be emitted if possible
+        ( this is set by there only being one node in the lattice )
+     assign : The TensorExpr representing the output of the equation
+     remain : A list of the indexvars that are still left
+     top : Whether this loop is the first for the current indexvar
+     canPar : Whether the user enabled parallelization and no parallel
+       loop has already been used.
+     thdCnt : Whether the user provided a desired thread count for
+       parallelization
+-}
 function generateCode
 Stmt ::= 
   c::TensorCond ex::TensorExpr e::[TensorExpr] ic::[TensorCond] 
@@ -643,9 +629,15 @@ Stmt ::=
   canEmitFor::Boolean assign::TensorExpr remain::[String]
   top::Boolean canPar::Boolean thdCnt::Maybe<Integer>
 {
+  -- A list of all parts of the TensorExpr that become available
+  -- at this variable.
   local subs::[Pair<String TensorExpr>] =
     listSubs(ex, v, remain, fmts);
 
+  -- We can only emit a for loop if we were told we can, and the 
+  -- condition isn't an and condition. Even if the condition is 
+  -- all or dense, we cannot have any dense dimensions on that
+  -- dimension
   local forLoop::Boolean =
     canEmitFor 
     &&
@@ -656,9 +648,14 @@ Stmt ::=
     | _ -> false
     end;
 
+  -- We can emit parallelization if we are emitting a for loop,
+  -- we were told we can emit parallelization, and this dimension
+  -- of the output is dense (we also do not parallelize loops that
+  -- don't access the output tensor as this produces nondeterminism).
   local canParallel :: Boolean =
     canPar && forLoop && !outSparse.isJust && outDense.isJust;
 
+  -- The name of the variable in the for loop
   local forVar::String =
     case c of
     | allCond(v) -> v
@@ -667,6 +664,7 @@ Stmt ::=
     | _ -> ""
     end;
 
+  -- The declaration needed for the for loop
   local forInit::Decl =
     case c of
     | allCond(v) -> ableC_Decl{ unsigned long $name{v} = 0; }
@@ -680,15 +678,20 @@ Stmt ::=
     | _ -> decls(nilDecl())
     end;
 
+  -- A text version of the for loop declaration (for parallelization)
   local forInitTxt::String =
     case c of
     | allCond(v) -> s"unsigned long ${v} = 0;"
     | denseAccess(_, _, v) -> s"unsigned long ${v} = 0;"
     | sparseAccess(n, d, _) ->
-      s"""unsigned long ${s"p${n}${toString(d+1)}"} = ${s"${n}${toString(d+1)}_pos"}[${if d == 0 then "0" else s"p${n}${toString(d)}"}]"""
+      s"""unsigned long ${s"p${n}${toString(d+1)}"} = ${s"${n}${toString(d+1)}_pos"}[${if d == 0 then "0" else s"p${n}${toString(d)}"}];"""
     | _ -> ""
     end;
 
+  -- Whether we can emit an else statement. The condition is that
+  -- there is only 1 sparse dimension on a sparse access. If this
+  -- happens, we don't have any if-else, we just know the value
+  -- is valid
   local emitElse::Boolean =
     case c of
     | sparseAccess(_, _, _) -> listLength(ic) == 1
@@ -698,6 +701,7 @@ Stmt ::=
   ex.variable = v;
   ex.fmts = fmts;
 
+  -- Determine whether we are below the output layer
   local below::Boolean =
     case assign of
     | tensorAccess(_, _, _) ->
@@ -713,6 +717,7 @@ Stmt ::=
     | _ -> true
     end;
 
+  -- Determine whether this is the output layer
   local output::Boolean =
     case assign of
     | tensorAccess(_, _, _) ->
@@ -734,12 +739,14 @@ Stmt ::=
     | _ -> false
     end;
 
+  -- Determine whether we are above the output layer
   local above :: Boolean =
     !output && !below;
 
   assign.variable = v;
   assign.fmts = fmts;
 
+  -- Determine if this access to the output tensor is sparse
   local outSparse::Maybe<Pair<String Integer>> =
     case assign of
     | tensorAccess(_, _, _) ->
@@ -753,6 +760,7 @@ Stmt ::=
     | _ -> nothing()
     end;
 
+  -- Determine if this access to the output tensor is dense
   local outDense::Maybe<Pair<String Integer>> =
     case assign of
     | tensorAccess(_, _, _) ->
@@ -766,6 +774,7 @@ Stmt ::=
     | _ -> nothing()
     end;
 
+  -- Whether the top condition (the loop condition) is all
   local topAll::Boolean =
     case c of
     | allCond(_) -> true
@@ -773,13 +782,15 @@ Stmt ::=
     | _ -> false
     end;
 
-
+  -- If we are below the output layer, these are used to emit
+  -- expressions into the variables used to propagate the calculation
+  -- back up the loop structure
   local redSubs::[Pair<String TensorExpr>] =
     list_reduceDeeper(ex, v::remain, fmts);
 
   return
   ableC_Stmt {
-    $Stmt{
+    $Stmt{ -- Start 0 (emit indexing variables for all sparse dimensions)
       if top
       then
         foldl(
@@ -800,8 +811,8 @@ Stmt ::=
           )
         )
       else nullStmt()
-    }
-    $Stmt {
+    } -- End 0
+    $Stmt { -- Start 1 (emit indexing for output if it is sparse)
       if top
       then 
         case outSparse of
@@ -814,23 +825,23 @@ Stmt ::=
         | _ -> nullStmt()
         end
       else nullStmt()
-    }
-    $Stmt {
+    } -- End 1
+    $Stmt { -- Start 2 (if top condition is all, declare the variable)
       if top && !forLoop && topAll
       then ableC_Stmt {
         unsigned long $name{v} = 0;
       }
       else nullStmt()
-    }
-    $Stmt {
-      let inner::Stmt =
+    } -- End 2
+    $Stmt { -- Start 3 (The actual loop body)
+      let inner::Stmt = -- We build what goes inside first
         ableC_Stmt {
-          $Stmt {
+          $Stmt { -- Start 4 (load a value from _idx for each sparse tensor, if multiple, determine the variable as the min)
             if listLength(ex.sparse) == 1 && (!forLoop || forVar != v) && !topAll
             then
               let p::Pair<String Integer> =
                 head(ex.sparse)
-              in
+              in -- If only one, no need to use min
               ableC_Stmt {
                 unsigned long $name{v} =
                   $name{s"${p.fst}${toString(p.snd+1)}_idx"}[$name{s"p${p.fst}${toString(p.snd+1)}"}];
@@ -838,7 +849,7 @@ Stmt ::=
               end
             else
               ableC_Stmt {
-                $Stmt{
+                $Stmt{ -- Determine the index for each sparse dimension
                   foldl(
                     \ nxt::Stmt p::Pair<String Integer> ->
                       ableC_Stmt {
@@ -855,13 +866,13 @@ Stmt ::=
                   if null(ex.sparse) || (forLoop && forVar == v) || topAll
                   then nullStmt()
                   else 
-                    ableC_Stmt {
+                    ableC_Stmt { -- Determine the minimum of the indices
                       unsigned long $name{v} = $Expr{generateMinExpr(ex.sparse, v)};
                     }
                 }
               }
-          }
-          $Stmt{
+          } -- End 4
+          $Stmt{ -- Start 5 (If it output is sparse, align out indexing variable to the proper value)
             case outSparse of
             | just(pair(s, d)) ->
               ableC_Stmt {
@@ -871,8 +882,8 @@ Stmt ::=
               }
             | nothing() -> nullStmt()
             end
-          }
-          $Stmt{
+          } -- End 5
+          $Stmt{ -- Start 5 (calculate indexing variable for each dense dimension)
             foldl(
               \ inn::Stmt p::Pair<String Integer> ->
                 ableC_Stmt {
@@ -892,8 +903,8 @@ Stmt ::=
               nullStmt(),
               ex.dense
             )
-          }
-          $Stmt{
+          } -- End 5
+          $Stmt{ -- Start 6 (If output is dense, calculate indexing variable for it)
             case outDense of
             | just(pair(s, d)) ->
               ableC_Stmt {
@@ -909,8 +920,8 @@ Stmt ::=
               }
             | _ -> nullStmt()
             end
-          }
-          $Stmt{
+          } -- End 6
+          $Stmt{ -- Start 7 (If we are above the output, store available expressions)
             if above
             then
               foldl(
@@ -924,14 +935,14 @@ Stmt ::=
                 subs
               )
             else nullStmt()
-          }
-          $Stmt{
+          } -- End 7
+          $Stmt{ -- Start 8 (Emit each of out loops using a foldr and building lambda's using a zip)
             foldr(
               \ f::(Stmt ::= Stmt) inn::Stmt ->
                 f(inn)
               ,
               nullStmt(),
-              zip3(
+              zip3( -- c=the condition of it if, e=the expression, g=the graph
                 \ c::TensorCond e::TensorExpr g::ComputeGraph ->
                   \ inn::Stmt ->
                     let red::TensorExpr =
@@ -940,7 +951,7 @@ Stmt ::=
                       list_reduceDeeper(e, remain, fmts)
                     in let body::Stmt =
                       ableC_Stmt {
-                        $Stmt{
+                        $Stmt{ -- Start 9 (declare variables used to propagate values up if needed)
                           if (output || below)
                            && (decorate e with {remaining=remain; fmts=fmts;}).isAvail
                           then nullStmt()
@@ -963,22 +974,22 @@ Stmt ::=
                               }
                               $Stmt{(decorate g with {canPar=canPar&&!canParallel;thdCnt=thdCnt;}).compute}
                             }
-                        }
-                        $Stmt{
+                        } -- End 9
+                        $Stmt{ -- Start A (if below, emit proper expressions into the proper variables)
                           if below
                           then
                             foldl(
                               \ abv::Stmt p::Pair<String TensorExpr> ->
-                                if exprContained(e, p.snd, fmts)
+                                if exprContained(e, p.snd, fmts) -- If the sub expression is directly contained
                                 then
                                   let sb::TensorExpr =
                                     performSubs(p.snd, sbs, fmts)
                                   in
                                   ableC_Stmt {
-                                    $name{p.fst} += $Expr{evalExpr(sb, fmts)};
+                                    $name{p.fst} += $Expr{evalExpr(sb, fmts)}; -- Emit it
                                   }
                                   end
-                                else
+                                else -- Otherwise, find the expression if it exits (by zeroing values that may zero)
                                   let possible::[TensorExpr] =
                                     exprCanZero(p.snd)
                                   in
@@ -1002,16 +1013,16 @@ Stmt ::=
                               redSubs
                             )
                           else nullStmt()
-                        }
-                        $Stmt{
+                        } -- End A
+                        $Stmt{ -- Start B (if it's the output, output the expression)
                           if output
                           then 
                             ableC_Stmt {
                               $Expr{evalOut(assign, fmts)} += $Expr{evalExpr(red, fmts)};
                             }
                           else nullStmt()
-                        }
-                        $Stmt{
+                        } -- End B
+                        $Stmt{ -- Start C (if the output is sparse, increment counter)
                           case outSparse of
                           | just(pair(s, d)) ->
                             ableC_Stmt {
@@ -1019,13 +1030,13 @@ Stmt ::=
                             }
                           | _ -> nullStmt()
                           end
-                        }
+                        } -- End C
                       }
-                    in
+                    in -- Use the body we calcualted
                     if c.ifCond == "1" || emitElse
-                    then
-                      body
-                    else
+                    then -- If condition is 'true' or told to emit else
+                      body -- emit body
+                    else -- Else, emit if, and put the next value in an else
                       ableC_Stmt {
                         if($Expr{c.ifCondition}) {
                           $Stmt{body}
@@ -1040,8 +1051,8 @@ Stmt ::=
                 g
               )
             )
-          }
-          $Stmt{
+          } -- End 8
+          $Stmt{ -- Start D (if we have sparse values, increment them if they matched the value used)
             if listLength(ex.sparse) == 1 && !topAll
             then
               let p::Pair<String Integer> =
@@ -1065,17 +1076,17 @@ Stmt ::=
                 nullStmt(),
                 ex.sparse
               )
-          }
-          $Stmt{
+          } -- End D
+          $Stmt{ -- Start E (increment value if not a for loop, but loop is over v)
             if !forLoop && topAll
             then
               ableC_Stmt{
                 $name{v}++;
               }
             else nullStmt()
-          }
+          } -- End E
         }
-      in
+      in -- Emit the actual loop and put what we built inside of it
         if forLoop
         then
           if canParallel
@@ -1084,14 +1095,14 @@ Stmt ::=
             then ableC_Stmt {
               $Decl{forInit}
               $Stmt{txtStmt(s"#pragma omp parallel for num_threads (${toString(thdCnt.fromJust)})")}
-              $Stmt{txtStmt(s"for(${forInitTxt} ${generateFullCondition(c, ex, v, fmts)}; ${forVar}++)")} {
+              $Stmt{txtStmt(s"for(${forInitTxt} ${c.condition}; ${forVar}++)")} {
                 $Stmt{inner}
               }
             }
             else ableC_Stmt {
               $Decl{forInit}
               $Stmt{txtStmt("#pragma omp parallel for")}
-              $Stmt{txtStmt(s"for(${forInitTxt} ${generateFullCondition(c, ex, v, fmts)}; ${forVar}++)")} {
+              $Stmt{txtStmt(s"for(${forInitTxt} ${c.condition}; ${forVar}++)")} {
                 $Stmt{inner}
               }
             }
@@ -1106,10 +1117,12 @@ Stmt ::=
           }
         }
       end
-    }
+    } -- End 3
   };
 }
 
+-- Function to return Expr to find mimnimum value of indices calculated from
+-- sparse tensors
 function generateMinExpr
 Expr ::= prs::[Pair<String Integer>] var::String
 {
@@ -1125,6 +1138,9 @@ Expr ::= prs::[Pair<String Integer>] var::String
     end;
 }
 
+{- The code for assemble, and how it is generated are nearly the same as that for
+   compute. The difference is that once we have reached the output layer, our 
+   assemble stops, since there's no reason to go any deeper. -}
 function generateAssemble
 Stmt ::= 
   c::TensorCond ex::TensorExpr e::[TensorExpr] ic::[TensorCond]
@@ -1436,6 +1452,10 @@ Stmt ::=
   };
 }
 
+{- Determine what the current expression will look like (what will 
+   be stored where) after the inner loops have executed. This is 
+   important at output and below, because we emit computations to
+   variables or the output tensor once the inner loop is executed. -}
 function reduceDeeper
 TensorExpr ::= 
   ex::TensorExpr var::String remain::[String] 
@@ -1448,18 +1468,6 @@ TensorExpr ::=
       reduceDeeper_helper(ex, var, remain, 0, fmts).fst;
 }
 
-function list_reduceDeeper
-[Pair<String TensorExpr>] ::= 
-  ex::TensorExpr remain::[String]
-  fmts::tm:Map<String TensorFormat>
-{
-  return
-    if null(remain)
-    then []
-    else
-      list_reduceDeeper_helper(ex, remain, 0, fmts).fst;
-}
-
 function reduceDeeper_helper
 Pair<TensorExpr Integer> ::= 
   ex::TensorExpr var::String remain::[String] idx::Integer
@@ -1470,13 +1478,13 @@ Pair<TensorExpr Integer> ::=
 
   return
     if ex.isAvail 
-    then pair(ex, idx)
+    then pair(ex, idx) -- if the value is already available, we don't change it
     else
       case ex of
       | tensorBaseExpr(_, _) ->
-        pair(ex, idx)
+        pair(ex, idx) -- expressions are always available
       | tensorAccess(_, _, en) ->
-        pair(
+        pair( -- If it's just an access, we just give it an automatic name and move on
           tensorBaseExpr(
             declRefExpr(
               name(s"t${head(remain)}${toString(idx)}", location=ex.location),
@@ -1489,63 +1497,24 @@ Pair<TensorExpr Integer> ::=
           idx+1
         )
       | tensorAdd(l, r, en) ->
-        reduceDeeper_function(
+        reduceDeeper_function( -- Apply function with production being add
           tensorAdd(_, _, _, location=_), var, remain, 
           idx, en, l, r, fmts, true
         )
       | tensorSub(l, r, en) ->
-        reduceDeeper_function(
+        reduceDeeper_function( -- Apply with sub
           tensorSub(_, _, _, location=_), var, remain,
           idx, en, l, r, fmts, true
         )
       | tensorMul(l, r, en) ->
-        reduceDeeper_function(
+        reduceDeeper_function( -- with mul
           tensorMul(_, _, _, location=_), var, remain, 
           idx, en, l, r, fmts, false
         )
       | tensorDiv(l, r, en) ->
-        reduceDeeper_function(
+        reduceDeeper_function( -- with div
           tensorDiv(_, _, _, location=_), var, remain,
           idx, en, l, r, fmts, false
-        )
-      end;
-}
-
-function list_reduceDeeper_helper
-Pair<[Pair<String TensorExpr>] Integer> ::= 
-  ex::TensorExpr remain::[String] idx::Integer
-  fmts::tm:Map<String TensorFormat>
-{
-  ex.remaining = remain;
-  ex.fmts = fmts;
-
-  return
-    if ex.isAvail
-    then pair([], idx)
-    else
-      case ex of
-      | tensorBaseExpr(_, _) ->
-        pair([], idx)
-      | tensorAccess(_, _, en) ->
-        pair(
-          [pair(s"t${head(remain)}${toString(idx)}", ex)],
-          idx+1
-        )
-      | tensorAdd(l, r, en) ->
-        list_reduceDeeper_function(
-          remain, idx, en, l, r, ex, fmts, true
-        )
-      | tensorSub(l, r, en) ->
-        list_reduceDeeper_function(
-          remain, idx, en, l, r, ex, fmts, true
-        )
-      | tensorMul(l, r, en) ->
-        list_reduceDeeper_function(
-          remain, idx, en, l, r, ex, fmts, false
-        )
-      | tensorDiv(l, r, en) ->
-        list_reduceDeeper_function(
-          remain, idx, en, l, r, ex, fmts, false
         )
       end;
 }
@@ -1564,9 +1533,10 @@ Pair<TensorExpr Integer> ::=
   
   return
     if addSub
-    then -- add / sub
+    then -- add / sub (the reduction is different depending on operation type)
       if anyAvail(l, remain, fmts) && anyAvail(r, remain, fmts)
-      then
+      then -- If parts of an expression are available, replace the parts that aren't
+           -- available, calling reduceDeeper_helper to do this
         let lSub::Pair<TensorExpr Integer> =
           reduceDeeper_helper(l, var, remain, idx, fmts)
         in
@@ -1585,6 +1555,8 @@ Pair<TensorExpr Integer> ::=
           reduceDeeper_helper(l, var, remain, idx, fmts)
         in
         let rSub::Pair<TensorExpr Integer> =
+          -- If no part of the expression is available, replace the who thing with
+          -- a name based on the next variable, and our count of indices
           pair(
             tensorBaseExpr(
               declRefExpr(
@@ -1634,7 +1606,7 @@ Pair<TensorExpr Integer> ::=
         end
         end
       else
-        pair(
+        pair( -- If nothing is available, the whole expression is substituted 
           tensorBaseExpr(
             declRefExpr(
               name(
@@ -1649,7 +1621,12 @@ Pair<TensorExpr Integer> ::=
           ,
           idx+1
       )
-    else
+    else -- mul / div. For multiplication and division it is more complicated
+         -- This is because we chose to assume that we do not place a sigma
+         -- between products. So a(i) = b(i) * c(j) is 
+         -- a(i) = sum for all j of b(i) * c(j)
+         -- But a(i) = b(i) + c(j) is
+         -- a(i) = b(i) + sum for all j of c(j)
       if l.isAvail && !availSimul(r, remain, fmts)
       then
         pair(
@@ -1717,6 +1694,58 @@ Pair<TensorExpr Integer> ::=
           ),
           idx+1
         );
+}
+
+{- Lists the subs that would be performed by reduceDeper -}
+function list_reduceDeeper
+[Pair<String TensorExpr>] ::= 
+  ex::TensorExpr remain::[String]
+  fmts::tm:Map<String TensorFormat>
+{
+  return
+    if null(remain)
+    then []
+    else
+      list_reduceDeeper_helper(ex, remain, 0, fmts).fst;
+}
+
+function list_reduceDeeper_helper
+Pair<[Pair<String TensorExpr>] Integer> ::= 
+  ex::TensorExpr remain::[String] idx::Integer
+  fmts::tm:Map<String TensorFormat>
+{
+  ex.remaining = remain;
+  ex.fmts = fmts;
+
+  return
+    if ex.isAvail
+    then pair([], idx)
+    else
+      case ex of
+      | tensorBaseExpr(_, _) ->
+        pair([], idx)
+      | tensorAccess(_, _, en) ->
+        pair(
+          [pair(s"t${head(remain)}${toString(idx)}", ex)],
+          idx+1
+        )
+      | tensorAdd(l, r, en) ->
+        list_reduceDeeper_function(
+          remain, idx, en, l, r, ex, fmts, true
+        )
+      | tensorSub(l, r, en) ->
+        list_reduceDeeper_function(
+          remain, idx, en, l, r, ex, fmts, true
+        )
+      | tensorMul(l, r, en) ->
+        list_reduceDeeper_function(
+          remain, idx, en, l, r, ex, fmts, false
+        )
+      | tensorDiv(l, r, en) ->
+        list_reduceDeeper_function(
+          remain, idx, en, l, r, ex, fmts, false
+        )
+      end;
 }
 
 function list_reduceDeeper_function
