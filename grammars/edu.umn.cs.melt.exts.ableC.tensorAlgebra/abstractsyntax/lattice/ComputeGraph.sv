@@ -2,13 +2,21 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:lattice;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
-synthesized attribute conds :: [TensorCond];
-synthesized attribute exprs :: [[TensorExpr]];
-synthesized attribute ifCnd :: [[TensorCond]];
-synthesized attribute frthr :: [[ComputeGraph]];
-synthesized attribute asmbl :: Stmt;
-synthesized attribute compute :: Stmt;
+{- The compute graph is built by the TensorExprAssign
+   production. The graph is build by providing it a 
+   TensorExpr for the lhs and rhs, a map of tensor names
+   to their formats, and a list of the access order -}
 
+synthesized attribute conds :: [TensorCond]; -- All conditions for loops for this var
+synthesized attribute exprs :: [[TensorExpr]]; -- The expressions valid inside each loop
+synthesized attribute ifCnd :: [[TensorCond]]; -- The if conditions for each expression in each loop
+synthesized attribute frthr :: [[ComputeGraph]]; -- The graph that describes the next step in computation
+synthesized attribute asmbl :: Stmt; -- Code to assemble the output tensor
+synthesized attribute compute :: Stmt; -- Compute code
+
+-- Whether this graph is allowed to generate OpenMP parallelization
+-- Determined by user, and we prevent multiple loops from being
+-- parallelized
 inherited attribute canPar :: Boolean;
 inherited attribute thdCnt :: Maybe<Integer>;
 
@@ -16,6 +24,8 @@ nonterminal ComputeGraph with
   conds, exprs, ifCnd, frthr, asmbl, compute,
   canPar, thdCnt;
 
+{- Empty compute graph (used when we reach the end of the
+   variable list -}
 abstract production nullGraph
 top::ComputeGraph ::= 
 {
@@ -27,6 +37,9 @@ top::ComputeGraph ::=
   top.compute = nullStmt();
 }
 
+{- Production for a real computeGraph. assign is the lhs, fmts is the map
+   of tensor names to formats, value is the rhs, vars, is the order of 
+   variables (or when called later, the remaining variables) -}
 abstract production computeGraph
 top::ComputeGraph ::=
   assign::TensorExpr fmts::tm:Map<String TensorFormat> value::TensorExpr
@@ -37,6 +50,7 @@ top::ComputeGraph ::=
   local outDense :: Boolean =
     allDense(getTensorFormat(assign, fmts));
 
+  -- Whether any of the remaining vars are used to access the output tensor
   local isBelowOut::Boolean =
     !containsAny(
       stringEq,
@@ -44,6 +58,7 @@ top::ComputeGraph ::=
       head(assign.accesses)
     );
 
+  -- Whether any variable (other than the first) is used to access output
   local above::Boolean =
     if null(assign.accesses)
     then false
@@ -54,12 +69,15 @@ top::ComputeGraph ::=
         tail(vars)
       );
 
+  -- Build the lattice Point
   local lp::LatticePoint =
     lattice_points(assign, fmts, value, head(vars), loc, env, true);
 
+  -- Flatten the lattice point into a list of points
   local pnts::[LatticePoint] =
     extractPoints(lp);
 
+  -- Optimized and clenaed points. Remove unecessary points
   local filtered::[LatticePoint] =
     filterHead(
       \ c::LatticePoint h::[LatticePoint] ->
@@ -73,7 +91,7 @@ top::ComputeGraph ::=
             h
           )
         in
-        foldl(
+        !foldl( -- Include if this has different sparse dimensions than anything before
           \ b::Boolean lat::LatticePoint ->
             b || 
             let e::Decorated TensorExpr =
@@ -82,7 +100,14 @@ top::ComputeGraph ::=
             let ex::Decorated TensorExpr =
               decorate lat.value with {variable=head(vars); fmts=fmts;}
             in
-            listLength(e.sparse) < listLength(ex.sparse)
+            listEqual(
+              \ p1::Pair<String Integer>
+                p2::Pair<String Integer> ->
+                p1.fst == p2.fst && p1.snd == p2.snd
+              , 
+              e.sparse, 
+              ex.sparse
+            )
             end
             end
           ,
@@ -90,11 +115,11 @@ top::ComputeGraph ::=
           h
         )
         ||
-        !containsWith(
-          \ lat::LatticePoint ->
-            condIsAbove(optimizeCond(lat.cond), cond)
+        !containsWith( -- Include if no previous condition is 'above' it
+          \ cn::TensorCond ->
+            condIsAbove(cn, cond)
           ,
-          h
+          conds
         )
         end
         end
@@ -281,10 +306,28 @@ function extractPoints
 [LatticePoint] ::= p::LatticePoint
 {
   return
-    p ::
+    map(
+      \ p::Pair<LatticePoint Integer> ->
+        p.fst
+      ,
+      sortBy(
+        \ p1::Pair<LatticePoint Integer> 
+          p2::Pair<LatticePoint Integer> ->
+          p1.snd <= p2.snd
+        ,
+        extractPoints_helper(p, 0)
+      )
+    );
+}
+
+function extractPoints_helper
+[Pair<LatticePoint Integer>] ::= p::LatticePoint lvl::Integer
+{
+  return
+    pair(p, lvl) ::
     flatMap(
-      \ pnt::LatticePoint
-      -> extractPoints(pnt)
+      \ pnt::LatticePoint ->
+        extractPoints_helper(pnt, lvl+1)
       ,
       p.pnts
     );

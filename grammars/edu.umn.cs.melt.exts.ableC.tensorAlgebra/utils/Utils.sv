@@ -234,3 +234,16 @@ function filterHead_helper
       else
         filterHead_helper(f, tail(lst), tail(hs));
 }
+
+function listEqual
+Boolean ::= elemEq::(Boolean ::= a b) lst1::[a] lst2::[b]
+{
+  return
+    if null(lst1) && null(lst2)
+    then true
+    else if null(lst1) || null(lst2)
+    then false
+    else
+      elemEq(head(lst1), head(lst2)) &&
+      listEqual(elemEq, tail(lst1), tail(lst2));
+}
