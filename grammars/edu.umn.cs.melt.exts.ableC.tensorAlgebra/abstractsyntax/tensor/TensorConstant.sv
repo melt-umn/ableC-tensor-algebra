@@ -1,5 +1,9 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:tensor;
 
+{- This file describes creates the TensorConstant nonterminal,
+   used when specifying the content of the tensor as a literal
+   to build, such as [ [1, 2, 3], [4, 5, 6] ]. -}
+
 synthesized attribute tensor_dims::Integer;
 synthesized attribute tensor_size::Integer;
 
@@ -48,9 +52,13 @@ t::TensorConstant ::= sub::[TensorConstant]
       t.env
     );
   
+  -- The order of this tensor literal
   t.tensor_dims = head(sub).tensor_dims + 1;
+  -- The size of this dimension of the tensor
   t.tensor_size = listLength(sub);
   
+  -- An initializer holding the contents of the tensor
+  -- to initialize the array of data.
   t.tensor_asExpr = 
     objectInitializer(
       let lsts :: [InitList] =
@@ -71,6 +79,9 @@ t::TensorConstant ::= sub::[TensorConstant]
       concatInitList(lsts)
       end
     );
+
+  -- An initializer for the array of the dimensions of
+  -- this tensor
   t.tensor_dimExpr =
     objectInitializer(
       consInit(
@@ -89,28 +100,6 @@ t::TensorConstant ::= sub::[TensorConstant]
         end
       )
     );
-}
-
-function concatInitList
-InitList ::= lst::[InitList]
-{
-  return
-    case lst of
-    | [] -> nilInit()
-    | i::[] -> i
-    | h::tl -> appendInitList(h, concatInitList(tl))
-    end;
-}
-
-function appendInitList
-InitList ::= a::InitList b::InitList
-{
-  return
-    case a of
-    | nilInit() -> b
-    | consInit(i, tl) ->
-      consInit(i, appendInitList(tl, b))
-    end;
 }
 
 abstract production tensor_base
@@ -166,6 +155,29 @@ t::TensorConstant ::= sub::[Expr]
     );
 }
 
+function concatInitList
+InitList ::= lst::[InitList]
+{
+  return
+    case lst of
+    | [] -> nilInit()
+    | i::[] -> i
+    | h::tl -> appendInitList(h, concatInitList(tl))
+    end;
+}
+
+function appendInitList
+InitList ::= a::InitList b::InitList
+{
+  return
+    case a of
+    | nilInit() -> b
+    | consInit(i, tl) ->
+      consInit(i, appendInitList(tl, b))
+    end;
+}
+
+{- Combine the errors from a list of TensorConstant's -}
 function combineErrors
 [Message] ::= h::TensorConstant tl::[TensorConstant] env::Decorated Env
 {
@@ -186,7 +198,7 @@ function errorChecking
     (
     if null(h.errors)
     then 
-      if h.typerep.isArithmeticType
+      if h.typerep.isArithmeticType -- The data in a tensor must be arithmetic
       then []
       else [err(h.location, "Expected an arithmetic value, got ${showType(h.typerep)}.")]
     else h.errors
@@ -197,6 +209,8 @@ function errorChecking
     else errorChecking(head(tl), tail(tl), env);
 }
 
+{- Function to ensure that all tensors inside of a 2nd or higher level
+   tensor all have the same order. -}
 function checkDimensions
 Boolean ::= lst::[TensorConstant]
 {
@@ -215,6 +229,9 @@ Boolean ::= lst::[TensorConstant] dim::Integer
     else true;
 }
 
+{- Function to check that all tensors inside a 2nd or higher level
+   tensor all have the same dimensions (tensors cannot be 
+   ragged) -}
 function checkSizes
 Boolean ::= lst::[TensorConstant]
 {

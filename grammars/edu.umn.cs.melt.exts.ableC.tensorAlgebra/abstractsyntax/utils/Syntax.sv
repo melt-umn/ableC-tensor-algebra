@@ -2,6 +2,7 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:utils;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
+{- The orderof production when a type is used -}
 abstract production orderofType
 top::Expr ::= tp::TypeName
 {
@@ -16,6 +17,7 @@ top::Expr ::= tp::TypeName
   forwards to orderof(tp.typerep, location=top.location);
 }
 
+{- The orderof production when an Expr is used -}
 abstract production orderofExpr
 top::Expr ::= e::Expr
 {
@@ -27,9 +29,15 @@ top::Expr ::= e::Expr
       text(")")
     ]);
 
-  forwards to orderof(e.typerep, location=top.location);
+  forwards to 
+    mkErrorCheck(
+      e.errors,
+      orderof(e.typerep, location=top.location)
+    );
 }
 
+{- The orderof production, which returns the order of a
+   tensor -}
 abstract production orderof
 top::Expr ::= tp::Type
 {
@@ -64,6 +72,11 @@ top::Expr ::= tp::Type
     );
 }
 
+{- The production for determining the size of a specific
+   dimension of a tensor. This can only be used in the 
+   form dimenof(Expr)[Expr], so the dimension must be
+   directly accessed, preventing the user access to the
+   dimension array -}
 abstract production dimenof
 top::Expr ::= tensor::Expr dim::Expr
 {
@@ -93,7 +106,7 @@ top::Expr ::= tensor::Expr dim::Expr
     if dim.typerep.isIntegerType
     then
       if dim.integerConstantValue.isJust
-      then
+      then -- If dim is a constant, we error check it now
         let c::Integer = dim.integerConstantValue.fromJust
         in
         if c < 0 || c >= fmt.dimensions
@@ -115,11 +128,11 @@ top::Expr ::= tensor::Expr dim::Expr
   
   local fwrd::Expr =
     if dim.integerConstantValue.isJust
-    then
+    then -- If dim is a constant, no runtime error checking needed
       ableC_Expr {
         $Expr{tensor}.dims[$Expr{dim}]
       }
-    else
+    else -- Otherwise, we error check at runtime
       ableC_Expr {
         ({
           struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
