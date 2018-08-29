@@ -14,14 +14,18 @@ int main() {
 
   tensor<src> dta = inst read_tensor<tensor<src>>("lbnl-network.tns");
   tensor<com> result = 
-    build(tensor<com>) ({dimenof(dta)[1], dimenof(dta)[3]});
+    build(tensor<com>) ({dimenof(dta)[1], dimenof(dta)[2]});
 
-  foreach(double v : dta[180, sP, 189, dP, t]) {
-    result[sP, dP] += v;
+  // Loop over all values in dta with sender 180. 
+  // We end up with a matrix of sender port and destination IP
+  foreach(double v : dta[180, sP, dI, dP, t]) {
+    result[sP, dI] += v;
   }
 
   freeTensor(dta);
 
+  // Same as before, we find the most common connections, but now
+  // between ports from IP 180, and destination IPs.
   tensor<com> common = build(tensor<com>)({dimenof(result)[0], dimenof(result)[1]});
   foreach(double v : result[snd, dst]) {
     if(v > 500000) // 500,000
@@ -30,10 +34,8 @@ int main() {
 
   freeTensor(result);
 
-  foreach(double v : common[snd, dst]) {
-    fprintf(stderr, "Source Port: %4lu   Destination IP: %4lu   Amount: %'14.2f\n", snd, dst, v);
-  }
-
+  inst write_tensor<tensor<com>>("common.tns", &common);
+  
   freeTensor(common);
 
   return 0;

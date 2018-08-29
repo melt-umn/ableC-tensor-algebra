@@ -1,5 +1,6 @@
 # ableC tensor algebra compiler
 A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compiler* by Fredrik Kjolstad, et. al.
+More information about this can be found on their website <http://tensor-compiler.org/>, and the details and limitations of the code generation algorithm are described in their paper, available at <http://tensor-compiler.org/publications.html>. The algorithm used herein is very similar to theirs, with some differences discussed at the bottom of this document.
 
 ## User Guide
 

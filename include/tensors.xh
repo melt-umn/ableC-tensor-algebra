@@ -146,9 +146,9 @@ a _read_mtx(char* fileName) {
       struct __new_elem* tmp;
       while(curr) {
         tmp = curr;
-	curr = tmp->next;
-	free(tmp->idx);
-	free(tmp);
+        curr = tmp->next;
+        free(tmp->idx);
+        free(tmp);
       }
 
       exit(1);
@@ -163,9 +163,9 @@ a _read_mtx(char* fileName) {
       struct __new_elem* tmp;
       while(curr) {
         tmp = curr;
-	curr = tmp->next;
-	free(tmp->idx);
-	free(tmp);
+        curr = tmp->next;
+        free(tmp->idx);
+        free(tmp);
       }
 
       exit(1);
@@ -229,46 +229,46 @@ a _read_tns(char* fileName) {
       int newBytes = 0;
       for(unsigned long i = 0; i < orderof(a); i++) {
         if(sscanf(line + bytes, "%lu%n", idx + i, &newBytes) != 1) { // %n is number of bytes consumed. Not counted in return
-	  fprintf(stderr, "Error in parsing .tns file, reached end of index before expected.\n");
-	  fclose(file);
-	  free(dims);
-	  free(idx);
-	  free(line);
+          fprintf(stderr, "Error in parsing .tns file, reached end of index before expected.\n");
+          fclose(file);
+          free(dims);
+          free(idx);
+          free(line);
 	  
-	  struct __new_elem* curr = header.next;
-	  struct __new_elem* tmp;
-	  while(curr) {
-	    tmp = curr;
-	    curr = tmp->next;
-	    free(tmp->idx);
-	    free(tmp);
-	  }
-	  
-	  exit(1);
-	}
-	bytes += newBytes;
+          struct __new_elem* curr = header.next;
+          struct __new_elem* tmp;
+          while(curr) {
+            tmp = curr;
+            curr = tmp->next;
+            free(tmp->idx);
+            free(tmp);
+          }
+          
+          exit(1);
+        }
+        bytes += newBytes;
 
-	if(idx[i] > dims[i]) dims[i] = idx[i];
-	idx[i]--;
+        if(idx[i] > dims[i]) dims[i] = idx[i];
+        idx[i]--; // .tns stores 1 based indices
       }
 
       if(sscanf(line + bytes, "%le", &val) != 1) {
         fprintf(stderr, "Error in parsing .tns file, did not find floating point value\n");
-	fclose(file);
-	free(dims);
-	free(idx);
-	free(line);
+        fclose(file);
+        free(dims);
+        free(idx);
+        free(line);
 	
-	struct __new_elem* curr = header.next;
-	struct __new_elem* tmp;
-	while(curr) {
-	  tmp = curr;
-	  curr = tmp->next;
-	  free(tmp->idx);
-	  free(tmp);
-	}
+        struct __new_elem* curr = header.next;
+        struct __new_elem* tmp;
+        while(curr) {
+          tmp = curr;
+          curr = tmp->next;
+          free(tmp->idx);
+          free(tmp);
+        }
 
-	exit(1);
+        exit(1);
       }
 
       struct __new_elem* elem = calloc(1, sizeof(struct __new_elem));
@@ -329,12 +329,13 @@ void _write_mtx(char* fileName, a tns) {
     exit(1);
   }
 
+  // The parenthesis below prevent compile time error checking
   fprintf(file, "%%%%MatrixMarket matrix coordinate real general\n");
   fprintf(file, "%lu %lu %lu\n", dimenof(tns)[(0)], dimenof(tns)[(1)], tns.dataLen);
 
   unsigned long count = 0;
   foreach(double v : tns) {
-    fprintf(file, "%lu %lu %f\n", index[0], index[1], v);
+    fprintf(file, "%lu %lu %le\n", index[0]+1, index[1]+1, v);
     count++;
   }
 
@@ -355,30 +356,38 @@ void _write_tns(char* fileName, a tns) {
 
   foreach(double v : tns) {
     for(int c = 0; c < orderof(a); c++) {
-      fprintf(file, "%lu ", index[c]);
+      fprintf(file, "%lu ", index[c]+1);
     }
-    fprintf(file, "%f\n", v);
+    fprintf(file, "%le\n", v);
   }
 
   fclose(file);
 }
 
 template<a>
-void write_tensor(char* fileName, a tns) {
+void write_tensor(char* fileName, a* tns) {
   char* ext = _get_extension(fileName);
+  unsigned long arr[orderof(a)];
+  memset(arr, 0, sizeof(unsigned long) * orderof(a));
+  (*tns)[arr];
+  a tmp = *tns;
+  a tnsor = {0};
+  tnsor = tmp;
 
   if(strcmp(ext, "mtx") == 0 || strcmp(ext, "ttx") == 0) {
     if(orderof(a) != 2) {
       fprintf(stderr, "MatrixMarket format supports only matrices. Cannot write a %d order tensor\n", orderof(a));
       exit(1);
     }
-    inst _write_mtx<a>(fileName, tns);
+    inst _write_mtx<a>(fileName, tnsor);
   } else if(strcmp(ext, "tns") == 0) {
-    inst _write_tns<a>(fileName, tns);
+    inst _write_tns<a>(fileName, tnsor);
   } else {
     fprintf(stderr, "Unknown file extension for tensor: %s\n", ext);
     exit(1);
   }
+
+  freeTensor(tnsor);
 }
 
 #endif
