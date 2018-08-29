@@ -4,6 +4,26 @@ tensor format mat ({sparse, sparse});
 
 indexvar i, j, k;
 
+int asserts = 0;
+char error = 0;
+
+void assert(double v, double e) {
+  asserts++;
+  double diff = v - e;
+  diff = diff < 0.0 ? 0.0 - diff : diff;
+  if(diff > 0.0001) {
+    fprintf(stderr, "Assert %d failed. Got %f, expected %f.\n", asserts, v, e);
+    error = 1;
+  }
+}
+
+double data[3][4] = 
+{
+  {0.0, 6.75, 1.0, 0.0},
+  {0.0, 5.25, 3.0, 0.0},
+  {0.0,  0.0, 0.0, 0.0}
+};
+
 int main() {
   tensor<mat> A = build(tensor<mat>)({3, 4});
   tensor<mat> B = build(tensor<mat>)({4, 4});
@@ -23,12 +43,14 @@ int main() {
 
   for(unsigned long i = 0; i < dimenof(C)[0]; i++) {
     for(unsigned long j = 0; j < dimenof(C)[1]; j++) {
-      printf("%2.2f ", C[i,j]);
+      assert(C[i, j], data[i][j]);
     }
-    printf("\n");
   }
 
   freeTensor(A);
   freeTensor(B);
   freeTensor(C);
+
+  if(error) exit(1);
+  return 0;
 }

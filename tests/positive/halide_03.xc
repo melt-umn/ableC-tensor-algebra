@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
 #include "tensors.xh"
 
 #define NUM_THREADS 8
@@ -16,9 +15,20 @@ tensor format mat ({dense, dense});
 
 indexvar i, j, k;
 
+int asserts = 0;
+char error = 0;
+
+void assert(double v, double e) {
+  asserts++;
+  double diff = v - e;
+  diff = diff < 0 ? 0.0 - diff : diff;
+  if(diff > 0.0001) {
+    fprintf(stderr, "Assert %d failed. Got %f, expected %f.\n", asserts, v, e);
+    error = 1;
+  }
+}
+
 int main() {
-  srand(1234);
-  
   tensor<mat> A = build(tensor<mat>)({M, P});
   tensor<mat> B = build(tensor<mat>)({P, N});
 
@@ -36,31 +46,18 @@ int main() {
   B[5,0] = 0; B[5,1] = 1; B[5,2] = 3; B[5,3] = 0; B[5,4] = 2;
   B[6,0] = 4; B[6,1] = 3; B[6,2] = 1; B[6,3] = 8; B[6,4] = 7;
 
-  struct timeval start, end;
-
-  fprintf(stderr, "Performing matrix multiplication... ");
-  gettimeofday(&start, NULL);
   tensor transform {
     c = A[i,k] * B[k,j];
   } by {}
-  gettimeofday(&end, NULL);
-  fprintf(stderr, "%f seconds\n",
-    (double)(end.tv_usec - start.tv_usec) / 1000000 +
-    (double)(end.tv_sec - start.tv_sec));
 
-  fprintf(stderr, "Performing reference matrix multiplication... ");
-  gettimeofday(&start, NULL);
   d = A[i,k] * B[k, j];
-  gettimeofday(&end, NULL);
-  fprintf(stderr, "%f seconds\n",
-    (double)(end.tv_usec - start.tv_usec) / 1000000 +
-    (double)(end.tv_sec - start.tv_sec));
 
-  fprintf(stderr, "%f\n", c);
-  fprintf(stderr, "%f\n", d);
+  assert(c, 1411.00);
+  assert(d, 1411.00);
 
   freeTensor(A);
   freeTensor(B);
 
+  if(error) exit(1);
   return 0;
 }

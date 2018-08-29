@@ -27,8 +27,10 @@ int main() {
 
   d[i] = a[i] * (b[j] + c[k]);
 
-  for(int i = 0; i < 6; i++)
-    printf("%2.2f ", d[i]);
-  printf("\n");
-  printf("14.00 7.00 28.00 0.00 0.00 42.00\n");
+  freeTensor(a);
+  freeTensor(b);
+  freeTensor(c);
+  freeTensor(d);
+
+  return 0;
 }

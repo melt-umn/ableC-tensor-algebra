@@ -6,6 +6,35 @@ tensor format vec ({sparse});
 
 indexvar i, j, k, l;
 
+int asserts = 0;
+char error = 0;
+
+void assert(double v, double e) {
+  asserts++;
+  double diff = v - e;
+  diff = diff < 0.0 ? 0.0 - diff : diff;
+  if(diff > 0.0001) {
+    fprintf(stderr, "Assert %d failed. Got %f, expected %f.\n", asserts, v, e);
+    error = 1;
+  }
+}
+
+double data0[8][8] =
+{
+  {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+  {0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0},
+  {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+  {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+  {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+  {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+  {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+  {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}
+};
+
+double data1[8] = {0.0, 3.0, 0.0, 2.0, 5.0, 5.0, 0.0, 3.0};
+
+double data2[8] = {3.0, 7.0, 5.0, 3.0, 3.0, 7.0, 3.0, 3.0};
+
 int main() {
   tensor<mat> A = build(tensor<mat>)({8, 8});
   tensor<mat> B = build(tensor<mat>)({8, 8}); 
@@ -18,7 +47,11 @@ int main() {
 
   A[i,j] = B[i,k] * C[i,j] * D[k,l];
 
-  printf("A[1,3] = %f (should be %f)\n", A[1,3], 3.0);
+  for(int i = 0; i < 8; i++) {
+    for(int j = 0; j < 8; j++) {
+      assert(A[i, j], data0[i][j]);
+    }
+  }
 
   freeTensor(A);
   freeTensor(B);
@@ -41,11 +74,9 @@ int main() {
   d[5] = 5.0;
 
   a[i] = b[i] + (c[i] + d[i]);
-  printf("\n");
-  for(int i = 0; i < 8; i++)
-    printf("%2.2f ", a[i]);
-  printf("\n");
-  printf("0.00 3.00 0.00 2.00 5.00 5.00 0.00 3.00\n");
+  for(int i = 0; i < 8; i++) {
+    assert(a[i], data1[i]);
+  }
 
   freeTensor(a);
   freeTensor(b);
@@ -66,15 +97,14 @@ int main() {
 
   z[j] = X[i,j] + y[i];
 
-  printf("\n");
-  for(int i = 0; i < 8; i++)
-    printf("%2.2f ", z[i]);
-  printf("\n");
-  printf("3.00 7.00 5.00 3.00 3.00 7.00 3.00 3.00\n");
+  for(int i = 0; i < 8; i++) {
+    assert(z[i], data2[i]);
+  }
 
   freeTensor(X);
   freeTensor(y);
   freeTensor(z);
 
+  if(error) exit(1);
   return 0;
 }

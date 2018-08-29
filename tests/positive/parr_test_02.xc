@@ -35,18 +35,16 @@ int main() {
   char error = 0;
   for(int i = 0; i < 500; i++) {
     if(a0[i] != a1[i]) {
-      //fprintf(stderr, "Mismatch at index %d\n", i);
+      fprintf(stderr, "Mismatch at index %d\n", i);
       error = 1;
     }
   }
-  if(error)
-    fprintf(stderr, "Fail...\n");
-  else
-    fprintf(stderr, "Success!\n");
 
   freeTensor(a0);
   freeTensor(a1);
   freeTensor(b);
+
+  if(error) exit(1);
 
   tensor<ts3> X = build(tensor<ts3>)({100, 100, 100});
   tensor<vct> y = build(tensor<vct>)({100});
@@ -71,19 +69,17 @@ int main() {
   for(int i = 0; i < 100; i++) {
     for(int j = 0; j < 100; j++) {
       if(z[i,j] != q[i,j]) {
+        fprintf(stderr, "Mismatch at (%d, %d)\n", i, j);
         error = 1;
       }
     }
   }
-  if(error)
-    fprintf(stderr, "Fail...\n");
-  else
-    fprintf(stderr, "Success!\n");
 
   freeTensor(X);
   freeTensor(y);
   freeTensor(z);
   freeTensor(q);
 
+  if(error) exit(1);
   return 0;
 }

@@ -7,6 +7,19 @@ tensor format tns ({sparse, sparse, sparse});
 
 indexvar i, j, k;
 
+int asserts = 0;
+char error = 0;
+
+int assert(double v, double e) {
+  asserts++;
+  double diff = v - e;
+  diff = diff < 0.0 ? 0.0 - diff : diff;
+  if(diff > 0.0001) {
+    fprintf(stderr, "Assert %d failed. Got %f, expected %f.\n", asserts, v, e);
+    error = 1;
+  }
+}
+
 int main() {
   tensor<mat> source = build(tensor<mat>)({4, 4});
   source[0,0] = 1.0;
@@ -19,20 +32,10 @@ int main() {
   tensor<mat> result = build(tensor<mat>)({4, 4});
   result[i, j] = source[j, i];
 
-  printf("Source:\n");
   for(int i = 0; i < 4; i++) {
     for(int j = 0; j < 4; j++) {
-      printf("%1.1f ", source[i, j]);
+      assert(result[i,j], source[j,i]);
     }
-    printf("\n");
-  }
-
-  printf("\nResult:\n");
-  for(int i = 0; i < 4; i++) {
-    for(int j = 0; j < 4; j++) {
-      printf("%1.1f ", result[i, j]);
-    }
-    printf("\n");
   }
 
   freeTensor(source);
@@ -52,15 +55,17 @@ int main() {
 
   res[i, j, k] = src[k, i, j];
 
-  printf("(1, 2, 0) = %f\n", res[1,2,0]);
-  printf("(2, 1, 0) = %f\n", res[2,1,0]);
-  printf("(1, 0, 2) = %f\n", res[1,0,2]);
-  printf("(2, 3, 3) = %f\n", res[2,3,3]);
-  printf("(0, 0, 3) = %f\n", res[0,0,3]);
-  printf("(3, 1, 1) = %f\n", res[3,1,1]);
+  for(int i = 0; i < 4; i++) {
+    for(int j = 0; j < 4; j++) {
+      for(int k = 0; k < 4; k++) {
+        assert(res[i,j,k], src[k,i,j]);
+      }
+    }
+  }
 
   freeTensor(src);
   freeTensor(res);
 
+  if(error) exit(1);
   return 0;
 }

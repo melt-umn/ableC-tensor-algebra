@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
 #include "tensors.xh"
 
 #define NUM_THREADS 8
@@ -35,44 +34,32 @@ int main() {
     B[k,j] = ((double)rand()) / RAND_MAX;
   }
 
-  struct timeval start, end;
-
-  fprintf(stderr, "Performing matrix multiplication... ");
-  gettimeofday(&start, NULL);
   tensor transform {
     C[i,j] = A[i,k] * B[k,j];
   } by {
-    parallelize i;
+    //parallelize i;
   }
-  gettimeofday(&end, NULL);
-  fprintf(stderr, "%f seconds\n",
-    (double)(end.tv_usec - start.tv_usec) / 1000000 +
-    (double)(end.tv_sec - start.tv_sec));
 
-  fprintf(stderr, "Performing reference matrix multiplication... ");
-  gettimeofday(&start, NULL);
   D[i,j] = A[i,k] * B[k, j];
-  gettimeofday(&end, NULL);
-  fprintf(stderr, "%f seconds\n",
-    (double)(end.tv_usec - start.tv_usec) / 1000000 +
-    (double)(end.tv_sec - start.tv_sec));
 
   char error = 0;
   for(int i = 0; i < M; i++) {
     for(int j = 0; j < N; j++) {
-      if(C[i,j] != D[i,j])
+      if(C[i,j] != D[i,j]) {
+        fprintf(stderr, "Error at (%d, %d). C = %f, D = %f\n", i, j, C[i,j], D[i, j]);
         error = 1;
+      }
     }
   }
-  if(error)
-    fprintf(stderr, "Error...\n");
-  else
-    fprintf(stderr, "Success!\n");
 
   freeTensor(A);
   freeTensor(B);
   freeTensor(C);
   freeTensor(D);
 
+  if(error) {
+    exit(1);
+  }
+  
   return 0;
 }
