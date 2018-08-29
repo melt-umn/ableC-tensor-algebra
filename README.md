@@ -1,9 +1,6 @@
 # ableC tensor algebra compiler
 A tensor algebra compiler for ableC based on the paper *The Tensor Algebra Compiler* by Fredrik Kjolstad, et. al.
 
-## Future Work
-* Implement sparse and dense functions over tensor accesses for tensor expressions
-
 ## User Guide
 
 ### Part 1: Tensor Formats
@@ -21,6 +18,12 @@ any other values will not be accepted.
 
 The specifier list is a list of the keywords `sparse` and `dense`, signifying
 whether a specific dimension is stored as a sparse or dense dimension.
+
+For example, if we wish to declare a column major matrix with the rows stored
+densly, and columns stored sparesely, we would delcare the format as:
+```C
+tensor format matrix ({dense, sparse}, {1, 0});
+```
 
 ### Part 2: Building Tensors
 Next, we must create a new tensor. In order to do so, we have to declare the 
@@ -47,7 +50,15 @@ fashion. For example, a small 2x3 matrix with:
 4 5 6
 ```
 would be declared with `[ [1, 2, 3], [4, 5, 6] ]`. Finally, a tensor can also
-be declared using an array with the desired dimensions. 
+be declared using an array with the desired dimensions. Using the matrix format
+defined above, as an example, we can declare the tensors *A*, *B*, and *C*,
+as follows:
+```C
+tensor<matrix> A = build(tensor<matrix>)({2, 4});
+tensor<matrix> B = build(tensor<matrix>)([[1, 2, 3], [4, 5, 6]]);
+int dims[2] = {3, 4};
+tensor<matrix> C = build(tensor<matrix>)(dims);
+```
 
 In general, you will want to use `build` to initialize your tensors. If, for 
 some reason you don't want to immediately, assign your tensor the value `{0}`
@@ -205,3 +216,7 @@ The tensors.xh header file contains a few tools for working with tensors.
 Currently, it includes functions to read and write .mtx and .tns files.
 MTX files support matrix data, while TNS files support tensors of all
 dimensions.
+
+## Ideas for Future Development
+* Make storage formats overloadable, allowing others to add further formats easily
+* Implement sparse and dense functions over tensor accesses for tensor expressions
