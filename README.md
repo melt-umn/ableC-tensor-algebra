@@ -7,9 +7,7 @@ More information about this can be found on their website <http://tensor-compile
 ### Part 1: Tensor Formats
 The first step in declaring and using tensors for this extension is to declare
 the necessary tensor formats. This is done with a declaration of the form:
-<pre><code>
-tensor format <i>name</i> ({<i>specifiers</i>} [, {<i>dimension order</i>}]);
-</code></pre>
+<pre><code>tensor format <i>name</i> ({<i>specifiers</i>} [, {<i>dimension order</i>}]);</code></pre>
 The dimension order part is optional. In this, *name* is the name you wish to give
 the tensor format, *specifiers* is a list of the storage specifiers for each
 dimension in the tensor, and *dimension order* is an optional integer list
