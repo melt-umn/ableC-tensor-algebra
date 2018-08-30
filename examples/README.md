@@ -5,9 +5,7 @@ Here we provide a few interesting examples of the things that can be done with t
 A series of examples are based on the LBNL Network Tensor taken from FROSTT (The Formidable Reposity of Open Source Sparse Tensors and Tools, <http://frostt.io/>). To run these examples, download the tensor found at <http://frostt.io/tensors/lbnl-network/>, and name it lbnl-network.tns. The tensor is a 5<sup>th</sup> order tensor, with the dimensions, in order, representing: sender IP address, sender port number, destination IP address, destination port number, time. The values in the tensor represent the length of the packets sent from that IP and port combination to another IP and port combination in a specific second.
 
 ### Example 1
-This first example reads the tensor in from file, and then uses the tensor algebra compilation abilities of the system to fold the dimensions we are not interested in, in this case we chose to only care about the sender and destination's IP addresses. When there are index variables that appear on only one side of the tensor expression, the values are summed together. Mathematically, we interpret a statement like `a[i] = B[i,j]` as:
-<dl>a[i] = &Sigma;<sub>i</sub>B[i, j].</dl>
-Thus, the statement `result[sI, dI] = dta[sI, sP, dI, dP, t]` sums together all values regardless of sender port, destination port, or time for each sender and destination combination.
+This first example reads the tensor in from file, and then uses the tensor algebra compilation abilities of the system to fold the dimensions we are not interested in, in this case we chose to only care about the sender and destination's IP addresses. When there are index variables that appear on only one side of the tensor expression, the values are summed together. Mathematically, we interpret a statement like `a[i] = B[i,j]` as: a<sub>i</sub> = &Sigma;<sub>i</sub>B<sub>i,j</sub>. Thus, the statement `result[sI, dI] = dta[sI, sP, dI, dP, t]` sums together all values regardless of sender port, destination port, or time for each sender and destination combination.
 
 With this, we then loop over each value in this new matrix, and if the value is sufficiently large (greater than half a million in our example), we place it into a third matrix, thereby leaving a matrix of only the sender-destination pairs that have the most traffic. This matrix is then output as a .tns file.
 
@@ -23,6 +21,7 @@ This is another demonstration of the power of the `foreach` loop, as it allows u
 | -------- | :------------: | :-------------: | :----------------: | :---------------: |
 | LBNL 1   | 2m 35.002s     | 3.507s          | 187 MB             | 258 MB            |
 | LBNL 2   | ?m ??.???s     | ?.???s          | ??? MB             | ??? MB            |
+
 \* Memory usage was recorded by runing the *time* command in verbose mode (-v), and recording maximum resident set size. The numbers may not be entirely accurate, but provide a reasonable estimate for our purposes herein.
 
 We see consistently slow speeds for TACO with the LBNL examples, where there are approximately 1.7 million elements. Testing suggests that this is due to the packing algorithm used in TACO. Combined, the process of TACO reading this file and then packing the tensor in memory seems to take a majority of the two and a half minutes that the LBNL examples take to run.
