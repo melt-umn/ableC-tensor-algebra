@@ -32,8 +32,7 @@ the tensor, we wish to setup the tensor, and for this we will use a new
 `build` terminal. To create and initialize a tensor we have three options for
 how to use `build`:
 
-<pre><code>
-tensor&lt;<i>fmt</i>&gt; <i>name</i> = build(tensor&lt;<i>fmt</i>&gt;)({<i>dimensions</i>});
+<pre><code>tensor&lt;<i>fmt</i>&gt; <i>name</i> = build(tensor&lt;<i>fmt</i>&gt;)({<i>dimensions</i>});
 tensor&lt;<i>fmt</i>&gt; <i>name</i> = build(tensor&lt;<i>fmt</i>&gt;)([<i>tensor contents</i>]);
 tensor&lt;<i>fmt</i>&gt; <i>name</i> = build(tensor&lt;<i>fmt</i>&gt;)(<i>dimensions array</i>);
 </code></pre>
