@@ -12,16 +12,21 @@ With this, we then loop over each value in this new matrix, and if the value is 
 This example demonstrates the usefulness of the `foreach` loop. While it is possible to produce similar code using TACO, it is much more complicated, involving using an iterator instead of more intuitive loop syntax.
 
 ### Example 2
-This example is an extension of the previous one. We work with the same dataset, but this time use the `foreach` loop to select a specific IP number (180) in this case, as we observed they had a lot of connections from the results in example 1.
+This example is an extension of the previous one. We work with the same dataset, but this time use the `foreach` loop to select a specific IP number (180 in this case), as we observed they had a lot of connections from the results in example 1.
 
 This is another demonstration of the power of the `foreach` loop, as it allows us to mix index variables and C expressions in describing what parts of the tensor we want to loop over. While we only show an example with one expression, it is possible to have multiple, and they can be in arbitrary places. For example, we could loop through the values for a specific sender IP and destination IP, having sender port, destination port, and time as index variables.
 
-## Performance Statistics
-| Example  | Time with TACO | Time with AbleC | Memory\* with TACO | Memory with AbleC |
-| -------- | :------------: | :-------------: | :----------------: | :---------------: |
-| LBNL 1   | 2m 35.002s     | 3.507s          | 187 MB             | 258 MB            |
-| LBNL 2   | ?m ??.???s     | ?.???s          | ??? MB             | ??? MB            |
+It is worth noting that the TACO version of this is implemented very differently, as there is not `foreach` loop with tensors in the manner we permit, instead the only option is to iterate over all values in the tensor. In addition, since TACO does not provide a way to access individual values, we cannot perform the addition in the loop body, and so we must use tensor expressions to fold the input tensor into a 3<sup>rd</sup> order tensor, and then iterate through this, looking for the sender IP to be 180.
 
+## Performance Statistics
+| Example  | Time\* with TACO | Time with AbleC | Memory\* with TACO | Memory with AbleC |
+| -------- | :--------------: | :-------------: | :----------------: | :---------------: |
+| LBNL 1   | 2m 35.002s       | 3.507s          | 187 MB             | 258 MB            |
+| LBNL 2   | 2m 49.931s       | 3.935s          | 187 MB             | 258 MB            |
+
+\* Time for the LBNL examples was measured using the linux *time* command. For following examples timing was performed using the sys/time.h library of C and C++, for TACO and AbleC respectively. The timings were used to surround just the computation in question, though it also included the packing in TACO, as AbleC handles automatic packing for tensor expressions.
 \* Memory usage was recorded by runing the *time* command in verbose mode (-v), and recording maximum resident set size. The numbers may not be entirely accurate, but provide a reasonable estimate for our purposes herein.
 
-We see consistently slow speeds for TACO with the LBNL examples, where there are approximately 1.7 million elements. Testing suggests that this is due to the packing algorithm used in TACO. Combined, the process of TACO reading this file and then packing the tensor in memory seems to take a majority of the two and a half minutes that the LBNL examples take to run.
+We see consistently slow speeds for TACO with the LBNL examples, where there are approximately 1.7 million elements. Testing suggests that this is due to the packing algorithm used in TACO. Combined, the process of TACO reading this file and then packing the tensor in memory seems to take a majority of the two and a half minutes that the first LBNL example takes to run.
+
+While we have done our best to implement the TACO versions as best as possible, we do not make any claims about them being as efficient as possible. It is possible there are different ways to solve the problems using TACO that would generate better results, however we have done our best using the limited documentation to implement the algorithms we are interested in exploring.
