@@ -40,7 +40,9 @@ The LBNL examples above present interesting data analysis uses of TACO and our e
 | MTTKRP   | 0.621687s        | 0.231129s       | 25  MB             | 2.1 MB            | 
 
 \* Time for the LBNL examples was measured using the linux *time* command. For following examples timing was performed using the sys/time.h library of C and C++, for TACO and AbleC respectively. The timings were used to surround just the computation in question, though it also included the packing in TACO, as AbleC handles automatic packing for tensor expressions.
+
 \* Memory usage was recorded by runing the *time* command in verbose mode (-v), and recording maximum resident set size. The numbers may not be entirely accurate, but provide a reasonable estimate for our purposes herein.
+
 \* Currently SDDMM statistics are presented for only one iteration, as our implementation seems to have an error in it which results in memory errors (including a segmentation fault) on later iterations. We are looking into this, but the timings from TACO also suggest that something odd occurs in the case of SDDMM.
 
 We see consistently slow speeds for TACO with the LBNL examples, where there are approximately 1.7 million elements. Testing suggests that this is due to the packing algorithm used in TACO. Combined, the process of TACO reading this file and then packing the tensor in memory seems to take a majority of the two and a half minutes that the first LBNL example takes to run.
