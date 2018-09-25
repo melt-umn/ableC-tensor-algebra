@@ -4,6 +4,11 @@
 
 using namespace taco;
 
+int getNext();
+char generateBool();
+double generateRand();
+char generateProb(double p);
+
 int r = 113;
 int P1 = 7919;
 int P2 = 65537;

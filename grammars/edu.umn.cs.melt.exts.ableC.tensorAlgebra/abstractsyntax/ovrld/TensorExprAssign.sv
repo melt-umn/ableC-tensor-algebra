@@ -440,6 +440,11 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           unsigned long idx[$intLiteralExpr{listLength(head(out.accesses))}];
           struct $name{s"tensor_${fmtNm}"}* t = &$name{outNew.tensorName};
           unsigned long count = 1;
+          
+          if(t->indices) { $Stmt{freeIndicesTPointer(getTensorFormat(outNew, fmts))} }
+          t->indices = calloc($intLiteralExpr{outOrder}, sizeof(unsigned long**));
+          $Stmt{generateMakeBody(getTensorFormat(outNew, fmts).storage)}
+
           __free_tensor_tree(t->buffer);
           t->buffer = calloc(1, sizeof(struct __tensor_tree));
           t->buffer->children = calloc(1, sizeof(struct __tensor_tree));

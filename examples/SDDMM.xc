@@ -62,9 +62,9 @@ int main() {
   clock_t start, end;
 
   start = clock();
-  //for(int c = 0; c < 10000; c++) {
+  for(int c = 0; c < 10000; c++) {
     A[i,j] = B[i,j] * C[i,k] * D[k,j];
-  //}
+  }
   end = clock();
 
   printf("Runtime: %f\n", ((double)(end - start)) / CLOCKS_PER_SEC);

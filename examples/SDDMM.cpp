@@ -4,6 +4,11 @@
 
 using namespace taco;
 
+int getNext();
+char generateBool();
+double generateRand();
+char generateProb(double p);
+
 int r = 113;
 int P1 = 7919;
 int P2 = 65537;
@@ -67,10 +72,10 @@ int main(int argc, char* argv[]) {
   D.pack();
   A(i,j) = B(i,j) * C(i,k) * D(k,j);
   A.compile();
-  //for(int c = 0; c < 10000; c++) {
+  for(int c = 0; c < 10000; c++) {
     A.assemble();
     A.compute();
-  //}
+  }
   end = clock();
 
   printf("Runtime: %f\n", ((double)(end - start)) / CLOCKS_PER_SEC);
