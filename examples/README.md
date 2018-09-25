@@ -31,7 +31,7 @@ The LBNL examples above present interesting data analysis uses of TACO and our e
 <http://tensor-compiler.org/docs/data_analytics/>
 
 ## Performance Statistics
-| Example  | Time\* with TACO | Time with AbleC | Memory\* with TACO | Memory with AbleC |
+| Example  | Time\* with TACO | Time with AbleC | Memory† with TACO | Memory with AbleC |
 | -------- | :--------------: | :-------------: | :----------------: | :---------------: |
 | LBNL 1   | 2m 34.194s       | 3.459s          | 188 MB             | 259 MB            |
 | LBNL 2   | 2m 43.624s       | 3.585s          | 188 MB             | 259 MB            |
@@ -41,7 +41,7 @@ The LBNL examples above present interesting data analysis uses of TACO and our e
 
 \* Time for the LBNL examples was measured using the Linux *time* command. For following examples timing was performed using the sys/time.h library of C and C++, for TACO and AbleC respectively. The timings were used to surround just the computation in question, though it also included the packing in TACO, as AbleC handles automatic packing for tensor expressions.
 
-\* Memory usage was recorded by running the *time* command in verbose mode (-v), and recording maximum resident set size. The numbers may not be entirely accurate, but provide a reasonable estimate for our purposes herein.
+† Memory usage was recorded by running the *time* command in verbose mode (-v), and recording maximum resident set size. The numbers may not be entirely accurate, but provide a reasonable estimate for our purposes herein.
 
 We see consistently slow speeds for TACO with the LBNL examples, where there are approximately 1.7 million elements. Testing suggests that this is due to the packing algorithm used in TACO. Combined, the process of TACO reading this file and then packing the tensor in memory seems to take a majority of the two and a half minutes that the first LBNL example takes to run.
 
