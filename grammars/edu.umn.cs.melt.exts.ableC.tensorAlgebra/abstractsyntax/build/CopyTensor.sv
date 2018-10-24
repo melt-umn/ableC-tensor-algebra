@@ -31,11 +31,17 @@ top::Expr ::= l::Expr r::Expr
   
   local lErrors :: [Message] =
     case l.typerep, r.typerep of
-    | tensorType(_, _, _), tensorType(_, _, _) -> 
+    | tensorType(_, _, _), tensorType(_, _, _) ->
       if formatL.dimensions == formatR.dimensions
       then []
       else [err(top.location, "Format changes can only be performed between tensors of the same order.")]
-    | tensorType(_, _, _), _ -> 
+    | tensorType(_, _, _), tagType(_, _) ->
+      let n :: Maybe<String> = moduleName(top.env, r.typerep) in
+      if n.isJust && n.fromJust == "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor"
+      then [] {- Warning... Dimensions not checked properly... -}
+      else [err(top.location, "Tensor Deep Copy can only be performed on tensors. (This error should not occur)")]
+      end
+    | tensorType(_, _, _), _ ->
       case r of
       | build_empty(_, _) -> []
       | build_data(_, _) -> []
