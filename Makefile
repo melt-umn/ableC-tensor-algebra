@@ -47,7 +47,7 @@ mda:
 mwda:
 	$(MAKE) -C modular_analyses mwda
 
-tests:
+test:
 	$(MAKE) -C tests -k
 
 clean:
