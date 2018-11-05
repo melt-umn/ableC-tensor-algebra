@@ -20,8 +20,5 @@ top::Expr ::= e::Expr
 
 global emptyAccess :: Expr =
   ableC_Expr {
-    ({
-      struct tensor_acc x;
-      x;
-    })
+    ($BaseTypeExpr{extTypeExpr(nilQualifier(), tensorAccType())}){0}
   };

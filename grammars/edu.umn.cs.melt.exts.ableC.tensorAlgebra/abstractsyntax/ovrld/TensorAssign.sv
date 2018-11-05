@@ -8,21 +8,21 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
    expression. If it is a tensor expression, then the op is 
    ignored. -}
 abstract production accessTensorAssign
-top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Expr env::Decorated Env
+top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Expr
 {
   propagate substituted;
 
   -- Whether the right side of the expression is a tensor_acc or
   -- An actual value
   local rightTensorExpr :: Boolean =
-    case moduleName(env, right.typerep) of
-    | nothing() -> false
-    | just(s) -> s == "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"
+    case right.typerep of
+    | extType(_, tensorAccType()) -> true
+    | _ -> false
     end;
 
   local fmt::TensorFormat =
     case tensor.typerep of
-    | tensorType(_, f, _) -> new(f.tensorFormat)
+    | extType(_, tensorType(f)) -> new(f.tensorFormat)
     | _ -> errorTensorFormat()
     end;
 
@@ -42,7 +42,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
 
   local access::[String] =
     orderList(
-      getAccess(idx, env),
+      getAccess(idx, top.env),
       map(
         \ p::Pair<Integer Pair<Integer Integer>>
         -> p.snd.fst
@@ -68,7 +68,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
          end
       ,
       true,
-      getTypereps(idx, env)
+      getTypereps(idx, top.env)
     );
 
   local anyIndexVars::Boolean =
@@ -81,7 +81,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
          end
       ,
       false,
-      getTypereps(idx, env)
+      getTypereps(idx, top.env)
     );
 
   local indexVarErr::Boolean =
@@ -105,12 +105,12 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
            then []
            else [err(tensor.location, s"Expected integer type, got ${showType(t)}")]
         ,
-        getTypereps(idx, env)
+        getTypereps(idx, top.env)
       )
     )
     ++
     case tensor.typerep of
-    | tensorType(_, f, _) -> f.tensorFormatLookupCheck
+    | extType(_, tensorType(f)) -> f.tensorFormatLookupCheck
     | x -> [err(tensor.location, s"Expected a tensor type, got ${showType(x)}")]
     end
     ++
@@ -119,13 +119,13 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
     else [];
 
   local sErrors::[Message] =
-    if !arrayAccess && getCount(idx, env) != fmt.dimensions
-    then [err(tensor.location, s"Number of dimensions specified does not match, expected ${toString(fmt.dimensions)}, got ${toString(getCount(idx, env))}.")]
+    if !arrayAccess && getCount(idx, top.env) != fmt.dimensions
+    then [err(tensor.location, s"Number of dimensions specified does not match, expected ${toString(fmt.dimensions)}, got ${toString(getCount(idx, top.env))}.")]
     else [];
 
   local format::Name =
     case tensor.typerep of
-    | tensorType(_, fmt, _) -> fmt
+    | extType(_, tensorType(fmt)) -> fmt
     | _ -> name("__error__", location=tensor.location)
     end;
   format.env = top.env;
@@ -141,7 +141,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
 
   local idxInit :: Initializer =
     objectInitializer(
-      generateInitList(idx, env)
+      generateInitList(idx, top.env)
     );
 
   local fwrd::Expr =

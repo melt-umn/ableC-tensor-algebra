@@ -22,14 +22,14 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
   bounds.env = top.env;
 
   local tensorAcc :: Boolean =
-    case moduleName(top.env, bounds.typerep) of
-    | just("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc") -> true
+    case bounds.typerep of
+    | extType(_, tensorType(_)) -> true
     | _ -> false
     end;
 
   local justTensor :: Boolean =
-    case moduleName(top.env, bounds.typerep) of
-    | just("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor") -> true
+    case bounds.typerep of
+    | extType(_, tensorAccType()) -> true
     | _ -> false
     end;
 
@@ -42,7 +42,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
     then getTensorFormat(tensor, tm:empty(compareString))
     else 
       case bounds.typerep of
-      | tensorType(_, f, _) -> new(f.tensorFormat)
+      | extType(_, tensorType(f)) -> new(f.tensorFormat)
       end;
 
   local access :: [Either<Expr String>] =
@@ -306,7 +306,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
     else if justTensor
     then 
       case bounds.typerep of
-      | tensorType(_, _, _) -> []
+      | extType(_, tensorType(_)) -> []
       | _ -> [err(bounds.location, s"Tensor for-each loop expected a tensor type. Instead got ${showType(bounds.typerep)}.")]
       end
     else [err(bounds.location, s"Tensor for-each loop expected a tensor access expression. Instead got ${showType(bounds.typerep)}.")];

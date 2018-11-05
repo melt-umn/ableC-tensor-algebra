@@ -24,8 +24,7 @@ unsigned int edu_umn_cs_melt_exts_ableC_tensorAlgebra_threads = TACO_THREADS;
 #endif
 
 
-struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"), module("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"))) tensor_acc
-{
+struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"))) tensor_acc {
   int x;
 };
 

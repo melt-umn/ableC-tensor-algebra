@@ -13,7 +13,7 @@ top::Expr ::= type::TypeName dims::[Expr]
 {
   local format::Name =
     case type.typerep of
-    | tensorType(_, fmt, _) -> fmt
+    | extType(_, tensorType(fmt)) -> fmt
     | _ -> name("error", location=top.location)
     end;
   format.env = top.env;
@@ -34,7 +34,7 @@ top::Expr ::= type::TypeName dims::[Expr]
     checkTensorHeader(top.location, top.env)
     ++
     case type.typerep of
-    | tensorType(_, _, _) -> 
+    | extType(_, tensorType(_)) -> 
         format.tensorFormatLookupCheck
         ++
         if dimens > 0 && dimens != listLength(dims)
@@ -98,7 +98,7 @@ top::Expr ::= type::TypeName data::TensorConstant
 {
   local format::Name =
     case type.typerep of
-    | tensorType(_, fmt, _) -> fmt
+    | extType(_, tensorType(fmt)) -> fmt
     | _ -> name("__error__", location=top.location)
     end;
   format.env = top.env;
@@ -120,7 +120,7 @@ top::Expr ::= type::TypeName data::TensorConstant
     checkTensorHeader(top.location, top.env)
     ++
     case type.typerep of
-    | tensorType(_, _, _) -> 
+    | extType(_, tensorType(_)) -> 
        format.tensorFormatLookupCheck
        ++
        if null(format.tensorFormatLookupCheck) && dimens != data.tensor_dims
@@ -164,7 +164,7 @@ top::Expr ::= type::TypeName args::[Expr]
   
   local format::Name = 
     case type.typerep of
-    | tensorType(_, fmt, _) -> fmt
+    | extType(_, tensorType(fmt)) -> fmt
     | _ -> name("__error__", location=top.location)
     end;
   format.env = top.env;
@@ -187,7 +187,7 @@ top::Expr ::= type::TypeName args::[Expr]
     checkTensorHeader(top.location, top.env)
     ++
     case type.typerep of
-    | tensorType(_, _, _) -> format.tensorFormatLookupCheck
+    | extType(_, tensorType(_)) -> format.tensorFormatLookupCheck
     | _ -> [err(top.location, s"Tensor cannot be built using a non-tensor type. Got ${showType(type.typerep)}")]
     end
     ++

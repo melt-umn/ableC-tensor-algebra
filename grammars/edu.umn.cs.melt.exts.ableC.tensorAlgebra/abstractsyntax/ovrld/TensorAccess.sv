@@ -5,16 +5,16 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 {- Read a value out of a tensor (or access a tensor using
    indexvars) -}
 abstract production accessTensor
-top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
+top::Expr ::= tensor::Expr idx::Expr
 {
   propagate substituted;
 
   top.tensorExp =
-    tensorAccess(tensor, idx, env, location=top.location);
+    tensorAccess(tensor, idx, top.env, location=top.location);
 
   local fmt::TensorFormat =
     case tensor.typerep of
-    | tensorType(_, f, _) -> new(f.tensorFormat)
+    | extType(_, tensorType(f)) -> new(f.tensorFormat)
     | _ -> errorTensorFormat()
     end;
 
@@ -47,7 +47,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
          end
       ,
       false,
-      getTypereps(idx, env) -- Function to parse commaExpr
+      getTypereps(idx, top.env) -- Function to parse commaExpr
     );
 
   local lErrors::[Message] = tensor.errors ++ idx.errors;
@@ -68,18 +68,18 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
            then []
            else [err(idx.location, s"Expected integer type, got ${showType(t)}")]
         ,
-        getTypereps(idx, env)
+        getTypereps(idx, top.env)
       )
     )
     ++
     case tensor.typerep of
-    | tensorType(_, f, _) -> f.tensorFormatLookupCheck
+    | extType(_, tensorType(f)) -> f.tensorFormatLookupCheck
     | x -> [err(tensor.location, s"Expected a tensor type, got ${showType(x)}")]
     end;
   
   local sErrors::[Message] =
-    if !arrayAccess && getCount(idx, env) != fmt.dimensions
-    then [err(tensor.location, s"Number of dimensions specified does not match, expected ${toString(fmt.dimensions)}, got ${toString(getCount(idx, env))}.")]
+    if !arrayAccess && getCount(idx, top.env) != fmt.dimensions
+    then [err(tensor.location, s"Number of dimensions specified does not match, expected ${toString(fmt.dimensions)}, got ${toString(getCount(idx, top.env))}.")]
     else [];
   
   local fmtNm::String = fmt.proceduralName;
@@ -93,7 +93,7 @@ top::Expr ::= tensor::Expr idx::Expr env::Decorated Env
 
   local idxInitializer :: Initializer =
     objectInitializer(
-      generateInitList(idx, env)
+      generateInitList(idx, top.env)
     );
 
   local fwrd::Expr =

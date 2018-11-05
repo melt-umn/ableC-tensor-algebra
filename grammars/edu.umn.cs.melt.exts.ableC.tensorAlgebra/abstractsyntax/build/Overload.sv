@@ -1,6 +1,6 @@
 grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:build;
 
-{- This file contains the necessary productions and functions
+{- This file contains the necessary productions and attributes
    to allow the  build(*type*)(*arguments*)  syntax to be overridden
    by other extensions. If not overload for this is provided, it
    will forward to an explicit cast of the first argument to the
@@ -22,33 +22,36 @@ top::Expr ::= t::TypeName exs::[Expr]
       ++
       [text(")")]
     );
-
-  local option :: Maybe<Expr> =
-    ovrld:applyMaybe3(
-      getBuildOverloadProd(t.typerep, top.env),
-      t,
-      exs,
-      top.location
-    );
-
+  
   forwards to
-    if option.isJust then option.fromJust
-    else
-      case t.typerep of
-      | tensorType(_, _, _) -> buildTensorExpr(t, exs, location=top.location)
-      | _ -> explicitCastExpr(t, head(exs), location=top.location)
-      end;
+    case t.typerep.buildProd of
+    | just(prod) -> prod(t, exs, top.location)
+    | nothing() -> explicitCastExpr(t, head(exs), location=top.location)
+    end;
 }
 
-function getBuildOverloadProd
-Maybe<(Expr ::= TypeName [Expr] Location)> ::= t::Type env::Decorated Env
+synthesized attribute buildProd::Maybe<(Expr ::= TypeName [Expr] Location)> occurs on Type, ExtType;
+
+aspect default production
+top::Type ::=
 {
-  production attribute overloads :: [Pair<String (Expr ::= TypeName [Expr] Location)>] with ++;
-  overloads := [];
-  return
-    do(bindMaybe, returnMaybe) {
-      n :: String <- moduleName(env, t);
-      prod :: (Expr ::= TypeName [Expr] Location) <- lookupBy(stringEq, n, overloads);
-      return prod;
-    };
+  top.buildProd = nothing();
+}
+
+aspect production extType
+top::Type ::= q::Qualifiers sub::ExtType
+{
+  top.buildProd = sub.buildProd;
+}
+
+aspect default production
+top::ExtType ::=
+{
+  top.buildProd = nothing();
+}
+
+aspect production tensorType
+top::ExtType ::= fmt::Decorated Name
+{
+  top.buildProd = just(buildTensorExpr(_, _, location=_));
 }
