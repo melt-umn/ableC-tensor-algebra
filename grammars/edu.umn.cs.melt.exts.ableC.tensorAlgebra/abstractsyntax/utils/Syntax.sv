@@ -52,16 +52,15 @@ top::Expr ::= tp::Type
   
   local format::Name =
     case tp of
-    | tensorType(_, fmt, _) -> fmt
+    | extType(_, tensorType(fmt)) -> fmt
     | _ -> name("__error__", location=top.location)
     end;
   format.env = top.env;
   
   local lErrors::[Message] =
-    checkTensorHeader(top.location, top.env)
-    ++
+    checkTensorHeader(top.location, top.env) ++
     case tp of
-    | tensorType(_, _, _) -> format.tensorFormatLookupCheck
+    | extType(_, tensorType(_)) -> format.tensorFormatLookupCheck
     | _ -> [err(top.location, s"orderof expected a tensor type (got ${showType(tp)})")]
     end;
   
@@ -95,7 +94,7 @@ top::Expr ::= tensor::Expr dim::Expr
     checkTensorHeader(top.location, top.env)
     ++
     case tensor.typerep of
-    | tensorType(_, fmt, _) -> fmt.tensorFormatLookupCheck
+    | extType(_, tensorType(fmt)) -> fmt.tensorFormatLookupCheck
     | _ -> [err(top.location, s"dimenof expected a tensor type (got ${showType(tensor.typerep)})")]
     end
     ++
@@ -118,7 +117,7 @@ top::Expr ::= tensor::Expr dim::Expr
   
   local format::Name =
     case tensor.typerep of
-    | tensorType(_, fmt, _) -> fmt
+    | extType(_, tensorType(fmt)) -> fmt
     | _ -> name("__error__", location=top.location)
     end;
   format.env = top.env;
@@ -130,12 +129,12 @@ top::Expr ::= tensor::Expr dim::Expr
     if dim.integerConstantValue.isJust
     then -- If dim is a constant, no runtime error checking needed
       ableC_Expr {
-        $Expr{tensor}.dims[$Expr{dim}]
+        ((struct $name{s"tensor_${fmtNm}"}) $Expr{tensor}).dims[$Expr{dim}]
       }
     else -- Otherwise, we error check at runtime
       ableC_Expr {
         ({
-          struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+          struct $name{s"tensor_${fmtNm}"}* _tensor = (struct $name{s"tensor_${fmtNm}"}*) &$Expr{tensor};
           unsigned long dim = $Expr{dim};
           if(dim >= $intLiteralExpr{fmt.dimensions}) {
             fprintf(stderr, 

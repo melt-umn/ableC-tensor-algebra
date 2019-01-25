@@ -282,6 +282,7 @@ function getAccess
 
   return
     case idx of
+    | decExpr(e) -> getAccess(e, env)
     | commaExpr(l, r) ->
        case l of
        | declRefExpr(name(i)) ->
@@ -304,9 +305,10 @@ function getIterAccess
 
   return
     case idx of
+    | decExpr(e) -> getIterAccess(e, env)
     | commaExpr(l, r) ->
       case l.typerep of
-      | indexVarType(_) ->
+      | extType(_, indexvarType()) ->
         case l of
         | declRefExpr(name(i)) -> 
           right(i) :: getIterAccess(r, env)
@@ -318,7 +320,7 @@ function getIterAccess
       end
     | _ -> 
       case idx.typerep of
-      | indexVarType(_) -> 
+      | extType(_, indexvarType()) -> 
         case idx of
         | declRefExpr(name(i)) ->
           right(i) :: []

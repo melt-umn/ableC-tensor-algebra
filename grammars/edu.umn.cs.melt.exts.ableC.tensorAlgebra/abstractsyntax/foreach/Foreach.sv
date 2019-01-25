@@ -22,14 +22,14 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
   bounds.env = top.env;
 
   local tensorAcc :: Boolean =
-    case moduleName(top.env, bounds.typerep) of
-    | just("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc") -> true
+    case bounds.typerep of
+    | extType(_, tensorAccType()) -> true
     | _ -> false
     end;
 
   local justTensor :: Boolean =
-    case moduleName(top.env, bounds.typerep) of
-    | just("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor") -> true
+    case bounds.typerep of
+    | extType(_, tensorType(_)) -> true
     | _ -> false
     end;
 
@@ -42,7 +42,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
     then getTensorFormat(tensor, tm:empty(compareString))
     else 
       case bounds.typerep of
-      | tensorType(_, f, _) -> new(f.tensorFormat)
+      | extType(_, tensorType(f)) -> new(f.tensorFormat)
       end;
 
   local access :: [Either<Expr String>] =
@@ -203,14 +203,14 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
       | declRefExpr(_) -> nullStmt()
       | _ -> 
         ableC_Stmt {
-          struct $name{s"tensor_${fmt.proceduralName}"} __t = $Expr{bounds};
+          struct $name{s"tensor_${fmt.proceduralName}"} __t = (struct $name{s"tensor_${fmt.proceduralName}"}) $Expr{bounds};
         }
       end
       ::
       ableC_Stmt {
-        $name{s"tensor_pack_${fmt.proceduralName}"}(&$name{nm});
-        pthread_rwlock_rdlock(&($name{nm}.lock));
-        double* __data = $name{nm}.data;
+        $name{s"tensor_pack_${fmt.proceduralName}"}(_tn);
+        pthread_rwlock_rdlock(&(_tn->lock));
+        double* __data = _tn->data;
         unsigned long index[$intLiteralExpr{fmt.dimensions}];
       }
       ::
@@ -219,13 +219,13 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
           if p.snd.snd == storeDense
           then
             ableC_Stmt {
-              unsigned long $name{s"size_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0][0];
+              unsigned long $name{s"size_${toString(p.fst+1)}"} = _tn->indices[$intLiteralExpr{p.snd.fst}][0][0];
             }
           else
             ableC_Stmt {
-              unsigned long* $name{s"pos_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0];
-              unsigned long* $name{s"idx_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][1];
-              unsigned long $name{s"size_${toString(p.fst+1)}"} = $name{nm}.dims[$intLiteralExpr{p.snd.fst}];
+              unsigned long* $name{s"pos_${toString(p.fst+1)}"} = _tn->indices[$intLiteralExpr{p.snd.fst}][0];
+              unsigned long* $name{s"idx_${toString(p.fst+1)}"} = _tn->indices[$intLiteralExpr{p.snd.fst}][1];
+              unsigned long $name{s"size_${toString(p.fst+1)}"} = _tn->dims[$intLiteralExpr{p.snd.fst}];
             }
         ,
         fmt.storage
@@ -243,16 +243,22 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
   local fwrd :: Stmt =
     compoundStmt(
       seqStmt(
-        foldr(
-          \ nw::Stmt inn::Stmt ->
-            seqStmt(nw, inn)
-          ,
-          loops,
-          init
-        ),
         ableC_Stmt {
-          pthread_rwlock_unlock(&($name{nm}.lock));
-        }
+          struct $name{s"tensor_${fmt.proceduralName}"}* _tn = 
+              (struct $name{s"tensor_${fmt.proceduralName}"}*) &$name{nm};
+        }, 
+        seqStmt(
+          foldr(
+            \ nw::Stmt inn::Stmt ->
+              seqStmt(nw, inn)
+            ,
+            loops,
+            init
+          ),
+          ableC_Stmt {
+            pthread_rwlock_unlock(&(_tn->lock));
+          }
+        )
       )
     );
 
@@ -295,6 +301,9 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
   body.env = newEnv;
 
   local lErrors :: [Message] =
+    --err(var.location, s"Tensor Acc? ${toString(tensorAcc)}") ::
+    --err(var.location, s"Tensor Access? ${toString(length(access))}") ::
+    --testing(bounds, var.location) ::
     checkTensorHeader(var.location, top.env)
     ++
     bounds.errors
@@ -306,7 +315,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
     else if justTensor
     then 
       case bounds.typerep of
-      | tensorType(_, _, _) -> []
+      | extType(_, tensorType(_)) -> []
       | _ -> [err(bounds.location, s"Tensor for-each loop expected a tensor type. Instead got ${showType(bounds.typerep)}.")]
       end
     else [err(bounds.location, s"Tensor for-each loop expected a tensor access expression. Instead got ${showType(bounds.typerep)}.")];
@@ -329,22 +338,22 @@ function tensorVals
       | declRefExpr(name(_)) -> nullStmt()
       | _ -> 
         ableC_Stmt {
-          struct $name{s"tensor_${fmt.proceduralName}"} $name{s"_tensor_${toString(ex.location.line)}_${toString(e.location.column)}"} = $Expr{e};
+          struct $name{s"tensor_${fmt.proceduralName}"} $name{s"_tensor_${toString(ex.location.line)}_${toString(e.location.column)}"} = (struct $name{s"tensor_${fmt.proceduralName}"}) $Expr{e};
         }
       end
     | _ -> nullStmt()
     end
     ::
     ableC_Stmt {
-      $name{s"tensor_pack_${fmt.proceduralName}"}(&$name{nm});
+      $name{s"tensor_pack_${fmt.proceduralName}"}(_tn);
     }
     ::
     ableC_Stmt {
-      pthread_rwlock_rdlock(&($name{nm}.lock));
+      pthread_rwlock_rdlock(&(_tn->lock));
     }
     ::
     ableC_Stmt {
-      double* __data = $name{nm}.data;
+      double* __data = _tn->data;
     }
     ::
     flatMap(
@@ -352,20 +361,49 @@ function tensorVals
         if p.snd.snd == storeDense
         then
           ableC_Stmt {
-            unsigned long $name{s"size_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0][0];
+            unsigned long $name{s"size_${toString(p.fst+1)}"} = _tn->indices[$intLiteralExpr{p.snd.fst}][0][0];
           } :: []
         else
           ableC_Stmt {
-            unsigned long* $name{s"pos_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][0];
+            unsigned long* $name{s"pos_${toString(p.fst+1)}"} = _tn->indices[$intLiteralExpr{p.snd.fst}][0];
           } ::
           ableC_Stmt { 
-            unsigned long* $name{s"idx_${toString(p.fst+1)}"} = $name{nm}.indices[$intLiteralExpr{p.snd.fst}][1];
+            unsigned long* $name{s"idx_${toString(p.fst+1)}"} = _tn->indices[$intLiteralExpr{p.snd.fst}][1];
           } ::
           ableC_Stmt {
-            unsigned long $name{s"size_${toString(p.fst+1)}"} = $name{nm}.dims[$intLiteralExpr{p.snd.fst}];
+            unsigned long $name{s"size_${toString(p.fst+1)}"} = _tn->dims[$intLiteralExpr{p.snd.fst}];
           }
           :: []
       ,
       fmt.storage
     );
+}
+
+function testing
+Message ::= e::Decorated Expr loc::Location
+{
+  return err(loc, test(e));
+} -- TODO: Remove
+
+function test
+String ::= e::Decorated Expr
+{
+  return
+    case e of
+    | decExpr(a) -> s"decExpr(${test(a)})"
+    | qualifiedExpr(_, a) -> s"qualifiedExpr(${test(a)})"
+    | transformedExpr(_, a) -> s"transformedExpr(${test(a)})"
+    | directRefExpr(id) -> s"directRefExpr(${id.name})"
+    | declRefExpr(id) -> s"declRefExpr(${id.name})"
+    | stringLiteral(s) -> s"stringLiteral(${s})"
+    | parenExpr(a) -> s"parenExpr(${test(a)})"
+    | arraySubscriptExpr(x, _) -> s"arraySubscriptExpr(${showType(x.typerep)}) : ${showType(e.typerep)}"
+
+    | addTensor(_, _) -> "addTensor"
+    | divTensor(_, _) -> "divTensor"
+    | mulTensor(_, _) -> "mulTensor"
+    | subTensor(_, _) -> "subTensor"
+    | accessTensor(_, _) -> "accessTensor"
+    | _ -> "other..."
+    end;
 }

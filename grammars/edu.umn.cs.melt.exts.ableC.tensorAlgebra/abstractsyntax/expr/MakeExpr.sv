@@ -11,6 +11,7 @@ String ::= e::TensorExpr
     case e of
     | tensorAccess(ex, _, _) -> 
       case decorate ex with {env=e.envr; returnType=nothing();} of
+      | decExpr(declRefExpr(name(s))) -> s
       | declRefExpr(name(s)) -> s
       | _ -> s"_tensor_${toString(e.location.line)}_${toString(e.location.column)}"
       end
@@ -25,7 +26,7 @@ TensorFormat ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
     case e of
     | tensorAccess(ex, _, _) ->
       case decorate ex with {env=e.envr; returnType=nothing();}.typerep of
-      | tensorType(_, f, _) -> new(f.tensorFormat)
+      | extType(_, tensorType(f)) -> new(f.tensorFormat)
       | _ -> 
         case tm:lookup(e.tensorName, fmts) of
         | [] -> errorTensorFormat()

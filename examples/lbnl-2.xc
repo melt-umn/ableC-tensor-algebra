@@ -19,7 +19,8 @@ int main() {
   // Loop over all values in dta with sender 180. 
   // We end up with a matrix of sender port and destination IP
   foreach(double v : dta[180, sP, dI, dP, t]) {
-    result[sP, dI] += v;
+    double past = result[sP, dI];
+    result[sP, dI] = past + v;
   }
 
   freeTensor(dta);
