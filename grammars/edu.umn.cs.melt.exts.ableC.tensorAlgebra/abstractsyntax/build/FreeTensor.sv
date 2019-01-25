@@ -18,30 +18,34 @@ top::Expr ::= tensor::Expr
 
   local format::Name =
     case tensor.typerep of
-    | tensorType(_, fmt, _) -> fmt
+    | extType(_, tensorType(fmt)) -> fmt
     | _ -> name("__error__", location=top.location)
     end;
   format.env = top.env;
 
   local lErrors :: [Message] =
     case tensor.typerep of
-    | tensorType(_, _, _) -> format.tensorFormatLookupCheck
+    | extType(_, tensorType(_)) -> format.tensorFormatLookupCheck
     | _ -> [err(top.location, s"freeTensor expected a tensor type (got ${showType(tensor.typerep)})")]
     end;
 
   local fmt::TensorFormat =
     new(format.tensorFormat);
 
+  local fmtNm::String =
+    fmt.proceduralName;
+
   forwards to
     mkErrorCheck(lErrors,
       ableC_Expr {
       ({
-        free($Expr{tensor}.data);
-        free($Expr{tensor}.dims);
-        $Stmt{freeIndices(tensor, fmt)}
-        free($Expr{tensor}.indices);
-        if($Expr{tensor}.buffer) __free_tensor_tree($Expr{tensor}.buffer);
-        pthread_rwlock_destroy(&($Expr{tensor}.lock));
+        struct $name{s"tensor_${fmtNm}"}* _tensor = (struct $name{s"tensor_${fmtNm}"}*) &$Expr{tensor};
+        free(_tensor->data);
+        free(_tensor->dims);
+        $Stmt{freeIndices(ableC_Expr{*_tensor}, fmt)}
+        free(_tensor->indices);
+        if(_tensor->buffer) __free_tensor_tree(_tensor->buffer);
+        pthread_rwlock_destroy(&(_tensor->lock));
         1;
       })
       });

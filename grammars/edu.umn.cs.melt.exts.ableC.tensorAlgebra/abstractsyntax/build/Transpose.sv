@@ -44,6 +44,9 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
       mapping
     );
 
+  local lFmtNm :: String = lFmt.proceduralName;
+  local rFmtNm :: String = rFmt.proceduralName;
+
   forwards to
     if !null(missing)
     then 
@@ -65,7 +68,8 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
               in let lPos::Integer = e.fst.snd in
               let rPos::Integer = e.snd.fst in
               ableC_Stmt {
-                if($name{lNm}.dims[$intLiteralExpr{lPos}] != $name{rNm}.dims[$intLiteralExpr{rPos}]) {
+                if(((struct $name{s"tensor_${lFmtNm}"})$name{lNm}).dims[$intLiteralExpr{lPos}] 
+                  != ((struct $name{s"tensor_${rFmtNm}"})$name{rNm}).dims[$intLiteralExpr{rPos}]) {
                   fprintf(stderr, 
                     $stringLiteralExpr{let loc::Location = top.location in  s"Tensors ${lNm} and ${rNm} do not have the same dimensionality for ${var} (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})" end});
                   error = 1;
@@ -83,15 +87,17 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
           )
         }
 
-        memset($name{lNm}.data, 0, $name{lNm}.dataLen * sizeof(double));
-        __free_tensor_tree($name{lNm}.buffer);
-        $name{lNm}.buffer = calloc(1, sizeof(struct __tensor_tree));
-        $name{lNm}.buffer->children = calloc(1, sizeof(struct __tensor_tree));
+        memset(((struct $name{s"tensor_${lFmtNm}"})$name{lNm}).data, 0, 
+          ((struct $name{s"tensor_${rFmtNm}"})$name{lNm}).dataLen * sizeof(double));
+        __free_tensor_tree(((struct $name{s"tensor_${lFmtNm}"})$name{lNm}).buffer);
+        
+        ((struct $name{s"tensor_${lFmtNm}"}*) &$name{lNm})->buffer = calloc(1, sizeof(struct __tensor_tree));
+        ((struct $name{s"tensor_${lFmtNm}"}*) &$name{lNm})->buffer->children = calloc(1, sizeof(struct __tensor_tree));
 
-        $name{s"tensor_pack_${rFmt.proceduralName}"}(&$name{rNm});
-        pthread_rwlock_rdlock(&($name{rNm}.lock));
+        $name{s"tensor_pack_${rFmt.proceduralName}"}((struct $name{s"tensor_${rFmtNm}"}*) &$name{rNm});
+        pthread_rwlock_rdlock(&(((struct $name{s"tensor_${rFmtNm}"}*) &$name{rNm})->lock));
 
-        double* __data = $name{rNm}.data;
+        double* __data = ((struct $name{s"tensor_${rFmtNm}"}) $name{rNm}).data;
         $Stmt {
           foldl(
             \ abv::Stmt p::Pair<Integer Pair<Integer Integer>> ->
@@ -100,15 +106,15 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
                 ableC_Stmt {
                   $Stmt{abv}
                   unsigned long $name{s"size_${toString(p.fst+1)}"} =
-                    $name{rNm}.indices[$intLiteralExpr{p.snd.fst}][0][0];
+                    ((struct $name{s"tensor_${rFmtNm}"}) $name{rNm}).indices[$intLiteralExpr{p.snd.fst}][0][0];
                 }
               else
                 ableC_Stmt {
                   $Stmt{abv}
                   unsigned long* $name{s"pos_${toString(p.fst+1)}"} =
-                    $name{rNm}.indices[$intLiteralExpr{p.snd.fst}][0];
+                    ((struct $name{s"tensor_${rFmtNm}"}) $name{rNm}).indices[$intLiteralExpr{p.snd.fst}][0];
                   unsigned long* $name{s"idx_${toString(p.fst+1)}"} =
-                    $name{rNm}.indices[$intLiteralExpr{p.snd.fst}][1];
+                    ((struct $name{s"tensor_${rFmtNm}"}) $name{rNm}).indices[$intLiteralExpr{p.snd.fst}][1];
                 }
             ,
             nullStmt(),
@@ -169,7 +175,8 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
             ableC_Stmt {
               double v = __data[$name{s"p${toString(lFmt.dimensions)}"}];
               if(v != 0.0) {
-                *$name{s"tensor_getPointer_locked_${lFmt.proceduralName}"}(&$name{lNm}, __idx) = v;
+                *$name{s"tensor_getPointer_locked_${lFmt.proceduralName}"}(
+                  (struct $name{s"tensor_${lFmtNm}"}*) &$name{lNm}, __idx) = v;
               }
             },
             access

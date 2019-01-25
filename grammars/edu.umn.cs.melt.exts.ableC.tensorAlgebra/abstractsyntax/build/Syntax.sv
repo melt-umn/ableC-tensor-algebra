@@ -13,7 +13,7 @@ top::Expr ::= type::TypeName dims::[Expr]
 {
   local format::Name =
     case type.typerep of
-    | tensorType(_, fmt, _) -> fmt
+    | extType(_, tensorType(fmt)) -> fmt
     | _ -> name("error", location=top.location)
     end;
   format.env = top.env;
@@ -34,7 +34,7 @@ top::Expr ::= type::TypeName dims::[Expr]
     checkTensorHeader(top.location, top.env)
     ++
     case type.typerep of
-    | tensorType(_, _, _) -> 
+    | extType(_, tensorType(_)) -> 
         format.tensorFormatLookupCheck
         ++
         if dimens > 0 && dimens != listLength(dims)
@@ -83,7 +83,7 @@ top::Expr ::= type::TypeName dims::[Expr]
         unsigned long __tensor_arr[$intLiteralExpr{fmt.dimensions}] = $Initializer{dimInit};
         struct $name{s"tensor_${fmtNm}"} _tensor = {0};
         $name{s"tensor_make_${fmtNm}"}(&_tensor, __tensor_arr);
-        _tensor;
+        ($BaseTypeExpr{tensorTypeExpr(nilQualifier(), format)}) _tensor;
       })
     };
 
@@ -98,7 +98,7 @@ top::Expr ::= type::TypeName data::TensorConstant
 {
   local format::Name =
     case type.typerep of
-    | tensorType(_, fmt, _) -> fmt
+    | extType(_, tensorType(fmt)) -> fmt
     | _ -> name("__error__", location=top.location)
     end;
   format.env = top.env;
@@ -120,7 +120,7 @@ top::Expr ::= type::TypeName data::TensorConstant
     checkTensorHeader(top.location, top.env)
     ++
     case type.typerep of
-    | tensorType(_, _, _) -> 
+    | extType(_, tensorType(_)) -> 
        format.tensorFormatLookupCheck
        ++
        if null(format.tensorFormatLookupCheck) && dimens != data.tensor_dims
@@ -144,7 +144,7 @@ top::Expr ::= type::TypeName data::TensorConstant
         struct $name{s"tensor_${fmtNm}"} _tensor = {0};
         __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
         $name{s"tensor_makeFilled_${fmtNm}"}(&_tensor, __tensor_dims, __tensor_data);
-        _tensor;
+        ($BaseTypeExpr{tensorTypeExpr(nilQualifier(), format)}) _tensor;
       })
     };
   
@@ -164,7 +164,7 @@ top::Expr ::= type::TypeName args::[Expr]
   
   local format::Name = 
     case type.typerep of
-    | tensorType(_, fmt, _) -> fmt
+    | extType(_, tensorType(fmt)) -> fmt
     | _ -> name("__error__", location=top.location)
     end;
   format.env = top.env;
@@ -187,7 +187,7 @@ top::Expr ::= type::TypeName args::[Expr]
     checkTensorHeader(top.location, top.env)
     ++
     case type.typerep of
-    | tensorType(_, _, _) -> format.tensorFormatLookupCheck
+    | extType(_, tensorType(_)) -> format.tensorFormatLookupCheck
     | _ -> [err(top.location, s"Tensor cannot be built using a non-tensor type. Got ${showType(type.typerep)}")]
     end
     ++
@@ -223,7 +223,7 @@ top::Expr ::= type::TypeName args::[Expr]
         }
         struct $name{s"tensor_${fmtNm}"} _tensor = {0};
         $name{s"tensor_make_${fmtNm}"}(&_tensor, __tensor_arr);
-        _tensor;
+        ($BaseTypeExpr{tensorTypeExpr(nilQualifier(), format)}) _tensor;
       })
     };
 

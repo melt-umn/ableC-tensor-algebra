@@ -73,7 +73,7 @@ int main() {
 
   printf("Runtime: %f\n", ((double)(end - start)) / CLOCKS_PER_SEC);
 
-  inst write_tensor<tensor<dcsr>>("A.tns", &A);
+  inst write_tensor<tensor<rm>>("A.tns", &A);
 
   freeTensor(A);
   freeTensor(B);

@@ -21,31 +21,27 @@ top::Expr ::= l::Expr r::Expr
 
   local formatL :: TensorFormat =
     case l.typerep of
-    | tensorType(_, f, _) -> new(f.tensorFormat)
+    | extType(_, tensorType(f)) -> new(f.tensorFormat)
     end;
 
   local formatR :: TensorFormat =
     case r.typerep of
-    | tensorType(_, f, _) -> new(f.tensorFormat)
+    | extType(_, tensorType(f)) -> new(f.tensorFormat)
     end;
   
   local lErrors :: [Message] =
     case l.typerep, r.typerep of
-    | tensorType(_, _, _), tensorType(_, _, _) ->
+    | extType(_, tensorType(_)), extType(_, tensorType(_)) ->
       if formatL.dimensions == formatR.dimensions
       then []
       else [err(top.location, "Format changes can only be performed between tensors of the same order.")]
-    | tensorType(_, _, _), tagType(_, _) ->
-      let n :: Maybe<String> = moduleName(top.env, r.typerep) in
-      if n.isJust && n.fromJust == "edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor"
-      then [] {- Warning... Dimensions not checked properly... -}
-      else [err(top.location, "Tensor Deep Copy can only be performed on tensors. (This error should not occur)")]
-      end
-    | tensorType(_, _, _), _ ->
+    | extType(_, tensorType(_)), _ ->
       case r of
       | build_empty(_, _) -> []
       | build_data(_, _) -> []
       | buildTensorExpr(_, _) -> []
+      | directCallExpr(_, _) -> []
+      | callExpr(_, _) -> []
       | _ -> [err(top.location, "Tensor Deep Copy can only be performed on tensors. (This error should not occur)")]
       end
     | _, _ -> [err(top.location, "Tensor Deep Copy can only be performed on tensors. (This error should not occur)")]
@@ -66,48 +62,54 @@ top::Expr ::= l::Expr r::Expr
       then
         ableC_Expr {
           ({
-            if($Expr{l}.dims) free($Expr{l}.dims);
-            if($Expr{l}.indices) { $Stmt{freeIndices(l, formatL)}; free($Expr{l}.indices); }
-            if($Expr{l}.data) free($Expr{l}.data);
-            if($Expr{l}.buffer) __free_tensor_tree($Expr{l}.buffer);
-            $Expr{l}.bufferCnt = 0;
-            $Expr{l}.buffer = calloc(1, sizeof(struct __tensor_tree));
-            $Expr{l}.buffer->children = calloc(1, sizeof(struct __tensor_tree));
-            $Expr{l}.form = "";
+            struct $name{s"tensor_${formatL.proceduralName}"}* _l = (struct $name{s"tensor_${formatL.proceduralName}"}*) &$Expr{l};
+            struct $name{s"tensor_${formatR.proceduralName}"}* _r = (struct $name{s"tensor_${formatR.proceduralName}"}*) &$Expr{r};
+
+            if(_l->dims) free(_l->dims);
+            if(_l->indices) { $Stmt{freeIndices(ableC_Expr{*_l}, formatL)}; free(_l->indices); }
+            if(_l->data) free(_l->data);
+            if(_l->buffer) __free_tensor_tree(_l->buffer);
+            _l->bufferCnt = 0;
+            _l->buffer = calloc(1, sizeof(struct __tensor_tree));
+            _l->buffer->children = calloc(1, sizeof(struct __tensor_tree));
+            _l->form = "";
             
-            $name{s"tensor_pack_${formatR.proceduralName}"}(&$Expr{r});
+            $name{s"tensor_pack_${formatR.proceduralName}"}(_r);
             
-            $Expr{l}.dims = calloc($intLiteralExpr{formatL.dimensions}, sizeof(unsigned long));
-            memcpy($Expr{l}.dims, $Expr{r}.dims, sizeof(unsigned long) * $intLiteralExpr{formatL.dimensions});
+            _l->dims = calloc($intLiteralExpr{formatL.dimensions}, sizeof(unsigned long));
+            memcpy(_l->dims, _r->dims, sizeof(unsigned long) * $intLiteralExpr{formatL.dimensions});
 
             unsigned long size = 1;
-            $Expr{l}.indices = calloc($intLiteralExpr{formatL.dimensions}, sizeof(unsigned long**));
-            $Stmt{copyIndices(l, r, formatL)}
+            _l->indices = calloc($intLiteralExpr{formatL.dimensions}, sizeof(unsigned long**));
+            $Stmt{copyIndices(ableC_Expr{*_l}, ableC_Expr{*_r}, formatL)}
 
-            $Expr{l}.data = calloc($Expr{r}.dataLen, sizeof(double));
-            memcpy($Expr{l}.data, $Expr{r}.data, sizeof(double) * $Expr{r}.dataLen);
-            $Expr{l}.dataLen = $Expr{r}.dataLen;
+            _l->data = calloc(_r->dataLen, sizeof(double));
+            memcpy(_l->data, _r->data, sizeof(double) * _r->dataLen);
+            _l->dataLen = _r->dataLen;
 
-            pthread_rwlock_destroy(&($Expr{l}.lock));
-            pthread_rwlock_init(&($Expr{l}.lock), 0);
+            pthread_rwlock_destroy(&(_l->lock));
+            pthread_rwlock_init(&(_l->lock), 0);
 
-            $Expr{l};
+            *_l;
           })
         }
       else
         ableC_Expr {
         ({
-          if($Expr{l}.indices) { $Expr{freeTensor(l, location=top.location)}; }
+          struct $name{s"tensor_${formatL.proceduralName}"}* _l = (struct $name{s"tensor_${formatL.proceduralName}"}*) &$Expr{l};
+          struct $name{s"tensor_${formatR.proceduralName}"}* _r = (struct $name{s"tensor_${formatR.proceduralName}"}*) &$Expr{r};
+         
+          if(_l->indices) { $Expr{freeTensor(l, location=top.location)}; }
           // uses .indices as a check of whether things are initialized
 
           __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
 
-          memset(&$Expr{l}, 0, sizeof(struct $name{s"tensor_${formatL.proceduralName}"}));
-          $name{s"tensor_make_${formatL.proceduralName}"}(&$Expr{l}, $Expr{r}.dims);
+          memset(_l, 0, sizeof(struct $name{s"tensor_${formatL.proceduralName}"}));
+          $name{s"tensor_make_${formatL.proceduralName}"}(_l, _r->dims);
 
           unsigned long __idx[$intLiteralExpr{formatL.dimensions}];
 
-          double* __data = $Expr{r}.data;
+          double* __data = _r->data;
           $Stmt {
             foldl(
               \ abv::Stmt p::Pair<Integer Pair<Integer Integer>> ->
@@ -116,15 +118,15 @@ top::Expr ::= l::Expr r::Expr
                   ableC_Stmt {
                     $Stmt{abv}
                     unsigned long $name{s"size_${toString(p.fst+1)}"} = 
-                      $Expr{r}.indices[$intLiteralExpr{p.snd.fst}][0][0];
+                      _r->indices[$intLiteralExpr{p.snd.fst}][0][0];
                   }
                 else
                   ableC_Stmt {
                     $Stmt{abv}
                     unsigned long* $name{s"pos_${toString(p.fst+1)}"} =
-                      $Expr{r}.indices[$intLiteralExpr{p.snd.fst}][0];
+                      _r->indices[$intLiteralExpr{p.snd.fst}][0];
                     unsigned long* $name{s"idx_${toString(p.fst+1)}"} =
-                      $Expr{r}.indices[$intLiteralExpr{p.snd.fst}][1];
+                      _r->indices[$intLiteralExpr{p.snd.fst}][1];
                   }
               ,
               nullStmt(),
@@ -184,14 +186,14 @@ top::Expr ::= l::Expr r::Expr
               ableC_Stmt {
                 double v = __data[$name{s"p${toString(formatL.dimensions)}"}];
                 if(v != 0) { // TODO: This is unsafe
-                  *$name{s"tensor_getPointer_${formatL.proceduralName}"}(&$Expr{l}, __idx) = v;
+                  *$name{s"tensor_getPointer_${formatL.proceduralName}"}(_l, __idx) = v;
                 }
               },
               formatR.storage
             )
           }
 
-          $Expr{l};
+          *_l;
         })
         }
     | _ -> eqExpr(l, r, location=top.location)
