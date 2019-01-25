@@ -34,11 +34,11 @@ char generateProb(double p) {
 int main() {
   tensor<csf> B = build(tensor<csf>)({2000, 2000, 2000});
   for(int i = 0; i < dimenof(B)[0]; i++) {
-    if(generateProb(0.001)) {
+    if(generateProb(0.01)) {
       for(int j = 0; j < dimenof(B)[1]; j++) {
-        if(generateProb(0.001)) {
+        if(generateProb(0.01)) {
           for(int k = 0; k < dimenof(B)[2]; k++) {
-            if(generateProb(0.001)) {
+            if(generateProb(0.01)) {
               B[i,j,k] = generateRand();
             }
           }

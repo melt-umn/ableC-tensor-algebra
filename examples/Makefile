@@ -36,7 +36,7 @@ override XCFLAGS+=$(addprefix -I,$(XC_INCLUDE_DIRS))
 override JAVAFLAGS+=-Xss6M
 
 # Flags passed to the C compiler, e.g. to enable various compiler extensions
-override CFLAGS+=-fopenmp -g
+override CFLAGS+=-fopenmp -g -O3
 
 # All directories contining extension libraries that may be linked
 LIB_DIRS=$(wildcard $(EXTS_BASE)/*/lib)

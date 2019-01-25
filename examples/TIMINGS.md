@@ -22,9 +22,9 @@ The LBNL examples above present interesting data analysis uses of TACO and our e
 ## Computation Timings
 | Example | Time with TACO | Time with AbleC |
 | ------- | :------------: | :-------------: |
-| SpMV    | 0.127142       | 0.085896        |
-| SDDMM   | 0.335463       | 1.018344        |
-| MTTKRP  | 1.725596       | 12.814500       |
+| SpMV    | 0.134897       | 0.055847        |
+| SDDMM   | 0.335463       | 0.749105        |
+| MTTKRP  | 1.763423       | 1.737042        |
 
 \* Time for the LBNL examples was measured using the Linux *time* command. For other examples timing was performed using the sys/time.h library of C and C++, for TACO and AbleC respectively. The timings were used to surround just the computation in question, though it also included the packing in TACO, as AbleC handles automatic packing for tensor expressions.
 

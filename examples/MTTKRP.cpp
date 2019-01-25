@@ -38,11 +38,11 @@ int main(int argc, char* argv[]) {
 
   Tensor<double> B ({2000, 2000, 2000}, csf);
   for(int i = 0; i < B.getDimension(0); i++) {
-    if(generateProb(0.001)) {
+    if(generateProb(0.01)) {
       for(int j = 0; j < B.getDimension(1); j++) {
-        if(generateProb(0.001)) {
+        if(generateProb(0.01)) {
           for(int k = 0; k < B.getDimension(2); k++) {
-            if(generateProb(0.001)) {
+            if(generateProb(0.01)) {
               B.insert({i,j,k}, generateRand());
             }
           }
