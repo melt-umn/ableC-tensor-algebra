@@ -40,9 +40,9 @@ top::Expr ::= tensor::Expr idx::Expr
   local anyIndexVars::Boolean =
     foldl(
       \ b::Boolean t::Type
-      -> b ||
+      -> b || 
          case t of
-         | indexVarType(_) -> true
+         | extType(_, indexvarType()) -> true
          | _ -> false
          end
       ,
@@ -64,7 +64,8 @@ top::Expr ::= tensor::Expr idx::Expr
         \ t::Type
         -> t.errors
            ++
-           if listLength(t.errors) != 0 || t.isIntegerType
+           if listLength(t.errors) != 0 || t.isIntegerType ||
+             case t of extType(_, indexvarType()) -> true | _ -> false end
            then []
            else [err(idx.location, s"Expected integer type, got ${showType(t)}")]
         ,
@@ -101,7 +102,7 @@ top::Expr ::= tensor::Expr idx::Expr
     then
       ableC_Expr {
         ({
-          struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+          struct $name{s"tensor_${fmtNm}"}* _tensor = (struct $name{s"tensor_${fmtNm}"}*) &$Expr{tensor};
           $BaseTypeExpr{idx.typerep.baseTypeExpr}* __idx = $Expr{idx};
           unsigned long _idx[$intLiteralExpr{fmt.dimensions}];
           
@@ -121,7 +122,7 @@ top::Expr ::= tensor::Expr idx::Expr
     else
       ableC_Expr {
         ({
-          struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+          struct $name{s"tensor_${fmtNm}"}* _tensor = (struct $name{s"tensor_${fmtNm}"}*) &$Expr{tensor};
           unsigned long __index[$intLiteralExpr{fmt.dimensions}] = $Initializer{idxInitializer};
           $name{s"tensor_pack_${fmtNm}"}(_tensor);
           __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
@@ -160,6 +161,7 @@ InitList ::= ex::Expr env::Decorated Env
 
   return
     case ex of
+    | decExpr(e) -> generateInitList(e, env)
     | commaExpr(l, r) ->
       consInit(
         positionalInit(
@@ -187,6 +189,7 @@ function getTypereps
 
   return
     case idx of
+    | decExpr(e) -> getTypereps(e, env)
     | commaExpr(l, r) ->
        l.typerep :: getTypereps(r, env)
     | _ -> idx.typerep :: []
@@ -202,6 +205,7 @@ Integer ::= idx::Expr env::Decorated Env
 
   return
     case idx of
+    | decExpr(e) -> getCount(e, env)
     | commaExpr(_, r) ->
        1 + getCount(r, env)
     | _ -> 1

@@ -22,9 +22,9 @@ top::Decl ::= nms::[Name]
 
   local fwrd::Decl =
     variableDecls(
-      [],
+      nilStorageClass(),
       nilAttribute(),
-      directTypeExpr(indexVarType(head(nms).location)),
+      indexvarTypeExpr(nilQualifier()),
       foldl(
         \ d::Declarators nm::Name
         -> consDeclarator(

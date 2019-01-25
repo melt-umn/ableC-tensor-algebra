@@ -18,6 +18,18 @@ top::Expr ::= e::Expr
   top.tensorExp = e.tensorExp;
 }
 
+aspect production decExpr
+top::Expr ::= e::Decorated Expr
+{
+  top.tensorExp = e.tensorExp;
+}
+
+aspect production transformedExpr
+top::Expr ::= original::Expr resolved::Expr
+{
+  top.tensorExp = resolved.tensorExp;
+}
+
 global emptyAccess :: Expr =
   ableC_Expr {
     ($BaseTypeExpr{extTypeExpr(nilQualifier(), tensorAccType())}){0}

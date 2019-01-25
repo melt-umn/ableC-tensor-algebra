@@ -6,6 +6,8 @@ import edu:umn:cs:melt:ableC:abstractsyntax:overloadable;
 abstract production tensorTypeExpr
 top::BaseTypeExpr ::= q::Qualifiers fmt::Name
 {
+  propagate substituted;
+
   top.pp = pp"${terminate(space(), q.pps)}tensor<${text(fmt.name)}>";
   local localErrors::[Message] =
     checkTensorHeader(fmt.location, top.env) ++ fmt.tensorFormatLookupCheck;
@@ -19,6 +21,8 @@ top::BaseTypeExpr ::= q::Qualifiers fmt::Name
 abstract production tensorType
 top::ExtType ::= fmt::Decorated Name
 {
+  propagate canonicalType, substituted;
+
   top.pp = pp"tensor<${text(fmt.name)}>";
   
   local fmtNm::String = fmt.tensorFormat.proceduralName;
@@ -37,8 +41,9 @@ top::ExtType ::= fmt::Decorated Name
       | _ -> false
       end;
   
+  top.memberProd = just(accessMember(_, _, _, location=_)); 
   top.arraySubscriptProd = just(accessTensor(_, _, location=_));
-  top.arraySubscriptAssignProd = just(accessTensorAssign(_, _, _, _, location=_));
+  top.eqArraySubscriptProd = just(accessTensorAssign(_, _, _, location=_));
   top.lEqProd = just(tensorDeepCopy(_, _, location=_));
   top.rEqProd = just(tensorDeepCopy(_, _, location=_));
 }
@@ -46,6 +51,8 @@ top::ExtType ::= fmt::Decorated Name
 abstract production tensorAccType
 top::ExtType ::= 
 {
+  propagate canonicalType, substituted;
+
   top.pp = pp"tensor_acc";
   
   top.host =
@@ -72,4 +79,5 @@ top::ExtType ::=
   top.lDivProd = just(divTensor(_, _, location=_));
   top.rDivProd = just(divTensor(_, _, location=_));
   top.rEqProd = just(tensorAssignToScalar(_, _, location=_));
+  top.lEqProd = just(tensorAssignToScalar(_, _, location=_));
 }

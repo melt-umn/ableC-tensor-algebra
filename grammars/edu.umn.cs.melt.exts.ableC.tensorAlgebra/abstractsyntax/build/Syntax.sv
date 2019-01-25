@@ -83,7 +83,7 @@ top::Expr ::= type::TypeName dims::[Expr]
         unsigned long __tensor_arr[$intLiteralExpr{fmt.dimensions}] = $Initializer{dimInit};
         struct $name{s"tensor_${fmtNm}"} _tensor = {0};
         $name{s"tensor_make_${fmtNm}"}(&_tensor, __tensor_arr);
-        _tensor;
+        ($BaseTypeExpr{tensorTypeExpr(nilQualifier(), format)}) _tensor;
       })
     };
 
@@ -144,7 +144,7 @@ top::Expr ::= type::TypeName data::TensorConstant
         struct $name{s"tensor_${fmtNm}"} _tensor = {0};
         __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
         $name{s"tensor_makeFilled_${fmtNm}"}(&_tensor, __tensor_dims, __tensor_data);
-        _tensor;
+        ($BaseTypeExpr{tensorTypeExpr(nilQualifier(), format)}) _tensor;
       })
     };
   
@@ -223,7 +223,7 @@ top::Expr ::= type::TypeName args::[Expr]
         }
         struct $name{s"tensor_${fmtNm}"} _tensor = {0};
         $name{s"tensor_make_${fmtNm}"}(&_tensor, __tensor_arr);
-        _tensor;
+        ($BaseTypeExpr{tensorTypeExpr(nilQualifier(), format)}) _tensor;
       })
     };
 

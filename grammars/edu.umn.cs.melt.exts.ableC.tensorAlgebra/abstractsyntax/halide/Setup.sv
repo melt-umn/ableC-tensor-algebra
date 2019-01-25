@@ -108,6 +108,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
         case e of
         | tensorAccess(ex, _, _) ->
           case decorate ex with {env=e.envr; returnType=nothing();} of
+          | decExpr(declRefExpr(name(_))) -> nothing()
           | declRefExpr(name(_)) -> nothing()
           | _ ->
             let fmt::TensorFormat =
@@ -118,7 +119,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
             in
             just(
               ableC_Stmt {
-                struct $name{s"tensor_${fmt.proceduralName}"} $name{nm} = $Expr{ex};
+                struct $name{s"tensor_${fmt.proceduralName}"} $name{nm} = (struct $name{s"tensor_${fmt.proceduralName}"}) $Expr{ex};
               }
             )
             end
@@ -136,6 +137,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     maybeMap(
       \ e::Expr ->
         case decorate e with {env=top.env; returnType=nothing();} of
+        | decExpr(declRefExpr(name(_))) -> nothing()
         | declRefExpr(name(_)) -> nothing()
         | _ ->
           let nm::String =
@@ -158,12 +160,14 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     foldl(
       \ inn::Stmt t::String ->
         ableC_Stmt {
-          pthread_rwlock_rdlock(&($name{t}.lock));
+          pthread_rwlock_rdlock(
+            &(((struct $name{s"tensor_${head(tm:lookup(t, fmts)).proceduralName}"}*) &$name{t})->lock));
           $Stmt{inn}
         }
       ,
       ableC_Stmt {
-        pthread_rwlock_wrlock(&($name{outNew.tensorName}.lock));
+        pthread_rwlock_wrlock(&(((struct $name{s"tensor_${head(tm:lookup(outNew.tensorName, fmts)).proceduralName}"}*)
+          &$name{outNew.tensorName})->lock));
       },
       originalNames
     );
@@ -172,12 +176,14 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     foldl(
       \ inn::Stmt t::String ->
         ableC_Stmt {
-          pthread_rwlock_unlock(&($name{t}.lock));
+          pthread_rwlock_unlock(&(((struct $name{s"tensor_${head(tm:lookup(t, fmts)).proceduralName}"}*) &$name{t})
+            ->lock));
           $Stmt{inn}
         }
       ,
       ableC_Stmt {
-        pthread_rwlock_unlock(&($name{outNew.tensorName}.lock));
+        pthread_rwlock_unlock(&(((struct $name{s"tensor_${head(tm:lookup(outNew.tensorName, fmts)).proceduralName}"}*)
+          &$name{outNew.tensorName})->lock));
       },
       originalNames
     );
@@ -214,7 +220,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
             nullStmt()
           else
             ableC_Stmt {
-              struct $name{s"tensor_${pr.fst}"} $name{pr.snd.fst} = $name{pr.snd.snd};
+              struct $name{s"tensor_${pr.fst}"} $name{pr.snd.fst} = (struct $name{s"tensor_${pr.fst}"}) $name{pr.snd.snd};
             }
         )
       ,
@@ -242,7 +248,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
         seqStmt(
          s1,
          ableC_Stmt {
-           double* $name{s"${t}_data"} = $name{t}.data;
+           double* $name{s"${t}_data"} = ((struct $name{s"tensor_${head(tm:lookup(t, fmts)).proceduralName}"}) $name{t}).data;
          }
         )
       ,
@@ -252,7 +258,10 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
 
   local zeroOut :: Stmt =
     ableC_Stmt {
-      memset($name{outNew.tensorName}.data, 0, $name{outNew.tensorName}.dataLen * sizeof(double));
+      memset(((struct $name{s"tensor_${head(tm:lookup(outNew.tensorName, fmts)).proceduralName}"}*) 
+        &$name{outNew.tensorName})->data, 0, 
+          ((struct $name{s"tensor_${head(tm:lookup(outNew.tensorName, fmts)).proceduralName}"}*) 
+            &$name{outNew.tensorName})->dataLen * sizeof(double));
     };
 
   local lErrors :: [Message] =
@@ -354,7 +363,8 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
     foldl(
       \ inn::Stmt t::String ->
         ableC_Stmt {
-          pthread_rwlock_rdlock(&($name{t}.lock));
+          pthread_rwlock_rdlock(&(((struct $name{s"tensor_${head(tm:lookup(t, fmts)).proceduralName}"}*) &$name{t})
+            ->lock));
           $Stmt{inn}
         }
       ,
@@ -366,7 +376,8 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
     foldl(
       \ inn::Stmt t::String ->
         ableC_Stmt {
-          pthread_rwlock_unlock(&($name{t}.lock));
+          pthread_rwlock_unlock(&(((struct $name{s"tensor_${head(tm:lookup(t, fmts)).proceduralName}"}*) &$name{t})
+            ->lock));
           $Stmt{inn}
         }
       ,
@@ -438,6 +449,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
         case e of
         | tensorAccess(ex, _, _) ->
           case decorate ex with {env=e.envr; returnType=nothing();} of
+          | decExpr(declRefExpr(name(_))) -> nothing()
           | declRefExpr(name(_)) -> nothing()
           | _ ->
             let fmt::TensorFormat =
@@ -448,7 +460,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
             in
             just(
               ableC_Stmt {
-                struct $name{s"tensor_${fmt.proceduralName}"} $name{nm} = $Expr{ex};
+                struct $name{s"tensor_${fmt.proceduralName}"} $name{nm} = (struct $name{s"tensor_${fmt.proceduralName}"}) $Expr{ex};
               }
             )
             end
@@ -464,6 +476,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
     maybeMap(
       \ e::Expr ->
         case decorate e with {env=top.env; returnType=nothing();} of
+        | decExpr(declRefExpr(name(_))) -> nothing()
         | declRefExpr(name(_)) -> nothing()
         | _ ->
           let nm::String =
@@ -506,7 +519,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
           then nullStmt()
           else
             ableC_Stmt {
-              struct $name{s"tensor_${pr.fst}"} $name{pr.snd.fst} = $name{pr.snd.snd};
+              struct $name{s"tensor_${pr.fst}"} $name{pr.snd.fst} = (struct $name{s"tensor_${pr.fst}"}) $name{pr.snd.snd};
             }
         )
       ,
@@ -528,7 +541,8 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       \ s1::Stmt t::String ->
         ableC_Stmt {
           $Stmt{s1}
-          double* $name{s"${t}_data"} = $name{t}.data;
+          double* $name{s"${t}_data"} = ((struct $name{s"tensor_${head(tm:lookup(t, fmts)).proceduralName}"})$name{t})
+            .data;
         }
       ,
       nullStmt(),
@@ -702,7 +716,10 @@ Stmt ::=
     foldl(
       \ inn::Stmt pr::Pair<String Integer> ->
         ableC_Stmt {
-          if($name{nm}.dims[$intLiteralExpr{h.snd}] != $name{pr.fst}.dims[$intLiteralExpr{pr.snd}]) {
+          if(((struct $name{s"tensor_${head(tm:lookup(nm, fmts)).proceduralName}"}) $name{nm})
+            .dims[$intLiteralExpr{h.snd}] 
+              != ((struct $name{s"tensor_${head(tm:lookup(pr.fst, fmts)).proceduralName}"})$name{pr.fst})
+                .dims[$intLiteralExpr{pr.snd}]) {
             fprintf(stderr, 
               $stringLiteralExpr{let loc::Location = out.location in s"Tensor ${nm} and ${pr.fst} do not have the same dimensionality for ${var}. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
             error = 1;
@@ -726,7 +743,9 @@ Stmt ::=
         h.fst
       in
       ableC_Stmt {
-        unsigned long $name{s"${var}_dimension"} = $name{nm}.dims[$intLiteralExpr{h.snd}];
+        unsigned long $name{s"${var}_dimension"} = 
+          ((struct $name{s"tensor_${head(tm:lookup(nm, fmts)).proceduralName}"}) $name{nm})
+            .dims[$intLiteralExpr{h.snd}];
         $Stmt{check}
       }
       end

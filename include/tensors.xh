@@ -28,6 +28,10 @@ struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc
   int x;
 };
 
+struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_indexvar"))) tensor_indexvar {
+  int x;
+};
+
 struct __tensor_tree {
   char isLeaf;
   double val;

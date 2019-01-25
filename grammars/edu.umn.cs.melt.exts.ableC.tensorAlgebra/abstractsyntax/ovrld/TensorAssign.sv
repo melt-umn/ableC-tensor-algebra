@@ -8,7 +8,7 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
    expression. If it is a tensor expression, then the op is 
    ignored. -}
 abstract production accessTensorAssign
-top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Expr
+top::Expr ::= tensor::Expr idx::Expr right::Expr
 {
   propagate substituted;
 
@@ -63,7 +63,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
       \ b::Boolean t::Type
       -> b &&
          case t of
-         | indexVarType(_) -> true
+         | extType(_, indexvarType()) -> true
          | _ -> false
          end
       ,
@@ -76,7 +76,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
       \ b::Boolean t::Type
       -> b ||
          case t of
-         | indexVarType(_) -> true
+         | extType(_, indexvarType()) -> true
          | _ -> false
          end
       ,
@@ -101,7 +101,8 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
         \ t::Type
         -> t.errors
            ++
-           if listLength(t.errors) != 0 || t.isIntegerType
+           if listLength(t.errors) != 0 || t.isIntegerType ||
+             case t of extType(_, indexvarType()) -> true | _ -> false end
            then []
            else [err(tensor.location, s"Expected integer type, got ${showType(t)}")]
         ,
@@ -149,7 +150,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
     then
       ableC_Expr {
         ({
-          struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+          struct $name{s"tensor_${fmtNm}"}* _tensor = (struct $name{s"tensor_${fmtNm}"}*) &$Expr{tensor};
           $BaseTypeExpr{idx.typerep.baseTypeExpr}* __idx = $Expr{idx};
           unsigned long _idx[$intLiteralExpr{fmt.dimensions}];
           
@@ -159,7 +160,7 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
           pthread_rwlock_wrlock(&(_tensor->lock));
           __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
           double* res = $name{s"tensor_getPointer_locked_${fmtNm}"}(_tensor, _idx);
-          $Expr{op(ableC_Expr{*res}, right, top.location)};
+          *res = $Expr{right};
           pthread_rwlock_unlock(&(_tensor->lock));
           *res;
         })
@@ -175,12 +176,12 @@ top::Expr ::= tensor::Expr idx::Expr op::(Expr ::= Expr Expr Location) right::Ex
     else -- x[i] = a
       ableC_Expr {
         ({
-          struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+          struct $name{s"tensor_${fmtNm}"}* _tensor = (struct $name{s"tensor_${fmtNm}"}*) &$Expr{tensor};
           unsigned long __index[$intLiteralExpr{fmt.dimensions}] = $Initializer{idxInit};
           pthread_rwlock_wrlock(&(_tensor->lock));
           __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
           double* res = $name{s"tensor_getPointer_locked_${fmtNm}"}(_tensor, __index);
-          $Expr{op(ableC_Expr{*res}, right, top.location)};
+          *res = $Expr{right};
           pthread_rwlock_unlock(&(_tensor->lock));
           *res;
         })

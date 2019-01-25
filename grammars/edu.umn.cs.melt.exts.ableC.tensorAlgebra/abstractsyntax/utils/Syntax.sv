@@ -129,12 +129,12 @@ top::Expr ::= tensor::Expr dim::Expr
     if dim.integerConstantValue.isJust
     then -- If dim is a constant, no runtime error checking needed
       ableC_Expr {
-        $Expr{tensor}.dims[$Expr{dim}]
+        ((struct $name{s"tensor_${fmtNm}"}) $Expr{tensor}).dims[$Expr{dim}]
       }
     else -- Otherwise, we error check at runtime
       ableC_Expr {
         ({
-          struct $name{s"tensor_${fmtNm}"}* _tensor = &$Expr{tensor};
+          struct $name{s"tensor_${fmtNm}"}* _tensor = (struct $name{s"tensor_${fmtNm}"}*) &$Expr{tensor};
           unsigned long dim = $Expr{dim};
           if(dim >= $intLiteralExpr{fmt.dimensions}) {
             fprintf(stderr, 

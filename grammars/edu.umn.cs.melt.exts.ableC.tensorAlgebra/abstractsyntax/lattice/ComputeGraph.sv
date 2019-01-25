@@ -1376,7 +1376,8 @@ Stmt ::=
                         if output
                         then
                           ableC_Stmt {
-                            $name{s"tensor_getPointer_locked_${fmtNm}"}(&$name{assign.tensorName}, idx);
+                            $name{s"tensor_getPointer_locked_${fmtNm}"}(
+                              (struct $name{s"tensor_${fmtNm}"}*)&$name{assign.tensorName}, idx);
                           }
                         else nullStmt()
                       }

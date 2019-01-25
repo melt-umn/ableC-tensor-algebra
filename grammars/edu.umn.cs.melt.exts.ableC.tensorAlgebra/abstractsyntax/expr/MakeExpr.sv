@@ -11,6 +11,7 @@ String ::= e::TensorExpr
     case e of
     | tensorAccess(ex, _, _) -> 
       case decorate ex with {env=e.envr; returnType=nothing();} of
+      | decExpr(declRefExpr(name(s))) -> s
       | declRefExpr(name(s)) -> s
       | _ -> s"_tensor_${toString(e.location.line)}_${toString(e.location.column)}"
       end
