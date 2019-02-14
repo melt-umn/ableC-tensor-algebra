@@ -58,7 +58,7 @@ int main() {
   clock_t start, end;
 
   start = clock();
-  for(int c = 0; c < 10000; c++) {
+  for(int c = 0; c < 100000; c++) {
     y[i] = alpha * (A[i,j] * x[j]) + beta * z[i];
   }
   end = clock();

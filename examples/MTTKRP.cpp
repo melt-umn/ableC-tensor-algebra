@@ -76,8 +76,8 @@ int main(int argc, char* argv[]) {
   D.pack();
   A(i,j) = B(i,k,l) * D(l,j) * C(k,j);
   A.compile();
+  A.assemble();
   for(int c = 0; c < 10000; c++) {
-    A.assemble();
     A.compute();
   }
   end = clock();
