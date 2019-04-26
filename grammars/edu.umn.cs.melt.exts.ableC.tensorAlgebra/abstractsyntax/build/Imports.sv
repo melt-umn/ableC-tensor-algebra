@@ -4,7 +4,6 @@ imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports edu:umn:cs:melt:ableC:abstractsyntax:env;
 imports edu:umn:cs:melt:ableC:abstractsyntax:host;
 imports edu:umn:cs:melt:ableC:abstractsyntax:overloadable as ovrld;
-imports edu:umn:cs:melt:ableC:abstractsyntax:substitution;
 
 imports core:monad;
 

@@ -5,7 +5,6 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production tensorForEach
 top::Stmt ::= var::Name bounds::Expr body::Stmt
 {
-  propagate substituted;
 
   top.functionDefs := [];
   top.pp =

@@ -8,7 +8,6 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production halideSetup
 top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
 {
-  propagate substituted;
   top.pp = text("// Halide Tensor Expr Setup");
   top.functionDefs := [];
 
@@ -337,7 +336,6 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
 abstract production halideScalarSetup
 top::Stmt ::= output::Name expr::Expr inner::Stmt
 {
-  propagate substituted;
   top.pp = text("// Halide Tensor Expr Setup");
   top.functionDefs := [];
 

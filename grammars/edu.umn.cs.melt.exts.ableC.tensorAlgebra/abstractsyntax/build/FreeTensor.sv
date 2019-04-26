@@ -8,7 +8,6 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:build;
 abstract production freeTensor
 top::Expr ::= tensor::Expr
 {
-  propagate substituted;
   top.pp = 
     ppConcat([
       text("freeTensor("),

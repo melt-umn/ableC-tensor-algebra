@@ -5,7 +5,6 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production halideTensorCompute
 top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
 {
-  propagate substituted;
   top.pp = ppConcat([
       text("tensor transform {\n"),
       tns.pp,
@@ -235,7 +234,6 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
 abstract production halideTensorComputeOrdered
 top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
 {
-  propagate substituted;
   top.pp = ppConcat([
       text("tensor transform {\n"),
       tns.pp,
@@ -468,7 +466,6 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
 abstract production halideScalarCompute
 top::Stmt ::= nm::Name val::Expr ts::Transformation
 {
-  propagate substituted;
   top.pp = ppConcat([
       text("tensor transform {\n"),
       nm.pp,
@@ -610,7 +607,6 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
 abstract production halideScalarComputeOrdered
 top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
 {
-  propagate substituted;
   top.pp = ppConcat([
       text("tensor transform {\n"),
       nm.pp,

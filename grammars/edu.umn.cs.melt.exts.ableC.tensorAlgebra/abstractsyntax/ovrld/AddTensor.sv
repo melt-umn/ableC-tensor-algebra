@@ -5,7 +5,6 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production addTensor
 top::Expr ::= l::Expr r::Expr
 {
-  propagate substituted;
   top.pp = ppConcat([
              l.pp,
              text("+"),

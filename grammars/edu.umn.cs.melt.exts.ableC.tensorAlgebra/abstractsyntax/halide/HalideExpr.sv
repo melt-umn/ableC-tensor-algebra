@@ -7,7 +7,6 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production halideScalarTensorExpr
 top::IterStmt ::= output::Name expr::Expr
 {
-  propagate substituted;
   top.pp = expr.pp;
 
   local out::TensorExpr =
@@ -221,7 +220,6 @@ top::IterStmt ::= output::Name expr::Expr
 abstract production halideScalarExprOrder
 top::IterStmt ::= output::Name expr::Expr access::[String]
 {
-  propagate substituted;
   top.pp = expr.pp;
 
   local out::TensorExpr =
@@ -427,7 +425,6 @@ top::IterStmt ::= output::Name expr::Expr access::[String]
 abstract production halideTensorExpr
 top::IterStmt ::= tensor::Expr idx::Expr value::Expr
 {
-  propagate substituted;
   top.pp = 
     ppConcat([
       tensor.pp,
@@ -769,7 +766,6 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
 abstract production halideTensorExprOrder
 top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
 {
-  propagate substituted;
   top.pp =
     ppConcat([
       tensor.pp,

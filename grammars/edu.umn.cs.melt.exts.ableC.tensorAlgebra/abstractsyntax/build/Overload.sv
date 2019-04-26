@@ -10,7 +10,6 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:build;
 abstract production build
 top::Expr ::= t::TypeName exs::[Expr]
 {
-  propagate substituted;
 
   top.pp = 
     ppConcat([
