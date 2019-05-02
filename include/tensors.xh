@@ -59,7 +59,7 @@ struct __new_elem {
   struct __new_elem* next;
 };
 
-template<a>
+template<typename a>
 a _read_mtx(char* fileName) {
   FILE* file = fopen(fileName, "r");
   if(!file) {
@@ -208,7 +208,7 @@ a _read_mtx(char* fileName) {
   return res;
 }
 
-template <a>
+template <typename a>
 a _read_tns(char* fileName) {
   FILE* file = fopen(fileName, "r");
   if(!file) {
@@ -303,7 +303,7 @@ a _read_tns(char* fileName) {
   return res;
 }
 
-template<a>
+template<typename a>
 a read_tensor(char* fileName) {
   char* ext = _get_extension(fileName);
   
@@ -324,7 +324,7 @@ a read_tensor(char* fileName) {
   return res;
 }
 
-template<a>
+template<typename a>
 void _write_mtx(char* fileName, a tns) {
   FILE* file = fopen(fileName, "w");
   if(!file) {
@@ -349,7 +349,7 @@ void _write_mtx(char* fileName, a tns) {
   fclose(file);
 }
 
-template<a>
+template<typename a>
 void _write_tns(char* fileName, a tns) {
   FILE* file = fopen(fileName, "w");
   if(!file) {
@@ -367,7 +367,7 @@ void _write_tns(char* fileName, a tns) {
   fclose(file);
 }
 
-template<a>
+template<typename a>
 void write_tensor(char* fileName, a* tns) {
   char* ext = _get_extension(fileName);
   unsigned long arr[orderof(a)];
