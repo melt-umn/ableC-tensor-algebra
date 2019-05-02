@@ -8,7 +8,6 @@ top::Decl ::= nms::[Name]
   local errors::[Message] =
     checkTensorHeader(head(nms).location, top.env);
 
-  propagate substituted;
   top.pp = ppConcat([
              text("indexvar "),
              ppImplode(

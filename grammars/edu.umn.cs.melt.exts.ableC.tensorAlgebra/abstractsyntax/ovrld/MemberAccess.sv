@@ -5,7 +5,6 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production accessMember
 top::Expr ::= tensor::Expr deref::Boolean nm::Name
 {
-  propagate substituted;
   top.pp = 
     if deref
     then pp"${tensor.pp}->${text(nm.name)}"

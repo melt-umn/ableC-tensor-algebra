@@ -12,7 +12,6 @@ imports edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production tensorDeepCopy
 top::Expr ::= l::Expr r::Expr
 {
-  propagate substituted;
   top.pp = ppConcat([
       l.pp,
       text("="),

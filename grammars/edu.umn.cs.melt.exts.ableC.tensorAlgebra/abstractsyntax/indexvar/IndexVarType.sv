@@ -3,7 +3,6 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:indexvar;
 abstract production indexvarTypeExpr
 top::BaseTypeExpr ::= q::Qualifiers
 {
-  propagate substituted;
 
   top.pp = pp"${terminate(space(), q.pps)}indexvar";
   
@@ -13,7 +12,7 @@ top::BaseTypeExpr ::= q::Qualifiers
 abstract production indexvarType
 top::ExtType ::= 
 {
-  propagate canonicalType, substituted;
+  propagate canonicalType;
 
   top.pp = pp"indexvar";
 

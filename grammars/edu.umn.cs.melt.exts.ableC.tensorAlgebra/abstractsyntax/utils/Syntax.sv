@@ -6,7 +6,6 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production orderofType
 top::Expr ::= tp::TypeName
 {
-  propagate substituted;
   top.pp = 
     ppConcat([
       text("orderof("),
@@ -21,7 +20,6 @@ top::Expr ::= tp::TypeName
 abstract production orderofExpr
 top::Expr ::= e::Expr
 {
-  propagate substituted;
   top.pp = 
     ppConcat([
       text("orderof("),
@@ -41,7 +39,6 @@ top::Expr ::= e::Expr
 abstract production orderof
 top::Expr ::= tp::Type
 {
-  propagate substituted;
   top.pp =
     ppConcat([
       text("orderof("),
@@ -79,7 +76,6 @@ top::Expr ::= tp::Type
 abstract production dimenof
 top::Expr ::= tensor::Expr dim::Expr
 {
-  propagate substituted;
   top.pp =
     ppConcat([
       text("dimenof("),

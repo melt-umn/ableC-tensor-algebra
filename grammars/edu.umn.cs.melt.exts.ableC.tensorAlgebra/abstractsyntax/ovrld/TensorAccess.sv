@@ -7,7 +7,6 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production accessTensor
 top::Expr ::= tensor::Expr idx::Expr
 {
-  propagate substituted;
 
   top.tensorExp =
     tensorAccess(tensor, idx, top.env, location=top.location);
