@@ -66,6 +66,12 @@ top::Env ::= e::Decorated Env
   top.tensorFormats = nonGlobalScope(e.tensorFormats);
 }
 
+aspect production functionEnv_i
+top::Env ::= e::Decorated Env
+{
+  top.tensorFormats = functionScope(e.tensorFormats);
+}
+
 aspect production nilDefs
 top::Defs ::=
 {
