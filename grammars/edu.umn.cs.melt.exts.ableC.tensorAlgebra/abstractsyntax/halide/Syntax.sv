@@ -125,10 +125,10 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
       topVars
     );
 
-  local innerLoops :: IterStmt =
+  local innerLoops :: Stmt =
     foldr(
-      \ v::String iter::IterStmt ->
-        multiForIterStmt(
+      \ v::String iter::Stmt ->
+        multiForStmt(
           consIterVar(
             builtinTypeExpr(
               nilQualifier(),
@@ -147,12 +147,12 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
           iter
         )
       ,
-      nullIterStmt(),
+      nullStmt(),
       innerVars
     );
 
-  local loops :: IterStmt =
-    multiForIterStmt(
+  local loops :: Stmt =
+    multiForStmt(
       topLoop,
       innerLoops
     );
@@ -208,12 +208,12 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
               | _ -> msg
               end
             ,
-            (decorate ts with {env=top.env;iterStmtIn=loops;returnType=nothing();}).errors
+            (decorate ts with {env=top.env;iterStmtIn=stmtIterStmt(loops);returnType=nothing();}).errors
           )
         end
     else [];
 
-  local body :: IterStmt =
+  local body :: Stmt =
     halideTensorExpr(tns, idx, val);
 
   local setup :: (Stmt ::= Stmt) =
@@ -221,7 +221,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
 
   local fwrd::Stmt =
     setup(
-      iterateStmt(body, ts)
+      transformStmt(body, ts)
     );
   fwrd.env = top.env;
 
@@ -360,10 +360,10 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
       topVars
     );
 
-  local innerLoops :: IterStmt =
+  local innerLoops :: Stmt =
     foldr(
-      \ v::String iter::IterStmt ->
-        multiForIterStmt(
+      \ v::String iter::Stmt ->
+        multiForStmt(
           consIterVar(
             builtinTypeExpr(
               nilQualifier(),
@@ -382,12 +382,12 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
           iter
         )
       ,
-      nullIterStmt(),
+      nullStmt(),
       innerVars
     );
 
-  local loops :: IterStmt =
-    multiForIterStmt(
+  local loops :: Stmt =
+    multiForStmt(
       topLoop,
       innerLoops
     );
@@ -443,18 +443,18 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
               | _ -> msg
               end
             ,
-            (decorate ts with {env=top.env;iterStmtIn=loops;returnType=nothing();}).errors
+            (decorate ts with {env=top.env;iterStmtIn=stmtIterStmt(loops);returnType=nothing();}).errors
           )
     else [];
 
-  local body :: IterStmt =
+  local body :: Stmt =
     halideTensorExprOrder(tns, idx, val, ord);
 
   local setup :: (Stmt ::= Stmt) =
     halideSetup(tns, idx, val, _);
 
   local fwrd :: Stmt =
-    setup(iterateStmt(body, ts));
+    setup(transformStmt(body, ts));
   fwrd.env = top.env;
 
   forwards to
@@ -513,10 +513,10 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
       tensorFormats
     );
 
-  local loops :: IterStmt =
+  local loops :: Stmt =
     foldr(
-      \ v::String iter::IterStmt ->
-        multiForIterStmt(
+      \ v::String iter::Stmt ->
+        multiForStmt(
           consIterVar(
             builtinTypeExpr(
               nilQualifier(),
@@ -535,7 +535,7 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
           iter
         )
       ,
-      nullIterStmt(),
+      nullStmt(),
       access
     );
 
@@ -583,19 +583,19 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
             | _ -> msg
             end
           ,
-          (decorate ts with {env=top.env;iterStmtIn=loops;returnType=nothing();}).errors
+          (decorate ts with {env=top.env;iterStmtIn=stmtIterStmt(loops);returnType=nothing();}).errors
         )
       end
     else [];
   
-  local body :: IterStmt =
+  local body :: Stmt =
     halideScalarTensorExpr(nm, val);
 
   local setup :: (Stmt ::= Stmt) =
     halideScalarSetup(nm, val, _);
 
   local fwrd :: Stmt =
-    setup(iterateStmt(body, ts));
+    setup(transformStmt(body, ts));
   fwrd.env = top.env;
 
   forwards to
@@ -660,10 +660,10 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
       tensorFormats
     );
 
-  local loops :: IterStmt =
+  local loops :: Stmt =
     foldr(
-      \ v::String iter::IterStmt ->
-        multiForIterStmt(
+      \ v::String iter::Stmt ->
+        multiForStmt(
           consIterVar(
             builtinTypeExpr(
               nilQualifier(),
@@ -682,7 +682,7 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
           iter
         )
       ,
-      nullIterStmt(),
+      nullStmt(),
       ord
     );
 
@@ -730,18 +730,18 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
             | _ -> msg
             end
           ,
-          (decorate ts with {env=top.env;iterStmtIn=loops;returnType=nothing();}).errors
+          (decorate ts with {env=top.env;iterStmtIn=stmtIterStmt(loops);returnType=nothing();}).errors
         )
     else [];
 
-  local body :: IterStmt =
+  local body :: Stmt =
     halideScalarExprOrder(nm, val, ord);
 
   local setup :: (Stmt ::= Stmt) =
     halideScalarSetup(nm, val, _);
 
   local fwrd :: Stmt =
-    setup(iterateStmt(body, ts));
+    setup(transformStmt(body, ts));
   fwrd.env = top.env;
 
   forwards to
