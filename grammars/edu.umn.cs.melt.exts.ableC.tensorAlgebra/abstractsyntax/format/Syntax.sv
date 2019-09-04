@@ -32,7 +32,6 @@ top::Decl ::= nm::Name specs::[Integer] order::[Integer]
     ++
     nm.tensorFormatRedeclarationCheck;
   
-  propagate substituted;
   top.pp = ppConcat([
              text("tensor format "),
              text(nm.name),

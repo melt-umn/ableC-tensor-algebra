@@ -31,13 +31,13 @@ The LBNL examples above present interesting data analysis uses of TACO and our e
 <http://tensor-compiler.org/docs/data_analytics/>
 
 ## Performance Statistics
-| Example  | Time\* with TACO | Time with AbleC | Memory† with TACO | Memory with AbleC |
+| Example  | Time\* with TACO | Time with AbleC | Memory† with TACO  | Memory with AbleC |
 | -------- | :--------------: | :-------------: | :----------------: | :---------------: |
-| LBNL 1   | 2m 34.194s       | 3.459s          | 188 MB             | 259 MB            |
-| LBNL 2   | 2m 43.624s       | 3.585s          | 188 MB             | 259 MB            |
-| SpMV     | 0.330921s        | 0.505855s       | 23  MB             | 2.5 MB            |
-| SDDMM    | 6.309835s        | 1.395700s       | 416 MB             | 94  MB            |
-| MTTKRP   | 0.619208s        | 0.226893s       | 25  MB             | 2.2 MB            | 
+| LBNL 1   | 34.847s          | 1.647s          | 188 MB             | 258 MB            |
+| LBNL 2   | 35.398s          | 1.675s          | 188 MB             | 258 MB            |
+| SpMV     | 1.275824s        | 0.552290s       | 23  MB             | 2.5 MB            |
+| SDDMM    | 3.108825s        | 0.743661s       | 416 MB             | 94  MB            |
+| MTTKRP   | 1.742720s        | 1.705486s       | 25  MB             | 4.2 MB            | 
 
 \* Time for the LBNL examples was measured using the Linux *time* command. For following examples timing was performed using the sys/time.h library of C and C++, for TACO and AbleC respectively. The timings were used to surround just the computation in question, though it also included the packing in TACO, as AbleC handles automatic packing for tensor expressions.
 

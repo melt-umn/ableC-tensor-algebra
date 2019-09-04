@@ -25,7 +25,6 @@ top::Expr ::= type::TypeName dims::[Expr]
       text("})")
     ]);
   
-  propagate substituted;
   
   local fmt::Decorated TensorFormat = format.tensorFormat;
   local dimens::Integer = fmt.dimensions;
@@ -109,7 +108,6 @@ top::Expr ::= type::TypeName data::TensorConstant
              text(")")
            ]);
 
-  propagate substituted;
   
   local fmt::Decorated TensorFormat = format.tensorFormat;
   local dimens::Integer = fmt.dimensions;
@@ -175,7 +173,6 @@ top::Expr ::= type::TypeName args::[Expr]
              [text(")")]
            );
 
-  propagate substituted;
   
   local fmt::Decorated TensorFormat = format.tensorFormat;
   local dimens::Integer = fmt.dimensions;

@@ -2,13 +2,13 @@ grammar edu:umn:cs:melt:exts:ableC:tensorAlgebra:abstractsyntax:halide;
 
 import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
-{- Generate the Halide IterStmt for a tensor expression 
+{- Generate the Halide Stmt for a tensor expression 
    with the lhs being a scalar. -}
 abstract production halideScalarTensorExpr
-top::IterStmt ::= output::Name expr::Expr
+top::Stmt ::= output::Name expr::Expr
 {
-  propagate substituted;
   top.pp = expr.pp;
+  top.functionDefs := [];
 
   local out::TensorExpr =
     tensorBaseExpr(
@@ -172,10 +172,10 @@ top::IterStmt ::= output::Name expr::Expr
     );
 
   {- Build all the loops and output any available expressions -}
-  local innerLoops :: IterStmt =
+  local innerLoops :: Stmt =
     foldr(
-      \ p::Pair<String Maybe<TensorExpr>> iter::IterStmt ->
-        multiForIterStmt(
+      \ p::Pair<String Maybe<TensorExpr>> iter::Stmt ->
+        multiForStmt(
           consIterVar(
             builtinTypeExpr(
               nilQualifier(),
@@ -193,25 +193,23 @@ top::IterStmt ::= output::Name expr::Expr
           ),
           if p.snd.isJust
           then
-            seqIterStmt(
+            seqStmt(
               iter,
-              stmtIterStmt(
-                ableC_Stmt {
-                  __result += $Expr{denseEvalExpr(p.snd.fromJust, fmts, accesses)};
-                }
-              )
+              ableC_Stmt {
+                __result += $Expr{denseEvalExpr(p.snd.fromJust, fmts, accesses)};
+              }
             )
           else
             iter
         )
       ,
-      nullIterStmt(),
+      nullStmt(),
       innerVars
     );
 
   forwards to
     if !null(localErrors)
-    then stmtIterStmt(warnStmt(localErrors))
+    then warnStmt(localErrors)
     else innerLoops;
 }
 
@@ -219,10 +217,10 @@ top::IterStmt ::= output::Name expr::Expr
    the order loops construct is used to specify the order of 
    the loops to use -}
 abstract production halideScalarExprOrder
-top::IterStmt ::= output::Name expr::Expr access::[String]
+top::Stmt ::= output::Name expr::Expr access::[String]
 {
-  propagate substituted;
   top.pp = expr.pp;
+  top.functionDefs := [];
 
   local out::TensorExpr =
     tensorBaseExpr(
@@ -379,10 +377,10 @@ top::IterStmt ::= output::Name expr::Expr access::[String]
       access
     );
 
-  local innerLoops :: IterStmt =
+  local innerLoops :: Stmt =
     foldr(
-      \ p::Pair<String Maybe<TensorExpr>> iter::IterStmt ->
-        multiForIterStmt(
+      \ p::Pair<String Maybe<TensorExpr>> iter::Stmt ->
+        multiForStmt(
           consIterVar(
             builtinTypeExpr(
               nilQualifier(),
@@ -400,34 +398,31 @@ top::IterStmt ::= output::Name expr::Expr access::[String]
           ),
           if p.snd.isJust
           then 
-            seqIterStmt(
+            seqStmt(
               iter,
-              stmtIterStmt(
-                ableC_Stmt {
-                  __result += $Expr{denseEvalExpr(p.snd.fromJust, fmts, accesses)};
-                }
-              )
+              ableC_Stmt {
+                __result += $Expr{denseEvalExpr(p.snd.fromJust, fmts, accesses)};
+              }
             )
           else
             iter
         )
       ,
-      nullIterStmt(),
+      nullStmt(),
       innerVars
     );
 
   forwards to
     if !null(localErrors)
-    then stmtIterStmt(warnStmt(localErrors))
+    then warnStmt(localErrors)
     else innerLoops;
 }
 
-{- Production for IterStmt of a Halide tensor expression without
+{- Production for Stmt of a Halide tensor expression without
    a provided order for the loops, and where the lhs is not a scalar -}
 abstract production halideTensorExpr
-top::IterStmt ::= tensor::Expr idx::Expr value::Expr
+top::Stmt ::= tensor::Expr idx::Expr value::Expr
 {
-  propagate substituted;
   top.pp = 
     ppConcat([
       tensor.pp,
@@ -436,6 +431,7 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
       text("] = "),
       value.pp
     ]);
+  top.functionDefs := [];
     
   local out::TensorExpr =
     tensorAccess(tensor, idx, top.env, location=tensor.location);
@@ -694,10 +690,10 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
       topVars
     );
 
-  local innerLoops :: IterStmt =
+  local innerLoops :: Stmt =
     foldr(
-      \ p::Pair<String Maybe<TensorExpr>> iter::IterStmt ->
-        multiForIterStmt(
+      \ p::Pair<String Maybe<TensorExpr>> iter::Stmt ->
+        multiForStmt(
           consIterVar(
             builtinTypeExpr(
               nilQualifier(),
@@ -715,19 +711,17 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
           ),
           if p.snd.isJust
           then
-            seqIterStmt(
+            seqStmt(
               iter,
-              stmtIterStmt(
-                ableC_Stmt {
-                  $name{s"${outNew.tensorName}_data"}[$Expr{outAcc}] += $Expr{denseEvalExpr(p.snd.fromJust, fmts, accesses)};
-                }
-              )
+              ableC_Stmt {
+                $name{s"${outNew.tensorName}_data"}[$Expr{outAcc}] += $Expr{denseEvalExpr(p.snd.fromJust, fmts, accesses)};
+              }
             )
           else
             iter
         )
       ,
-      nullIterStmt(),
+      nullStmt(),
       innerVars
     );
 
@@ -741,35 +735,31 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr
       )
     ).fromJust;
 
-  local fwrd :: IterStmt =
-    multiForIterStmt(
-      topLoop
-      ,
-      seqIterStmt(
+  local fwrd :: Stmt =
+    multiForStmt(
+      topLoop,
+      seqStmt(
         innerLoops,
         if topExpr.isJust
         then
-          stmtIterStmt(
-            ableC_Stmt {
-              $name{s"${outNew.tensorName}_data"}[$Expr{outAcc}] += $Expr{denseEvalExpr(topExpr.fromJust, fmts, accesses)};
-            }
-          )
+          ableC_Stmt {
+            $name{s"${outNew.tensorName}_data"}[$Expr{outAcc}] += $Expr{denseEvalExpr(topExpr.fromJust, fmts, accesses)};
+          }
         else
-          nullIterStmt()
+          nullStmt()
       )
     );
 
   forwards to
     if !null(localErrors)
-    then stmtIterStmt(warnStmt(localErrors))
+    then warnStmt(localErrors)
     else fwrd;
 }
 
-{- IterStmt production for tensor expression with an order provided -}
+{- Stmt production for tensor expression with an order provided -}
 abstract production halideTensorExprOrder
-top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
+top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
 {
-  propagate substituted;
   top.pp =
     ppConcat([
       tensor.pp,
@@ -778,6 +768,7 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
       text("] = "),
       value.pp
     ]);
+  top.functionDefs := [];
 
   local out::TensorExpr =
     tensorAccess(tensor, idx, top.env, location=tensor.location);
@@ -1023,10 +1014,10 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
       topVars
     );
 
-  local innerLoops :: IterStmt =
+  local innerLoops :: Stmt =
     foldr(
-      \ p::Pair<String Maybe<TensorExpr>> iter::IterStmt ->
-        multiForIterStmt(
+      \ p::Pair<String Maybe<TensorExpr>> iter::Stmt ->
+        multiForStmt(
           consIterVar(
             builtinTypeExpr(
               nilQualifier(),
@@ -1044,19 +1035,17 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
           ),
           if p.snd.isJust
           then
-            seqIterStmt(
+            seqStmt(
               iter,
-              stmtIterStmt(
-                ableC_Stmt {
-                  $name{s"${outNew.tensorName}_data"}[$Expr{outAcc}] += $Expr{denseEvalExpr(p.snd.fromJust, fmts, accesses)};
-                }
-              )
+              ableC_Stmt {
+                $name{s"${outNew.tensorName}_data"}[$Expr{outAcc}] += $Expr{denseEvalExpr(p.snd.fromJust, fmts, accesses)};
+              }
             )
           else
             iter
         )
       ,
-      nullIterStmt(),
+      nullStmt(),
       innerVars
     );
 
@@ -1070,26 +1059,24 @@ top::IterStmt ::= tensor::Expr idx::Expr value::Expr access::[String]
       )
     ).fromJust;
 
-  local fwrd::IterStmt =
-    multiForIterStmt(
+  local fwrd::Stmt =
+    multiForStmt(
       topLoop,
-      seqIterStmt(
+      seqStmt(
         innerLoops,
         if topExpr.isJust
         then
-          stmtIterStmt(
-            ableC_Stmt {
-              $name{s"${outNew.tensorName}_data"}[$Expr{outAcc}] += $Expr{denseEvalExpr(topExpr.fromJust, fmts, accesses)};
-            }
-          )
+          ableC_Stmt {
+            $name{s"${outNew.tensorName}_data"}[$Expr{outAcc}] += $Expr{denseEvalExpr(topExpr.fromJust, fmts, accesses)};
+          }
         else
-          nullIterStmt()
+          nullStmt()
       )
     );
 
   forwards to
     if !null(localErrors)
-    then stmtIterStmt(warnStmt(localErrors))
+    then warnStmt(localErrors)
     else fwrd;
 }
 

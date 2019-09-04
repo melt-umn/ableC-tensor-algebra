@@ -9,7 +9,6 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production tensorAssignToTensor
 top::Expr ::= tensor::Expr idx::Expr right::Expr
 {
-  propagate substituted;
 
   top.pp = 
     ppConcat([
@@ -601,7 +600,6 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 abstract production tensorAssignToScalar
 top::Expr ::= output::Expr expr::Expr
 {
-  propagate substituted;
 
   top.pp = 
     ppConcat([

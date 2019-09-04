@@ -26,10 +26,10 @@ int main() {
 
   // setup tensors
   transform {
-    for(unsigned k : P) {
-      for(unsigned i : M)
+    forall(unsigned k : P) {
+      forall(unsigned i : M)
         A[i,k] = (double)rand() / (double)RAND_MAX;
-      for(unsigned j : N) 
+      forall(unsigned j : N) 
         B[k,j] = (double)rand() / (double)RAND_MAX;
     }
   } by {
@@ -50,7 +50,7 @@ int main() {
 
   int error = 0;
   transform {
-    for(unsigned i : M, unsigned j : N) {{
+    forall(unsigned i : M, unsigned j : N) {{
       if(C0[i,j] != C1[i,j] || ({double r = C1[i,j] - C2[i,j]; r > 0.001 || r < -0.001;})) {
         error = 1;
       }

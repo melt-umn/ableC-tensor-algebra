@@ -68,8 +68,8 @@ int main(int argc, char* argv[]) {
   z.pack();
   y(i) = alpha() * (A(i,j) * x(j)) + beta() * z(i);
   y.compile();
-  for(int c = 0; c < 10000; c++) {
-    y.assemble();
+  y.assemble();
+  for(int c = 0; c < 100000; c++) {
     y.compute();
   }
   end = clock();

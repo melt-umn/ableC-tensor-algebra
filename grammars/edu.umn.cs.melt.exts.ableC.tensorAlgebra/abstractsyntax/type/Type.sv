@@ -6,7 +6,6 @@ import edu:umn:cs:melt:ableC:abstractsyntax:overloadable;
 abstract production tensorTypeExpr
 top::BaseTypeExpr ::= q::Qualifiers fmt::Name
 {
-  propagate substituted;
 
   top.pp = pp"${terminate(space(), q.pps)}tensor<${text(fmt.name)}>";
   local localErrors::[Message] =
@@ -21,7 +20,7 @@ top::BaseTypeExpr ::= q::Qualifiers fmt::Name
 abstract production tensorType
 top::ExtType ::= fmt::Decorated Name
 {
-  propagate canonicalType, substituted;
+  propagate canonicalType;
 
   top.pp = pp"tensor<${text(fmt.name)}>";
   
@@ -51,7 +50,7 @@ top::ExtType ::= fmt::Decorated Name
 abstract production tensorAccType
 top::ExtType ::= 
 {
-  propagate canonicalType, substituted;
+  propagate canonicalType;
 
   top.pp = pp"tensor_acc";
   
