@@ -39,7 +39,8 @@ build:
 examples:
 	$(MAKE) -C examples
 
-analyses: mda mwda
+analyses:
+	$(MAKE) -C modular_analyses
 
 mda:
 	$(MAKE) -C modular_analyses mda
