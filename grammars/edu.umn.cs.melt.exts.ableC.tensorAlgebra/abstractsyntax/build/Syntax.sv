@@ -20,7 +20,7 @@ top::Expr ::= type::TypeName dims::[Expr]
 
   top.pp =
     ppConcat([
-      text(s"build tensor<${format.name}> ({"),
+      pp"build ${type.pp} ({",
       ppImplode(text(", "), map((.pp), dims)),
       text("})")
     ]);
@@ -103,7 +103,7 @@ top::Expr ::= type::TypeName data::TensorConstant
   format.env = top.env;
   
   top.pp = ppConcat([
-             text(s"build (tensor<${format.name}>) ("),
+             pp"build (${type.pp}>) (",
              data.pp,
              text(")")
            ]);
@@ -168,7 +168,7 @@ top::Expr ::= type::TypeName args::[Expr]
   format.env = top.env;
   
   top.pp = ppConcat(
-             text(s"build (tensor<${format.name}>) (") ::
+             pp"build (${type.pp}) (" ::
              map((.pp), args) ++
              [text(")")]
            );
