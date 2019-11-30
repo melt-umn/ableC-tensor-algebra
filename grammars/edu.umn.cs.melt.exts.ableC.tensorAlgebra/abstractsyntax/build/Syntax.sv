@@ -20,7 +20,7 @@ top::Expr ::= type::TypeName dims::[Expr]
 
   top.pp =
     ppConcat([
-      text("build tensor<${format.name}> ({"),
+      text(s"build tensor<${format.name}> ({"),
       ppImplode(text(", "), map((.pp), dims)),
       text("})")
     ]);
@@ -39,7 +39,7 @@ top::Expr ::= type::TypeName dims::[Expr]
         if dimens > 0 && dimens != listLength(dims)
         then [err(top.location, "Number of dimensions specified does not match format.")]
         else []
-    | _ -> [err(top.location, "Tensor cannot be built using a non-tensor type. Got ${showType(type.typerep)}")]
+    | _ -> [err(top.location, s"Tensor cannot be built using a non-tensor type. Got ${showType(type.typerep)}")]
     end
     ++
     flatMap(
@@ -103,7 +103,7 @@ top::Expr ::= type::TypeName data::TensorConstant
   format.env = top.env;
   
   top.pp = ppConcat([
-             text("build (tensor<${format.name}>) ("),
+             text(s"build (tensor<${format.name}>) ("),
              data.pp,
              text(")")
            ]);
@@ -124,7 +124,7 @@ top::Expr ::= type::TypeName data::TensorConstant
        if null(format.tensorFormatLookupCheck) && dimens != data.tensor_dims
        then [err(top.location, "Number of dimensions specified does not match format.")]
        else []
-    | _ -> [err(top.location, "Tensor cannot be built using a non-tensor type. Got ${showType(type.typerep)}")]
+    | _ -> [err(top.location, s"Tensor cannot be built using a non-tensor type. Got ${showType(type.typerep)}")]
     end
     ++
     data.errors;
@@ -168,7 +168,7 @@ top::Expr ::= type::TypeName args::[Expr]
   format.env = top.env;
   
   top.pp = ppConcat(
-             text("build (tensor<${format.name}>) (") ::
+             text(s"build (tensor<${format.name}>) (") ::
              map((.pp), args) ++
              [text(")")]
            );
