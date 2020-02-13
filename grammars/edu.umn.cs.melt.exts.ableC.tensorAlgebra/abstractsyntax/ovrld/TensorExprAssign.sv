@@ -949,7 +949,7 @@ top::Expr ::= output::Expr expr::Expr
         stmtExpr( -- perform the compute
           declExpr(declTensor(packTensors(tensorSub(tensorPrep(dimsCheck(
             outVal(comp(setFormats)))))))),
-          ableC_Expr { -- the value tx0
+          ableC_Expr { // the value tx0
             $name{s"t${head(access)}0"}
           },
           location=top.location
