@@ -595,7 +595,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
         ),
         stmtExpr(
           ableC_Stmt {
-            double __result = 0.0; -- declare __result
+            double __result = 0.0; // declare __result
           },
           fwrd, -- the Expr generated above
           location=expr.location
