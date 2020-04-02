@@ -790,7 +790,8 @@ Stmt ::=
 
   return
   ableC_Stmt {
-    $Stmt{ -- Start 0 (emit indexing variables for all sparse dimensions)
+    // Start 0 (emit indexing variables for all sparse dimensions)
+    $Stmt{
       if top
       then
         foldl(
@@ -811,8 +812,9 @@ Stmt ::=
           )
         )
       else nullStmt()
-    } -- End 0
-    $Stmt { -- Start 1 (emit indexing for output if it is sparse)
+    } // End 0
+    // Start 1 (emit indexing for output if it is sparse)
+    $Stmt {
       if top
       then 
         case outSparse of
@@ -825,18 +827,21 @@ Stmt ::=
         | _ -> nullStmt()
         end
       else nullStmt()
-    } -- End 1
-    $Stmt { -- Start 2 (if top condition is all, declare the variable)
+    } // End 1
+    // Start 2 (if top condition is all, declare the variable)
+    $Stmt {
       if top && !forLoop && topAll
       then ableC_Stmt {
         unsigned long $name{v} = 0;
       }
       else nullStmt()
-    } -- End 2
-    $Stmt { -- Start 3 (The actual loop body)
+    } // End 2
+    // Start 3 (The actual loop body)
+    $Stmt {
       let inner::Stmt = -- We build what goes inside first
         ableC_Stmt {
-          $Stmt { -- Start 4 (load a value from _idx for each sparse tensor, if multiple, determine the variable as the min)
+          // Start 4 (load a value from _idx for each sparse tensor, if multiple, determine the variable as the min)
+          $Stmt {
             if listLength(ex.sparse) == 1 && (!forLoop || forVar != v) && !topAll
             then
               let p::Pair<String Integer> =
@@ -866,13 +871,14 @@ Stmt ::=
                   if null(ex.sparse) || (forLoop && forVar == v) || topAll
                   then nullStmt()
                   else 
-                    ableC_Stmt { -- Determine the minimum of the indices
+                    ableC_Stmt { // Determine the minimum of the indices
                       unsigned long $name{v} = $Expr{generateMinExpr(ex.sparse, v)};
                     }
                 }
               }
-          } -- End 4
-          $Stmt{ -- Start 5 (If it output is sparse, align out indexing variable to the proper value)
+          } // End 4
+          // Start 5 (If it output is sparse, align out indexing variable to the proper value)
+          $Stmt{
             case outSparse of
             | just(pair(s, d)) ->
               ableC_Stmt {
@@ -882,8 +888,9 @@ Stmt ::=
               }
             | nothing() -> nullStmt()
             end
-          } -- End 5
-          $Stmt{ -- Start 5 (calculate indexing variable for each dense dimension)
+          } // End 5
+          // Start 5 (calculate indexing variable for each dense dimension)
+          $Stmt{
             foldl(
               \ inn::Stmt p::Pair<String Integer> ->
                 ableC_Stmt {
@@ -903,8 +910,9 @@ Stmt ::=
               nullStmt(),
               ex.dense
             )
-          } -- End 5
-          $Stmt{ -- Start 6 (If output is dense, calculate indexing variable for it)
+          } // End 5
+          // Start 6 (If output is dense, calculate indexing variable for it)
+          $Stmt{
             case outDense of
             | just(pair(s, d)) ->
               ableC_Stmt {
@@ -920,8 +928,9 @@ Stmt ::=
               }
             | _ -> nullStmt()
             end
-          } -- End 6
-          $Stmt{ -- Start 7 (If we are above the output, store available expressions)
+          } // End 6
+          // Start 7 (If we are above the output, store available expressions)
+          $Stmt{
             if above
             then
               foldl(
@@ -935,8 +944,9 @@ Stmt ::=
                 subs
               )
             else nullStmt()
-          } -- End 7
-          $Stmt{ -- Start 8 (Emit each of out loops using a foldr and building lambda's using a zip)
+          } // End 7
+          // Start 8 (Emit each of out loops using a foldr and building lambda's using a zip)
+          $Stmt{
             foldr(
               \ f::(Stmt ::= Stmt) inn::Stmt ->
                 f(inn)
@@ -951,7 +961,8 @@ Stmt ::=
                       list_reduceDeeper(e, remain, fmts)
                     in let body::Stmt =
                       ableC_Stmt {
-                        $Stmt{ -- Start 9 (declare variables used to propagate values up if needed)
+                        // Start 9 (declare variables used to propagate values up if needed)
+                        $Stmt{
                           if (output || below)
                            && (decorate e with {remaining=remain; fmts=fmts;}).isAvail
                           then nullStmt()
@@ -974,8 +985,9 @@ Stmt ::=
                               }
                               $Stmt{(decorate g with {canPar=canPar&&!canParallel;thdCnt=thdCnt;}).compute}
                             }
-                        } -- End 9
-                        $Stmt{ -- Start A (if below, emit proper expressions into the proper variables)
+                        } // End 9
+                        // Start A (if below, emit proper expressions into the proper variables)
+                        $Stmt{
                           if below
                           then
                             foldl(
@@ -986,7 +998,7 @@ Stmt ::=
                                     performSubs(p.snd, sbs, fmts)
                                   in
                                   ableC_Stmt {
-                                    $name{p.fst} += $Expr{evalExpr(sb, fmts)}; -- Emit it
+                                    $name{p.fst} += $Expr{evalExpr(sb, fmts)}; // Emit it
                                   }
                                   end
                                 else -- Otherwise, find the expression if it exits (by zeroing values that may zero)
@@ -1013,16 +1025,18 @@ Stmt ::=
                               redSubs
                             )
                           else nullStmt()
-                        } -- End A
-                        $Stmt{ -- Start B (if it's the output, output the expression)
+                        } // End A
+                        // Start B (if it's the output, output the expression)
+                        $Stmt{
                           if output
                           then 
                             ableC_Stmt {
                               $Expr{evalOut(assign, fmts)} += $Expr{evalExpr(red, fmts)};
                             }
                           else nullStmt()
-                        } -- End B
-                        $Stmt{ -- Start C (if the output is sparse, increment counter)
+                        } // End B
+                        // Start C (if the output is sparse, increment counter)
+                        $Stmt{
                           case outSparse of
                           | just(pair(s, d)) ->
                             ableC_Stmt {
@@ -1030,7 +1044,7 @@ Stmt ::=
                             }
                           | _ -> nullStmt()
                           end
-                        } -- End C
+                        } // End C
                       }
                     in -- Use the body we calcualted
                     if c.ifCond == "1" || emitElse
@@ -1051,8 +1065,9 @@ Stmt ::=
                 g
               )
             )
-          } -- End 8
-          $Stmt{ -- Start D (if we have sparse values, increment them if they matched the value used)
+          } // End 8
+          // Start D (if we have sparse values, increment them if they matched the value used)
+          $Stmt{
             if listLength(ex.sparse) == 1 && !topAll
             then
               let p::Pair<String Integer> =
@@ -1076,15 +1091,16 @@ Stmt ::=
                 nullStmt(),
                 ex.sparse
               )
-          } -- End D
-          $Stmt{ -- Start E (increment value if not a for loop, but loop is over v)
+          } // End D
+          // Start E (increment value if not a for loop, but loop is over v)
+          $Stmt{
             if !forLoop && topAll
             then
               ableC_Stmt{
                 $name{v}++;
               }
             else nullStmt()
-          } -- End E
+          } // End E
         }
       in -- Emit the actual loop and put what we built inside of it
         if forLoop
@@ -1117,7 +1133,7 @@ Stmt ::=
           }
         }
       end
-    } -- End 3
+    } // End 3
   };
 }
 
