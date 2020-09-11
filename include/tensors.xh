@@ -332,9 +332,10 @@ void _write_mtx(char* fileName, a tns) {
     exit(1);
   }
 
-  // The parenthesis below prevent compile time error checking
+  // The variable references below prevent compile time error checking
   fprintf(file, "%%%%MatrixMarket matrix coordinate real general\n");
-  fprintf(file, "%lu %lu %lu\n", dimenof(tns)[(0)], dimenof(tns)[(1)], tns.dataLen);
+  int zero = 0, one = 1;
+  fprintf(file, "%lu %lu %lu\n", dimenof(tns)[zero], dimenof(tns)[one], tns.dataLen);
 
   unsigned long count = 0;
   foreach(double v : tns) {
