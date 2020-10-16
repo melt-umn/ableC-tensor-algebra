@@ -77,7 +77,8 @@ t::TensorConstant ::= sub::[TensorConstant]
         )
       in
       concatInitList(lsts)
-      end
+      end,
+      location=builtin
     );
 
   -- An initializer for the array of the dimensions of
@@ -87,7 +88,8 @@ t::TensorConstant ::= sub::[TensorConstant]
       consInit(
         positionalInit(
           exprInitializer(
-            mkIntConst(t.tensor_size, t.location)
+            mkIntConst(t.tensor_size, t.location),
+            location=builtin
           )
         ),
         case 
@@ -98,7 +100,8 @@ t::TensorConstant ::= sub::[TensorConstant]
         of
         | objectInitializer(l) -> l
         end
-      )
+      ),
+      location=builtin
     );
 }
 
@@ -133,25 +136,28 @@ t::TensorConstant ::= sub::[Expr]
         \ sb::Expr lst::InitList ->
           consInit(
             positionalInit(
-              exprInitializer(sb)
+              exprInitializer(sb, location=builtin)
             ),
             lst
           )
         ,
         nilInit(),
         sub
-      )
+      ),
+      location=builtin
     );
   t.tensor_dimExpr =
     objectInitializer(
       consInit(
         positionalInit(
           exprInitializer(
-            mkIntConst(t.tensor_size, t.location)
+            mkIntConst(t.tensor_size, t.location),
+            location=builtin
           )
         ),
         nilInit()
-      )
+      ),
+      location=builtin
     );
 }
 

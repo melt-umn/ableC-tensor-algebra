@@ -141,7 +141,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
   local idxInit :: Initializer =
     objectInitializer(
-      generateInitList(idx, top.env)
+      generateInitList(idx, top.env),
+      location=builtin
     );
 
   local fwrd::Expr =

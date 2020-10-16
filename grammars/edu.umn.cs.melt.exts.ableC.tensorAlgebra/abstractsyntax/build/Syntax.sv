@@ -65,7 +65,7 @@ top::Expr ::= type::TypeName dims::[Expr]
         \ e::Expr lst::InitList ->
           consInit(
             positionalInit(
-              exprInitializer(e)
+              exprInitializer(e, location=builtin)
             )
             ,
             lst
@@ -73,7 +73,8 @@ top::Expr ::= type::TypeName dims::[Expr]
         ,
         nilInit(),
         dims
-      )
+      ),
+      location=builtin
     );
 
   local fwrd::Expr =
