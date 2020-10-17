@@ -32,5 +32,7 @@ top::Expr ::= original::Expr resolved::Expr
 
 global emptyAccess :: Expr =
   ableC_Expr {
-    ($BaseTypeExpr{extTypeExpr(nilQualifier(), tensorAccType())}){0}
+    ({$BaseTypeExpr{extTypeExpr(nilQualifier(), tensorAccType())} _res; 
+      memset(&_res, 0, sizeof(_res));
+      _res;})
   };
