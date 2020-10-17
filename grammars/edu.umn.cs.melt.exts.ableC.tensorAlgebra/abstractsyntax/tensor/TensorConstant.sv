@@ -68,7 +68,7 @@ t::TensorConstant ::= sub::[TensorConstant]
               decorate 
                 (decorate c with {env=t.env;}).tensor_asExpr 
               with 
-              {env=t.env; returnType=nothing();} 
+              {env=t.env; returnType=nothing(); initializerPos = ""; inObject = false; expectedType = errorType();} 
             of
             | objectInitializer(l) -> l
             end
@@ -96,7 +96,7 @@ t::TensorConstant ::= sub::[TensorConstant]
           decorate 
             (decorate head(sub) with {env=t.env;}).tensor_dimExpr 
           with 
-          {env=t.env; returnType=nothing();} 
+          {env=t.env; returnType=nothing(); initializerPos = ""; inObject = false; expectedType = errorType();} 
         of
         | objectInitializer(l) -> l
         end
