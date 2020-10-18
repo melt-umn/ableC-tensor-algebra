@@ -93,7 +93,8 @@ top::Expr ::= tensor::Expr idx::Expr
 
   local idxInitializer :: Initializer =
     objectInitializer(
-      generateInitList(idx, top.env)
+      generateInitList(idx, top.env),
+      location=builtin
     );
 
   local fwrd::Expr =
@@ -164,14 +165,14 @@ InitList ::= ex::Expr env::Decorated Env
     | commaExpr(l, r) ->
       consInit(
         positionalInit(
-          exprInitializer(l)
+          exprInitializer(l, location=builtin)
         ),
         generateInitList(r, env)
       )
     | _ ->
       consInit(
         positionalInit(
-          exprInitializer(ex)
+          exprInitializer(ex, location=builtin)
         ),
         nilInit()
       )
