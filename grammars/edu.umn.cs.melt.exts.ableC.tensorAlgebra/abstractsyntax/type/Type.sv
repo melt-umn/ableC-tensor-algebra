@@ -30,7 +30,7 @@ top::ExtType ::= fmt::Decorated Name
       top.givenQualifiers,
       refIdExtType(
         structSEU(),
-        s"tensor_${fmtNm}",
+        just(s"tensor_${fmtNm}"),
         s"edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_${fmtNm}"));
   top.mangledName = s"tensor_${fmt.name}";
   top.isEqualTo =
@@ -59,7 +59,7 @@ top::ExtType ::=
       top.givenQualifiers,
       refIdExtType(
         structSEU(),
-        s"tensor_acc",
+        just("tensor_acc"),
         s"edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_acc"));
   top.mangledName = s"tensor_acc";
   top.isEqualTo =
