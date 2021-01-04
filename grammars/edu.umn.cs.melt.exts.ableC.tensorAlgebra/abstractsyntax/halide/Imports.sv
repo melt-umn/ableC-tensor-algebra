@@ -9,4 +9,4 @@ imports edu:umn:cs:melt:exts:ableC:halide:abstractsyntax;
 
 imports silver:langutil;
 imports silver:langutil:pp;
-imports silver:util:raw:treemap as tm;
+imports silver:util:treemap as tm;
