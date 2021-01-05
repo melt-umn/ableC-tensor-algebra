@@ -28,11 +28,11 @@ nonterminal IntegerList_c with list<Integer>, location;
 concrete productions top::IntegerList_c
 | num::DecConstant_t
   {
-    top.list = [toInt(num.lexeme)];
+    top.list = [toInteger(num.lexeme)];
   }
 | num::DecConstant_t ',' lst::IntegerList_c
   {
-    top.list = toInt(num.lexeme) :: lst.list;
+    top.list = toInteger(num.lexeme) :: lst.list;
   }
 
 nonterminal NameList_c with list<Name>, location;
