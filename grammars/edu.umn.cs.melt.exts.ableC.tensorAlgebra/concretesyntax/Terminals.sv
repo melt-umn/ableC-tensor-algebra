@@ -4,7 +4,7 @@ marking terminal Build_t 'build' lexer classes {Keyword, Global};
 marking terminal Tensor_t 'tensor' lexer classes {Keyword, Global};
 marking terminal Indexvar_t 'indexvar' lexer classes {Keyword, Global};
 
-marking terminal TensorTransform_t /tensor[\ \t\r\n\f]+transform/ lexer classes {Keyword, Global};
+marking terminal TensorTransform_t /tensor[\ \t\r\n]+transform/ lexer classes {Keyword, Global};
 
 marking terminal ForEach_t 'foreach' lexer classes {Keyword, Global};
 terminal In_t 'in' lexer classes {Keyword};
