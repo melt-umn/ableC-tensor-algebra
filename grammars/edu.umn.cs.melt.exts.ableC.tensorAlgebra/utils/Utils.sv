@@ -60,7 +60,7 @@ Boolean ::= eq::(Boolean ::= a a) itms::[a] lst::[a]
     if null(itms)
     then true
     else 
-       containsBy(eq, head(itms), lst)
+       contains(head(itms), lst)
     && containsAll(eq, tail(itms), lst);
 }
 
@@ -144,7 +144,7 @@ Boolean ::= eq::(Boolean ::= a a) items::[a] array::[a]
     if null(items)
     then false
     else
-      containsBy(eq, head(items), array)
+      contains(head(items), array)
       || containsAny(eq, tail(items), array);
 }
 

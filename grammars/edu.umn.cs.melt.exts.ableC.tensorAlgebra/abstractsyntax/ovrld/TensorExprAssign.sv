@@ -91,7 +91,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       )
     in
     filter(
-      \ v::String -> !containsBy(stringEq, v, rAcc)
+      \ v::String -> !contains(v, rAcc)
       ,
       lAcc
     )
@@ -992,7 +992,7 @@ Maybe<[String]> ::= orders::[[String]]
   local safe::[Boolean] =
     map(
       \ v::String ->
-        !containsBy(stringEq, v, lowers)
+        !contains(v, lowers)
       ,
       top
     );

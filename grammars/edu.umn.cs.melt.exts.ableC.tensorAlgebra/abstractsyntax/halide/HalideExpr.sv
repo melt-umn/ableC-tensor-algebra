@@ -536,7 +536,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
       )
     in
     filter(
-      \ v::String -> !containsBy(stringEq, v, rAcc)
+      \ v::String -> !contains(v, rAcc)
       ,
       lAcc
     )
@@ -869,7 +869,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
       )
     in
     filter(
-      \ v::String -> !containsBy(stringEq, v, rAcc)
+      \ v::String -> !contains(v, rAcc)
       ,
       lAcc
     )

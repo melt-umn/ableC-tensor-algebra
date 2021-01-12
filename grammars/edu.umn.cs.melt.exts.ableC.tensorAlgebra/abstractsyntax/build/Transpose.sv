@@ -13,12 +13,12 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
   -- Test if either side has variables not on the other
   local missing :: [String] =
     filter(
-      \ v::String -> !containsBy(stringEq, v, rAcc),
+      \ v::String -> !contains(v, rAcc),
       lAcc
     )
     ++
     filter(
-      \ v::String -> !containsBy(stringEq, v, lAcc),
+      \ v::String -> !contains(v, lAcc),
       rAcc
     );
 

@@ -49,7 +49,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
       )
     in
     filter(
-      \ v::String -> !containsBy(stringEq, v, rAcc)
+      \ v::String -> !contains(v, rAcc)
       ,
       lAcc
     )
@@ -279,7 +279,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
       )
     in
     filter(
-      \ v::String -> !containsBy(stringEq, v, rAcc)
+      \ v::String -> !contains(v, rAcc)
       ,
       lAcc
     )
