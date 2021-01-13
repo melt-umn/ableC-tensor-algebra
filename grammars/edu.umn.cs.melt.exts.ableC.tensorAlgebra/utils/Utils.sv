@@ -115,7 +115,7 @@ Eq a => Boolean ::= items::[a] array::[a]
     then true
     else
       contains(head(items), array)
-      && containsAny(tail(items), array);
+      && containsAll(tail(items), array);
 }
 
 function filterWith
