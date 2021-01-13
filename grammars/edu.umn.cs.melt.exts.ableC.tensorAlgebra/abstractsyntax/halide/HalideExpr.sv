@@ -38,7 +38,7 @@ top::Stmt ::= output::Name expr::Expr
   local tensorFormats::[TensorFormat] =
     map(
       \ e::TensorExpr ->
-        getTensorFormat(e, tm:empty(compareString))
+        getTensorFormat(e, tm:empty())
       ,
       tensors
     );
@@ -75,14 +75,14 @@ top::Stmt ::= output::Name expr::Expr
         newNames,
         accessCalc
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
   local newNames::[String] =
     mapWithTail(
       \ n::String o::[String] ->
         let c::Integer =
-          count(stringEq, n, o)
+          count(n, o)
         in
         if c > 0
         then n ++ toString(c) ++ "_"
@@ -121,7 +121,7 @@ top::Stmt ::= output::Name expr::Expr
         newNames,
         tensorFormats
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
   -- Check that all tensors are dense tensors
@@ -129,12 +129,7 @@ top::Stmt ::= output::Name expr::Expr
     map(
       \ fmt::TensorFormat ->
         case fmt of
-        | tensorFormat(specs, _, _) ->
-          !containsBy(
-            integerEqual,
-            storeSparse,
-            specs
-          )
+        | tensorFormat(specs, _, _) -> !contains(storeSparse, specs)
         | _ -> false
         end
       ,
@@ -249,7 +244,7 @@ top::Stmt ::= output::Name expr::Expr access::[String]
 
   local tensorFormats::[TensorFormat] =
     map(
-      getTensorFormat(_, tm:empty(compareString)),
+      getTensorFormat(_, tm:empty()),
       tensors
     );
 
@@ -283,14 +278,14 @@ top::Stmt ::= output::Name expr::Expr access::[String]
         newNames,
         accessCalc
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
   local newNames :: [String] =
     mapWithTail(
       \ n::String o::[String] ->
         let c::Integer =
-          count(stringEq, n, o)
+          count(n, o)
         in
         if c > 0
         then n ++ toString(c) ++ "_"
@@ -310,19 +305,15 @@ top::Stmt ::= output::Name expr::Expr access::[String]
   ex.fmts = fmts;
   exNew.fmts = fmts;
 
-  local allVars :: [String] =
-    nubBy(
-      stringEq,
-      concat(exNew.accesses)
-    );
+  local allVars :: [String] = nub(concat(exNew.accesses));
 
   {- Check that all variables in the equation are in 
      the provided order, and no extra variables are 
      added -}
   local missingVar :: Boolean =
-    !containsAll(stringEq, allVars, access)
+    !containsAll(allVars, access)
     ||
-    !containsAll(stringEq, access, allVars);
+    !containsAll(access, allVars);
 
   local fmts :: tm:Map<String TensorFormat> =
     tm:add(
@@ -331,19 +322,14 @@ top::Stmt ::= output::Name expr::Expr access::[String]
         newNames,
         tensorFormats
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
   local allDense :: [Boolean] =
     map(
       \ fmt::TensorFormat ->
         case fmt of
-        | tensorFormat(specs, _, _) ->
-          !containsBy(
-            integerEqual,
-            storeSparse,
-            specs
-          )
+        | tensorFormat(specs, _, _) -> !contains(storeSparse, specs)
         | _ -> false
         end
       ,
@@ -450,7 +436,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
   local tensorFormats::[TensorFormat] =
     map(
       \ e::TensorExpr ->
-        getTensorFormat(e, tm:empty(compareString))
+        getTensorFormat(e, tm:empty())
       ,
       tensors
     );
@@ -485,14 +471,14 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
         newNames,
         accessCalc
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
   local newNames::[String] =
     mapWithTail(
       \ n::String o::[String] ->
         let c::Integer =
-          count(stringEq, n, o)
+          count(n, o)
         in
         if c > 0
         then n ++ toString(c) ++ "_"
@@ -523,17 +509,9 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
   {- Check for any indexvars appearing on only the lhs.
      (This is not allowed) -}
   local leftOnly::[String] =
-    let lAcc::[String] =
-      nubBy(
-        stringEq,
-        concat(outNew.accesses)
-      )
+    let lAcc::[String] = nub(concat(outNew.accesses))
     in
-    let rAcc::[String] =
-      nubBy(
-        stringEq,
-        concat(exNew.accesses)
-      )
+    let rAcc::[String] = nub(concat(exNew.accesses))
     in
     filter(
       \ v::String -> !contains(v, rAcc)
@@ -569,19 +547,14 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
         newNames,
         tensorFormats
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
   local allDense::[Boolean] =
     map(
       \ fmt::TensorFormat ->
         case fmt of
-        | tensorFormat(specs, _, _) ->
-          !containsBy(
-            integerEqual,
-            storeSparse,
-            specs
-          )
+        | tensorFormat(specs, _, _) -> !contains(storeSparse, specs)
         | _ -> false
         end
       ,
@@ -621,12 +594,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
      put values into the output tensor, so we emit them
      all together -}
   local topVars :: [String] =
-    let i::Integer =
-      positionOf(
-        stringEq,
-        last(head(out.accesses)),
-        access
-      )
+    let i::Integer = positionOf(last(head(out.accesses)), access)
     in
     take(i+1, access)
     end;
@@ -634,12 +602,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
   {- If there's any expression that can be emitted inside 
      the final loop that accesses the output tensor -}
   local topExpr :: Maybe<TensorExpr> =
-    let i::Integer =
-      positionOf(
-        stringEq,
-        last(head(out.accesses)),
-        access
-      )
+    let i::Integer = positionOf(last(head(out.accesses)), access)
     in
     denseReduce(
       exNew,
@@ -652,12 +615,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
   {- Variables below the last indexvar that accesses the
      output tensor -}
   local innerVars :: [Pair<String Maybe<TensorExpr>>] =
-    let i::Integer = 
-      positionOf(
-        stringEq,
-        last(head(out.accesses)),
-        access
-      )
+    let i::Integer =  positionOf(last(head(out.accesses)), access)
     in
     mapWithTail(
       \ v::String rm::[String] ->
@@ -726,14 +684,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
     );
 
   local outAcc::Expr = 
-    getElem(
-      accessCalc,
-      positionOf(
-        stringEq,
-        outNew.tensorName,
-        newNames
-      )
-    ).fromJust;
+    getElem(accessCalc, positionOf(outNew.tensorName, newNames)).fromJust;
 
   local fwrd :: Stmt =
     multiForStmt(
@@ -786,7 +737,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
 
   local tensorFormats::[TensorFormat] =
     map(
-      getTensorFormat(_, tm:empty(compareString)),
+      getTensorFormat(_, tm:empty()),
       tensors
     );
 
@@ -820,14 +771,14 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
         newNames,
         accessCalc
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
   local newNames :: [String] =
     mapWithTail(
       \ n::String o::[String] ->
         let c::Integer =
-          count(stringEq, n, o)
+          count(n, o)
         in
         if c > 0
         then n ++ toString(c) ++ "_"
@@ -856,17 +807,9 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
     );
 
   local leftOnly :: [String] =
-    let lAcc::[String] = 
-      nubBy(
-        stringEq,
-        concat(outNew.accesses)
-      )
+    let lAcc::[String] =  nub(concat(outNew.accesses))
     in
-    let rAcc::[String] =
-      nubBy(
-        stringEq,
-        concat(exNew.accesses)
-      )
+    let rAcc::[String] = nub(concat(exNew.accesses))
     in
     filter(
       \ v::String -> !contains(v, rAcc)
@@ -884,16 +827,10 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
   outNew.fmts = fmts;
   exNew.fmts = fmts;
 
-  local allVars :: [String] =
-    nubBy(
-      stringEq,
-      concat(outNew.accesses ++ exNew.accesses)
-    );
+  local allVars :: [String] = nub(concat(outNew.accesses ++ exNew.accesses));
 
   local missingVar :: Boolean =
-    !containsAll(stringEq, allVars, access)
-    ||
-    !containsAll(stringEq, access, allVars);
+    !containsAll(allVars, access) || !containsAll(access, allVars);
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
@@ -902,19 +839,14 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
         newNames,
         tensorFormats
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
   local allDense :: [Boolean] =
     map(
       \ fmt::TensorFormat ->
         case fmt of
-        | tensorFormat(specs, _, _) ->
-          !containsBy(
-            integerEqual,
-            storeSparse,
-            specs
-          )
+        | tensorFormat(specs, _, _) -> !contains(storeSparse, specs)
         | _ -> false
         end
       ,
@@ -949,23 +881,13 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
     else [];
 
   local topVars :: [String] =
-   let i::Integer =
-     lastIndexOf(
-       stringEq,
-       head(out.accesses),
-       access
-      )
+   let i::Integer = lastIndexOf(head(out.accesses), access)
     in
     take(i+1, access)
     end;
 
   local topExpr :: Maybe<TensorExpr> =
-    let i::Integer =
-      lastIndexOf(
-        stringEq,
-        head(out.accesses),
-        access
-      )
+    let i::Integer = lastIndexOf(head(out.accesses), access)
     in
     denseReduce(
       exNew,
@@ -976,12 +898,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
     end;
 
   local innerVars :: [Pair<String Maybe<TensorExpr>>] =
-    let i::Integer =
-      lastIndexOf(
-        stringEq,
-        head(out.accesses),
-        access
-      )
+    let i::Integer = lastIndexOf(head(out.accesses), access)
     in
     mapWithTail(
       \ v::String rm::[String] ->
@@ -1050,14 +967,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
     );
 
   local outAcc::Expr =
-    getElem(
-      accessCalc,
-      positionOf(
-        stringEq,
-        outNew.tensorName,
-        newNames
-      )
-    ).fromJust;
+    getElem(accessCalc, positionOf(outNew.tensorName, newNames)).fromJust;
 
   local fwrd::Stmt =
     multiForStmt(

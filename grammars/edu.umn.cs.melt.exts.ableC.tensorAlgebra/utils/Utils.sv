@@ -27,41 +27,18 @@ function maybeMapWithTail
 }
 
 function makeList
-[a] ::= comp::(Integer ::= a a) inc::(a ::= a) start::a i_end::a
+Ord a => [a] ::= inc::(a ::= a) start::a i_end::a
 {
   return
-    if comp(start, i_end) < 0
-    then start :: makeList(comp, inc, inc(start), i_end)
+    if compare(start, i_end) < 0
+    then start :: makeList(inc, inc(start), i_end)
     else [];
-}
-
-function integerCompare
-Integer ::= l::Integer r::Integer
-{
-  return l - r;
-}
-
-function integerEqual
-Boolean ::= l::Integer r::Integer
-{
-  return l == r;
 }
 
 function inc
 Integer ::= i::Integer
 {
   return i+1;
-}
-
-function containsAll
-Boolean ::= eq::(Boolean ::= a a) itms::[a] lst::[a]
-{
-  return
-    if null(itms)
-    then true
-    else 
-       contains(head(itms), lst)
-    && containsAll(eq, tail(itms), lst);
 }
 
 function getElem
@@ -109,24 +86,6 @@ function zip5
       :: zip5(f, tail(lstB), tail(lstC), tail(lstD), tail(lstE), tail(lstF));
 }
 
-function positionBy
-Integer ::= f::(Boolean ::= a) lst::[a]
-{
-  return positionBy_helper(f, lst, 0);
-}
-
-function positionBy_helper
-Integer ::= f::(Boolean ::= a) lst::[a] i::Integer
-{
-  return
-    if null(lst)
-    then -1
-    else 
-      if f(head(lst))
-      then i
-      else positionBy_helper(f, tail(lst), i+1);
-}
-
 function mapWithTail
 [a] ::= f::(a ::= b [b]) lst::[b]
 {
@@ -138,14 +97,25 @@ function mapWithTail
 }
 
 function containsAny
-Boolean ::= eq::(Boolean ::= a a) items::[a] array::[a]
+Eq a => Boolean ::= items::[a] array::[a]
 {
   return
     if null(items)
     then false
     else
       contains(head(items), array)
-      || containsAny(eq, tail(items), array);
+      || containsAny(tail(items), array);
+}
+
+function containsAll
+Eq a => Boolean ::= items::[a] array::[a]
+{
+  return
+    if null(items)
+    then true
+    else
+      contains(head(items), array)
+      && containsAny(tail(items), array);
 }
 
 function filterWith
@@ -172,36 +142,36 @@ Boolean ::= f::(Boolean ::= a) lst::[a]
 }
 
 function count
-Integer ::= f::(Boolean ::= a a) i::a lst::[a]
+Eq a => Integer ::= i::a lst::[a]
 {
   return
     if null(lst)
     then 0
     else 
-      if f(i, head(lst))
-      then 1 + count(f, i, tail(lst))
-      else count(f, i, tail(lst));
+      if i == head(lst)
+      then 1 + count(i, tail(lst))
+      else count(i, tail(lst));
 }
 
 function lastIndexOf
-Integer ::= f::(Boolean ::= a a) elems::[a] lst::[a]
+Eq a => Integer ::= elems::[a] lst::[a]
 {
-  return lastIndexOf_helper(f, elems, lst, -1);
+  return lastIndexOf_helper(elems, lst, -1);
 }
 
 function lastIndexOf_helper
-Integer ::= f::(Boolean ::= a a) elems::[a] lst::[a] idx::Integer
+Eq a => Integer ::= elems::[a] lst::[a] idx::Integer
 {
   return
     if null(elems)
     then idx
     else 
       let i::Integer =
-        positionOf(f, head(elems), lst)
+        positionOf(head(elems), lst)
       in
       if i > idx
-      then lastIndexOf_helper(f, tail(elems), lst, i)
-      else lastIndexOf_helper(f, tail(elems), lst, idx)
+      then lastIndexOf_helper(tail(elems), lst, i)
+      else lastIndexOf_helper(tail(elems), lst, idx)
       end;
 }
 
@@ -215,7 +185,7 @@ function filterHead
         \ i::Integer ->
           take(i, lst)
         ,
-        makeList(integerCompare, inc, 0, listLength(lst))
+        makeList(inc, 0, listLength(lst))
       )
     );
 }
@@ -233,17 +203,4 @@ function filterHead_helper
         filterHead_helper(f, tail(lst), tail(hs))
       else
         filterHead_helper(f, tail(lst), tail(hs));
-}
-
-function listEqual
-Boolean ::= elemEq::(Boolean ::= a b) lst1::[a] lst2::[b]
-{
-  return
-    if null(lst1) && null(lst2)
-    then true
-    else if null(lst1) || null(lst2)
-    then false
-    else
-      elemEq(head(lst1), head(lst2)) &&
-      listEqual(elemEq, tail(lst1), tail(lst2));
 }

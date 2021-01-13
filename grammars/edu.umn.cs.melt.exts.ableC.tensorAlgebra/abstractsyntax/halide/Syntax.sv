@@ -23,30 +23,22 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
   local ex::TensorExpr =
     val.tensorExp;
 
-  out.fmts = tm:empty(compareString);
-  ex.fmts = tm:empty(compareString);
+  out.fmts = tm:empty();
+  ex.fmts = tm:empty();
 
   local tensors::[TensorExpr] = 
     ex.tensors ++ out.tensors;
 
   local tensorFormats::[TensorFormat] =
     map(
-      getTensorFormat(_, tm:empty(compareString)),
+      getTensorFormat(_, tm:empty()),
       tensors
     );
 
   local leftOnly::[String] =
-    let lAcc::[String] =
-      nubBy(
-        stringEq,
-        concat(out.accesses)
-      )
+    let lAcc::[String] = nub(concat(out.accesses))
     in
-    let rAcc::[String] =
-      nubBy(
-        stringEq,
-        concat(ex.accesses)
-      )
+    let rAcc::[String] = nub(concat(ex.accesses))
     in
     filter(
       \ v::String -> !contains(v, rAcc)
@@ -68,12 +60,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
     map(
       \ fmt::TensorFormat ->
         case fmt of
-        | tensorFormat(specs, _, _) ->
-          !containsBy(
-            integerEqual,
-            storeSparse,
-            specs
-          )
+        | tensorFormat(specs, _, _) -> !contains(storeSparse, specs)
         | _ -> false
         end
       ,
@@ -81,23 +68,13 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
     );
 
   local topVars :: [String] =
-    let i :: Integer =
-      positionOf(
-        stringEq,
-        last(head(out.accesses)),
-        access
-      )
+    let i :: Integer = positionOf(last(head(out.accesses)), access)
     in
     take(i+1, access)
     end;
 
   local innerVars :: [String] =
-    let i :: Integer =
-      positionOf(
-        stringEq,
-        last(head(out.accesses)),
-        access
-      )
+    let i :: Integer = positionOf(last(head(out.accesses)), access)
     in
     drop(i+1, access)
     end;
@@ -253,30 +230,22 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
   local ex::TensorExpr =
     val.tensorExp;
 
-  out.fmts = tm:empty(compareString);
-  ex.fmts = tm:empty(compareString);
+  out.fmts = tm:empty();
+  ex.fmts = tm:empty();
 
   local tensors::[TensorExpr] = 
     ex.tensors ++ out.tensors;
 
   local tensorFormats::[TensorFormat] =
     map(
-      getTensorFormat(_, tm:empty(compareString)),
+      getTensorFormat(_, tm:empty()),
       tensors
     );
 
   local leftOnly::[String] =
-    let lAcc::[String] =
-      nubBy(
-        stringEq,
-        concat(out.accesses)
-      )
+    let lAcc::[String] = nub(concat(out.accesses))
     in
-    let rAcc::[String] =
-      nubBy(
-        stringEq,
-        concat(ex.accesses)
-      )
+    let rAcc::[String] = nub(concat(ex.accesses))
     in
     filter(
       \ v::String -> !contains(v, rAcc)
@@ -288,27 +257,18 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
   local invalidLeftVar :: Boolean =
     !null(leftOnly);
 
-  local allVars :: [String] =
-    nubBy(
-      stringEq,
-      concat(out.accesses ++ ex.accesses)
-    );
+  local allVars :: [String] = nub(concat(out.accesses ++ ex.accesses));
 
   local missingVar :: Boolean =
-    !containsAll(stringEq, allVars, ord)
+    !containsAll(allVars, ord)
     ||
-    !containsAll(stringEq, ord, allVars);
+    !containsAll(ord, allVars);
 
   local allDense :: [Boolean] =
     map(
       \ fmt::TensorFormat ->
         case fmt of
-        | tensorFormat(specs, _, _) ->
-          !containsBy(
-            integerEqual,
-            storeSparse,
-            specs
-          )
+        | tensorFormat(specs, _, _) -> !contains(storeSparse, specs)
         | _ -> false
         end
       ,
@@ -316,23 +276,13 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
     );
 
   local topVars :: [String] =
-    let i :: Integer =
-      lastIndexOf(
-        stringEq,
-        head(out.accesses),
-        ord 
-      )
+    let i :: Integer = lastIndexOf(head(out.accesses), ord )
     in
     take(i+1, ord)
     end;
 
   local innerVars :: [String] =
-    let i :: Integer =
-      lastIndexOf(
-        stringEq,
-        head(out.accesses),
-        ord
-      )
+    let i :: Integer = lastIndexOf(head(out.accesses), ord)
     in
     drop(i+1, ord)
     end;
@@ -480,14 +430,14 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
   local ex::TensorExpr =
     val.tensorExp;
 
-  ex.fmts = tm:empty(compareString);
+  ex.fmts = tm:empty();
 
   local tensors::[TensorExpr] = 
     ex.tensors;
 
   local tensorFormats::[TensorFormat] =
     map(
-      getTensorFormat(_, tm:empty(compareString)),
+      getTensorFormat(_, tm:empty()),
       tensors
     );
 
@@ -501,12 +451,7 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
     map(
       \ fmt::TensorFormat ->
         case fmt of
-        | tensorFormat(specs, _, _) ->
-          !containsBy(
-            integerEqual,
-            storeSparse,
-            specs
-          )
+        | tensorFormat(specs, _, _) -> !contains(storeSparse, specs)
         | _ -> false
         end
       ,
@@ -622,38 +567,29 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
   local ex::TensorExpr =
     val.tensorExp;
 
-  ex.fmts = tm:empty(compareString);
+  ex.fmts = tm:empty();
 
   local tensors::[TensorExpr] = 
     ex.tensors;
 
   local tensorFormats::[TensorFormat] =
     map(
-      getTensorFormat(_, tm:empty(compareString)),
+      getTensorFormat(_, tm:empty()),
       tensors
     );
 
-  local allVars :: [String] =
-    nubBy(
-      stringEq,
-      concat(ex.accesses)
-    );
+  local allVars :: [String] = nub(concat(ex.accesses));
 
   local missingVar :: Boolean =
-    !containsAll(stringEq, allVars, ord)
+    !containsAll(allVars, ord)
     ||
-    !containsAll(stringEq, ord, allVars);
+    !containsAll(ord, allVars);
 
   local allDense :: [Boolean] =
     map(
       \ fmt::TensorFormat ->
         case fmt of
-        | tensorFormat(specs, _, _) ->
-          !containsBy(
-            integerEqual,
-            storeSparse,
-            specs
-          )
+        | tensorFormat(specs, _, _) -> !contains(storeSparse, specs)
         | _ -> false
         end
       ,

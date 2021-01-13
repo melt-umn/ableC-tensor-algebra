@@ -25,7 +25,7 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
   local mapping :: [Integer] =
     map(
       \ v::String ->
-        positionOf(stringEq, v, lAcc)
+        positionOf(v, lAcc)
       ,
       rAcc
     );
@@ -62,7 +62,7 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
           foldl(
             \ inn::Stmt var::String ->
               let idx::Integer =
-                positionOf(stringEq, var, rAcc)
+                positionOf(var, rAcc)
               in let e::Pair<Pair<Integer Integer> Pair<Integer Integer>> =
                 getElem(access, idx).fromJust
               in let lPos::Integer = e.fst.snd in

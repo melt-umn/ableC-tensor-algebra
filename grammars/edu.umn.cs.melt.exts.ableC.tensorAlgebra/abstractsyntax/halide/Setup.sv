@@ -28,7 +28,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
   local tensorFormats::[TensorFormat] =
     map(
       \ e::TensorExpr ->
-        getTensorFormat(e, tm:empty(compareString))
+        getTensorFormat(e, tm:empty())
       ,
       tensors
     );
@@ -39,7 +39,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     mapWithTail(
       \ n::String o::[String] ->
         let c::Integer = 
-          count(stringEq, n, o)
+          count(n, o)
         in
         if c > 0
         then n ++ toString(c) ++ "_"
@@ -73,11 +73,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
   outNew.fmts = fmts;
   exNew.fmts = fmts;
 
-  local access :: [String] =
-    nubBy(
-      stringEq, 
-      concat(out.accesses ++ ex.accesses)
-    );
+  local access :: [String] = nub(concat(out.accesses ++ ex.accesses));
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
@@ -86,17 +82,10 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
         newNames,
         tensorFormats
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
-  local originalNames :: [String] =
-    nubBy(
-      stringEq,
-      map(
-        getTensorName(_),
-        ex.tensors
-      )
-    );
+  local originalNames :: [String] = nub(map(getTensorName, ex.tensors));
 
   {- If any tensor is an Expr other than a declRefExpr,
      declare it with a generated name, so as to only
@@ -351,11 +340,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       tensors
     );
 
-  local originalNames :: [String] =
-    nubBy(
-      stringEq,
-      tensorNames
-    );
+  local originalNames :: [String] = nub(tensorNames);
 
   local requestLocks :: Stmt =
     foldl(
@@ -385,7 +370,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
 
   local tensorFormats::[TensorFormat] =
     map(
-      getTensorFormat(_, tm:empty(compareString)),
+      getTensorFormat(_, tm:empty()),
       tensors
     );
 
@@ -393,7 +378,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
     mapWithTail(
       \ n::String o::[String] ->
         let c::Integer =
-          count(stringEq, n, o)
+          count(n, o)
         in
         if c > 0
         then n ++ toString(c) ++ "_"
@@ -425,11 +410,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       location=expr.location
     );
 
-  local access::[String] =
-    nubBy(
-      stringEq,
-      concat(ex.accesses)
-    );
+  local access::[String] = nub(concat(ex.accesses));
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
@@ -438,7 +419,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
         newNames,
         tensorFormats
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
   local tensorDecls :: [Stmt] =
