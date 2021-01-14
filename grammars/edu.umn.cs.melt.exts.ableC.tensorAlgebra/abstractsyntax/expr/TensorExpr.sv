@@ -115,22 +115,12 @@ top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
 
   top.tensors = [top];
 
-  top.isAvail =
-    !containsAny(
-      stringEq,
-      top.remaining,
-      access
-    );
+  top.isAvail = !containsAny(top.remaining, access);
 
   local f::TensorFormat =
     head(tm:lookup(top.tensorName, top.fmts));
 
-  local dim::Integer =
-    positionOf(
-      stringEq,
-      top.variable,
-      access
-    );
+  local dim::Integer = positionOf(top.variable, access);
 
   local prs::Maybe<Pair<Integer Pair<Integer Integer>>> =
     getElem(f.storage, dim);

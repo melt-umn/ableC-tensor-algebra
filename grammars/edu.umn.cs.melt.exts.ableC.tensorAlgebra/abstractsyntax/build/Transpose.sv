@@ -13,19 +13,19 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
   -- Test if either side has variables not on the other
   local missing :: [String] =
     filter(
-      \ v::String -> !containsBy(stringEq, v, rAcc),
+      \ v::String -> !contains(v, rAcc),
       lAcc
     )
     ++
     filter(
-      \ v::String -> !containsBy(stringEq, v, lAcc),
+      \ v::String -> !contains(v, lAcc),
       rAcc
     );
 
   local mapping :: [Integer] =
     map(
       \ v::String ->
-        positionOf(stringEq, v, lAcc)
+        positionOf(v, lAcc)
       ,
       rAcc
     );
@@ -62,7 +62,7 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
           foldl(
             \ inn::Stmt var::String ->
               let idx::Integer =
-                positionOf(stringEq, var, rAcc)
+                positionOf(var, rAcc)
               in let e::Pair<Pair<Integer Integer> Pair<Integer Integer>> =
                 getElem(access, idx).fromJust
               in let lPos::Integer = e.fst.snd in

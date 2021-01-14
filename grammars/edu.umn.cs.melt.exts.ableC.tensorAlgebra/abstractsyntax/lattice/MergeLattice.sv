@@ -38,7 +38,7 @@ LatticePoint ::=
     | tensorBaseExpr(_, _) -> latticePoint([], value, allCond(var))
     | tensorAccess(_, _, _) -> 
       let i::Integer =
-        positionOf(stringEq, var, head(value.accesses))
+        positionOf(var, head(value.accesses))
       in
       let f::TensorFormat =
         head(tm:lookup(value.tensorName, fmts))
@@ -320,7 +320,7 @@ TensorCond ::=
     | tensorBaseExpr(_, _) -> allCond(var)
     | tensorAccess(_, _, _) ->
       let i::Integer = 
-        positionOf(stringEq, var, head(expr.accesses))
+        positionOf(var, head(expr.accesses))
       in
       let f::TensorFormat = 
         head(tm:lookup(expr.tensorName, fmts))

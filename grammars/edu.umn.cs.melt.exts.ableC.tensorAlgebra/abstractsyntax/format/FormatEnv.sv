@@ -39,7 +39,7 @@ synthesized attribute tensorFormatContribs::Contribs<TensorFormat> occurs on Def
 aspect production emptyEnv_i
 top::Env ::=
 {
-  top.tensorFormats = [tm:empty(compareString)];
+  top.tensorFormats = [tm:empty()];
 }
 
 aspect production addEnv_i
@@ -51,7 +51,7 @@ top::Env ::= d::Defs e::Decorated Env
 aspect production openScopeEnv_i
 top::Env ::= e::Decorated Env
 {
-  top.tensorFormats = tm:empty(compareString) :: e.tensorFormats;
+  top.tensorFormats = tm:empty() :: e.tensorFormats;
 }
 
 aspect production globalEnv_i

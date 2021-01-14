@@ -34,11 +34,11 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
 
   local tensor :: TensorExpr =
     bounds.tensorExp;
-  tensor.fmts = tm:empty(compareString);
+  tensor.fmts = tm:empty();
 
   local fmt :: TensorFormat =
     if tensorAcc
-    then getTensorFormat(tensor, tm:empty(compareString))
+    then getTensorFormat(tensor, tm:empty())
     else 
       case bounds.typerep of
       | extType(_, tensorType(f)) -> new(f.tensorFormat)
@@ -52,7 +52,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
         \ i::Integer ->
           right(s"__v${toString(i)}")
         ,
-        makeList(integerCompare, inc, 0, fmt.dimensions)
+        makeList(inc, 0, fmt.dimensions)
       );
 
   local stmts :: [(Stmt ::= Stmt)] =
