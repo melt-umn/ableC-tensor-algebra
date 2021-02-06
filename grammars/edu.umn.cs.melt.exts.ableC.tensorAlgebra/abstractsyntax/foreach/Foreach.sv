@@ -300,6 +300,8 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
       top.env
     );
   body.env = newEnv;
+  body.breakValid = true;
+  body.continueValid = true;
 
   local lErrors :: [Message] =
     --err(var.location, s"Tensor Acc? ${toString(tensorAcc)}") ::
