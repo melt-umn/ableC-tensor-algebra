@@ -158,6 +158,8 @@ InitList ::= ex::Expr env::Decorated Env
 {
   ex.env = env;
   ex.returnType = nothing();
+  ex.breakValid = false;
+  ex.continueValid = false;
 
   return
     case ex of
@@ -186,6 +188,8 @@ function getTypereps
 {
   idx.env = env;
   idx.returnType = nothing();
+  idx.breakValid = false;
+  idx.continueValid = false;
 
   return
     case idx of
@@ -202,6 +206,8 @@ Integer ::= idx::Expr env::Decorated Env
 {
   idx.env = env;
   idx.returnType = nothing();
+  idx.breakValid = false;
+  idx.continueValid = false;
 
   return
     case idx of

@@ -185,7 +185,8 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
               | _ -> msg
               end
             ,
-            (decorate ts with {env=top.env;iterStmtIn=stmtIterStmt(loops);returnType=nothing();}).errors
+            (decorate ts with {env=top.env;iterStmtIn=stmtIterStmt(loops);
+                returnType=nothing(); breakValid=false; continueValid=false;}).errors
           )
         end
     else [];
@@ -393,7 +394,8 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
               | _ -> msg
               end
             ,
-            (decorate ts with {env=top.env;iterStmtIn=stmtIterStmt(loops);returnType=nothing();}).errors
+            (decorate ts with {env=top.env;iterStmtIn=stmtIterStmt(loops);
+              returnType=nothing(); breakValid=false; continueValid=false;}).errors
           )
     else [];
 
@@ -528,7 +530,8 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
             | _ -> msg
             end
           ,
-          (decorate ts with {env=top.env;iterStmtIn=stmtIterStmt(loops);returnType=nothing();}).errors
+          (decorate ts with {env=top.env;iterStmtIn=stmtIterStmt(loops);
+            returnType=nothing(); breakValid=false; continueValid=false;}).errors
         )
       end
     else [];
@@ -666,7 +669,8 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
             | _ -> msg
             end
           ,
-          (decorate ts with {env=top.env;iterStmtIn=stmtIterStmt(loops);returnType=nothing();}).errors
+          (decorate ts with {env=top.env;iterStmtIn=stmtIterStmt(loops);
+            returnType=nothing(); breakValid=false; continueValid=false;}).errors
         )
     else [];
 

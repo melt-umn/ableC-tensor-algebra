@@ -10,7 +10,8 @@ String ::= e::TensorExpr
   return
     case e of
     | tensorAccess(ex, _, _) -> 
-      case decorate ex with {env=e.envr; returnType=nothing();} of
+      case decorate ex with {env=e.envr; returnType=nothing();
+                            breakValid=false; continueValid=false;} of
       | decExpr(declRefExpr(name(s))) -> s
       | declRefExpr(name(s)) -> s
       | _ -> s"_tensor_${toString(e.location.line)}_${toString(e.location.column)}"
@@ -25,7 +26,8 @@ TensorFormat ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
   return
     case e of
     | tensorAccess(ex, _, _) ->
-      case decorate ex with {env=e.envr; returnType=nothing();}.typerep of
+      case decorate ex with {env=e.envr; returnType=nothing();
+                            breakValid=false; continueValid=false;}.typerep of
       | extType(_, tensorType(f)) -> new(f.tensorFormat)
       | _ -> 
         case tm:lookup(e.tensorName, fmts) of
@@ -41,7 +43,8 @@ function getExprName
 String ::= e::Expr env::Decorated Env
 {
   return
-    case decorate e with {env=env; returnType=nothing();} of
+    case decorate e with {env=env; returnType=nothing();
+                          breakValid=false; continueValid=false;} of
     | declRefExpr(nm) -> nm.name
     | _ -> s"_expr_${toString(e.location.line)}_${toString(e.location.column)}"
     end;

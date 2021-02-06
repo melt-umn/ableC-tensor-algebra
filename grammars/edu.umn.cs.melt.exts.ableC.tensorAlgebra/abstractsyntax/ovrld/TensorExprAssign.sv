@@ -230,7 +230,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   local exprs :: [Pair<String Expr>] =
     maybeMap(
       \ e::Expr ->
-        case decorate e with {env=top.env; returnType=nothing();} of
+        case decorate e with {env=top.env; returnType=nothing();
+                              breakValid=false; continueValid=false;} of
         | decExpr(declRefExpr(name(_))) -> nothing()
         | declRefExpr(name(_)) -> nothing()
         | _ ->
@@ -259,7 +260,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       \ t::TensorExpr ->
         case t of
         | tensorAccess(ex, _, _) ->
-          case decorate ex with{env=top.env; returnType=nothing();} of
+          case decorate ex with{env=top.env; returnType=nothing();
+                                breakValid=false; continueValid=false;} of
           | decExpr(declRefExpr(name(_))) -> nothing()
           | declRefExpr(name(_)) -> nothing()
           | _ ->
@@ -717,7 +719,8 @@ top::Expr ::= output::Expr expr::Expr
   local exprs :: [Pair<String Expr>] =
     maybeMap(
       \ e::Expr ->
-        case decorate e with {env=top.env; returnType=nothing();} of
+        case decorate e with {env=top.env; returnType=nothing();
+                              breakValid=false; continueValid=false;} of
         | declRefExpr(name(_)) -> nothing()
         | _ ->
           just(pair(getExprName(e, top.env), e))
@@ -743,7 +746,8 @@ top::Expr ::= output::Expr expr::Expr
       \ t::TensorExpr ->
         case t of
         | tensorAccess(ex, _, _) ->
-          case decorate ex with {env=top.env; returnType=nothing();} of
+          case decorate ex with {env=top.env; returnType=nothing();
+                                breakValid=false; continueValid=false;} of
           | declRefExpr(name(_)) -> nothing()
           | _ ->
             just(

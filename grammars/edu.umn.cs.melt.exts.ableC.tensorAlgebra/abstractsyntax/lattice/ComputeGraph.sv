@@ -525,7 +525,8 @@ Expr ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
   return
     case e of
     | tensorBaseExpr(ex, _) ->
-      case decorate ex with {env=e.envr; returnType=nothing();} of
+      case decorate ex with {env=e.envr; returnType=nothing();
+                            breakValid=false; continueValid=false;} of
       | declRefExpr(nm) -> ableC_Expr{$name{nm.name}}
       | _ -> ableC_Expr{$name{"__error"}}
       end

@@ -44,7 +44,8 @@ top::Expr ::= type::TypeName dims::[Expr]
     ++
     flatMap(
       \ e::Expr
-      -> let ex::Decorated Expr = decorate e with {env=top.env;returnType=nothing();}
+      -> let ex::Decorated Expr = decorate e with {env=top.env;returnType=nothing(); 
+                                          breakValid=false; continueValid = false;}
          in
          if null(ex.errors)
          then if ex.typerep.isIntegerType
@@ -179,7 +180,9 @@ top::Expr ::= type::TypeName args::[Expr]
   local dimens::Integer = fmt.dimensions;
 
   dims.env = top.env;
-  dims.returnType = nothing();  
+  dims.returnType = nothing();
+  dims.breakValid = false;
+  dims.continueValid = false;
 
   local lErrors::[Message] = 
     checkTensorHeader(top.location, top.env)

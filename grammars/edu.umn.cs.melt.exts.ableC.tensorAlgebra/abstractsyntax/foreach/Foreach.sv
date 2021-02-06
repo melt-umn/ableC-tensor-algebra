@@ -263,6 +263,8 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
 
   fwrd.env = top.env;
   fwrd.returnType = top.returnType;
+  fwrd.breakValid = top.breakValid;
+  fwrd.continueValid = top.continueValid;
 
   local newEnv :: Decorated Env =
     addEnv(
@@ -333,7 +335,8 @@ function tensorVals
   return
     case ex of
     | tensorAccess(e, _, _) ->
-      case decorate e with {env=env; returnType=nothing();} of
+      case decorate e with {env=env; returnType=nothing(); 
+                          breakValid=false; continueValid=false;} of
       | declRefExpr(name(_)) -> nullStmt()
       | _ -> 
         ableC_Stmt {

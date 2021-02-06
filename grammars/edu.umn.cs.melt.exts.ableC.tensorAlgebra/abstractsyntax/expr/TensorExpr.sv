@@ -77,6 +77,8 @@ top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
 {
   tensor.env = env;
   tensor.returnType = nothing();
+  tensor.breakValid = false;
+  tensor.continueValid = false;
 
   top.exprName = "__none";
   top.exprs = [];
@@ -269,6 +271,8 @@ function getAccess
 {
   idx.env = env;
   idx.returnType = nothing();
+  idx.breakValid = false;
+  idx.continueValid = false;
 
   return
     case idx of
@@ -292,6 +296,8 @@ function getIterAccess
 {
   idx.env = env;
   idx.returnType = nothing();
+  idx.breakValid = false;
+  idx.continueValid = false;
 
   return
     case idx of
