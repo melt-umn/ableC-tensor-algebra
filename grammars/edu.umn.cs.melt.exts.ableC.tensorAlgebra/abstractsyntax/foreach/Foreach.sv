@@ -300,7 +300,9 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
       top.env
     );
   body.env = newEnv;
-  body.breakValid = true;
+  -- A break wouldn't behave as expected because we translate into multiple
+  -- loops, we could translate it to work as expected (possibly a TODO)
+  body.breakValid = false;
   body.continueValid = true;
 
   local lErrors :: [Message] =
