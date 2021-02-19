@@ -82,10 +82,10 @@ top::ComputeGraph ::=
         !foldl( -- Include if this has different sparse dimensions than anything before
           \ b::Boolean lat::LatticePoint ->
             b || 
-            let e::Decorated TensorExpr =
+            let e::Decorated TensorExpr with {variable, fmts} =
               decorate c.value with {variable=head(vars); fmts=fmts;}
             in
-            let ex::Decorated TensorExpr =
+            let ex::Decorated TensorExpr with {variable, fmts} =
               decorate lat.value with {variable=head(vars); fmts=fmts;}
             in e.sparse == ex.sparse
             end
