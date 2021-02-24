@@ -21,11 +21,13 @@ top::Expr ::= l::Expr r::Expr
   local formatL :: TensorFormat =
     case l.typerep of
     | extType(_, tensorType(f)) -> new(f.tensorFormat)
+    | _ -> error("formatL demanded when not a tensorType")
     end;
 
   local formatR :: TensorFormat =
     case r.typerep of
     | extType(_, tensorType(f)) -> new(f.tensorFormat)
+    | _ -> error("formatR demanded when not a tensorType")
     end;
   
   local lErrors :: [Message] =

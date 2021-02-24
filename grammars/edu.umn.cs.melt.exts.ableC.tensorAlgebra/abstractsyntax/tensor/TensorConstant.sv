@@ -72,6 +72,7 @@ t::TensorConstant ::= sub::[TensorConstant]
                 initializerPos = ""; inObject = false; expectedType = errorType();}
             of
             | objectInitializer(l) -> l
+            | _ -> error("must be an objectInitializer")
             end
           ,
           sub
@@ -101,6 +102,7 @@ t::TensorConstant ::= sub::[TensorConstant]
             initializerPos = ""; inObject = false; expectedType = errorType();} 
         of
         | objectInitializer(l) -> l
+        | _ -> error("must be an objectInitializer")
         end
       ),
       location=builtin

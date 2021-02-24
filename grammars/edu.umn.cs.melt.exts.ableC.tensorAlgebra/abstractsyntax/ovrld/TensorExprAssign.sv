@@ -216,6 +216,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
                     (struct $name{s"tensor_${fmtNm}"}) $Expr{ex};
               }
             end
+          | _ -> error("not a tensorAccess")
           end
         }
         pthread_rwlock_wrlock(&(((struct $name{s"tensor_${getTensorFormat(outNew, fmts).proceduralName}"}*) 
