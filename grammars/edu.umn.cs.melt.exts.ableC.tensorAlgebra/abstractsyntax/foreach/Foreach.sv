@@ -42,6 +42,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
     else 
       case bounds.typerep of
       | extType(_, tensorType(f)) -> new(f.tensorFormat)
+      | _ -> error("fmt demanded when not a tensorType")
       end;
 
   local access :: [Either<Expr String>] =
