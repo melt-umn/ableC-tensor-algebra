@@ -263,9 +263,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
     );
 
   fwrd.env = top.env;
-  fwrd.returnType = top.returnType;
-  fwrd.breakValid = top.breakValid;
-  fwrd.continueValid = top.continueValid;
+  fwrd.controlStmtContext = top.controlStmtContext;
 
   local newEnv :: Decorated Env =
     addEnv(
@@ -303,8 +301,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
   body.env = newEnv;
   -- A break wouldn't behave as expected because we translate into multiple
   -- loops, we could translate it to work as expected (possibly a TODO)
-  body.breakValid = false;
-  body.continueValid = true;
+  body.controlStmtContext = controlStmtContext(top.controlStmtContext.returnType, false, true);
 
   local lErrors :: [Message] =
     --err(var.location, s"Tensor Acc? ${toString(tensorAcc)}") ::
@@ -340,8 +337,8 @@ function tensorVals
   return
     case ex of
     | tensorAccess(e, _, _) ->
-      case decorate e with {env=env; returnType=nothing(); 
-                          breakValid=false; continueValid=false;} of
+      case decorate e with {env=env;
+                      controlStmtContext=initialControlStmtContext;} of
       | declRefExpr(name(_)) -> nullStmt()
       | _ -> 
         ableC_Stmt {

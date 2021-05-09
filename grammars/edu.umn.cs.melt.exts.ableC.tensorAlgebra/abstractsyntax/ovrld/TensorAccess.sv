@@ -157,9 +157,7 @@ function generateInitList
 InitList ::= ex::Expr env::Decorated Env
 {
   ex.env = env;
-  ex.returnType = nothing();
-  ex.breakValid = false;
-  ex.continueValid = false;
+  ex.controlStmtContext = initialControlStmtContext;
 
   return
     case ex of
@@ -187,9 +185,7 @@ function getTypereps
 [Type] ::= idx::Expr env::Decorated Env
 {
   idx.env = env;
-  idx.returnType = nothing();
-  idx.breakValid = false;
-  idx.continueValid = false;
+  idx.controlStmtContext = initialControlStmtContext;
 
   return
     case idx of
@@ -205,9 +201,7 @@ function getCount
 Integer ::= idx::Expr env::Decorated Env
 {
   idx.env = env;
-  idx.returnType = nothing();
-  idx.breakValid = false;
-  idx.continueValid = false;
+  idx.controlStmtContext = initialControlStmtContext;
 
   return
     case idx of

@@ -76,9 +76,7 @@ abstract production tensorAccess
 top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
 {
   tensor.env = env;
-  tensor.returnType = nothing();
-  tensor.breakValid = false;
-  tensor.continueValid = false;
+  tensor.controlStmtContext = initialControlStmtContext;
 
   top.exprName = "__none";
   top.exprs = [];
@@ -270,9 +268,7 @@ function getAccess
 [String] ::= idx::Expr env::Decorated Env
 {
   idx.env = env;
-  idx.returnType = nothing();
-  idx.breakValid = false;
-  idx.continueValid = false;
+  idx.controlStmtContext = initialControlStmtContext;
 
   return
     case idx of
@@ -295,9 +291,7 @@ function getIterAccess
 [Either<Expr String>] ::= idx::Expr env::Decorated Env
 {
   idx.env = env;
-  idx.returnType = nothing();
-  idx.breakValid = false;
-  idx.continueValid = false;
+  idx.controlStmtContext = initialControlStmtContext;
 
   return
     case idx of

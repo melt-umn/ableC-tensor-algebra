@@ -68,7 +68,7 @@ t::TensorConstant ::= sub::[TensorConstant]
               decorate 
                 (decorate c with {env=t.env;}).tensor_asExpr 
               with 
-              {env=t.env; returnType=nothing(); breakValid=false; continueValid=false;
+              {env=t.env; controlStmtContext=initialControlStmtContext;
                 initializerPos = ""; inObject = false; expectedType = errorType();}
             of
             | objectInitializer(l) -> l
@@ -98,8 +98,8 @@ t::TensorConstant ::= sub::[TensorConstant]
           decorate 
             (decorate head(sub) with {env=t.env;}).tensor_dimExpr 
           with 
-          {env=t.env; returnType=nothing(); breakValid=false; continueValid=false;
-            initializerPos = ""; inObject = false; expectedType = errorType();} 
+          {env=t.env; controlStmtContext=initialControlStmtContext;
+          initializerPos = ""; inObject = false; expectedType = errorType();} 
         of
         | objectInitializer(l) -> l
         | _ -> error("must be an objectInitializer")
@@ -202,10 +202,8 @@ function errorChecking
 [Message] ::= h::Expr tl::[Expr] env::Decorated Env
 {
   h.env = env;
-  
-  h.returnType = nothing();
-  h.breakValid = false;
-  h.continueValid=false;
+ 
+  h.controlStmtContext = initialControlStmtContext;
 
   return
     (

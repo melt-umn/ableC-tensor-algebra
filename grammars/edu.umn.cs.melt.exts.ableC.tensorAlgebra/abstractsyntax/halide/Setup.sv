@@ -95,8 +95,8 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
       \ e::TensorExpr ->
         case e of
         | tensorAccess(ex, _, _) ->
-          case decorate ex with {env=e.envr; returnType=nothing();
-                                breakValid=false; continueValid=false;} of
+          case decorate ex with {env=e.envr;
+                            controlStmtContext=initialControlStmtContext;} of
           | decExpr(declRefExpr(name(_))) -> nothing()
           | declRefExpr(name(_)) -> nothing()
           | _ ->
@@ -125,8 +125,8 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
   local exprDecls :: [Stmt] =
     maybeMap(
       \ e::Expr ->
-        case decorate e with {env=top.env; returnType=nothing();
-                              breakValid=false; continueValid=false;} of
+        case decorate e with {env=top.env;
+                            controlStmtContext=initialControlStmtContext;} of
         | decExpr(declRefExpr(name(_))) -> nothing()
         | declRefExpr(name(_)) -> nothing()
         | _ ->
@@ -273,9 +273,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     };
 
   fwrd.env = top.env;
-  fwrd.returnType = top.returnType;
-  fwrd.breakValid = top.breakValid;
-  fwrd.continueValid = top.continueValid;
+  fwrd.controlStmtContext = top.controlStmtContext;
 
   inner.env = 
     addEnv(
@@ -431,8 +429,8 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       \ e::TensorExpr ->
         case e of
         | tensorAccess(ex, _, _) ->
-          case decorate ex with {env=e.envr; returnType=nothing();
-                                breakValid=false; continueValid=false;} of
+          case decorate ex with {env=e.envr;
+                        controlStmtContext = initialControlStmtContext;} of
           | decExpr(declRefExpr(name(_))) -> nothing()
           | declRefExpr(name(_)) -> nothing()
           | _ ->
@@ -459,8 +457,8 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
   local exprDecls :: [Stmt] =
     maybeMap(
       \ e::Expr ->
-        case decorate e with {env=top.env; returnType=nothing();
-                              breakValid=false; continueValid=false;} of
+        case decorate e with {env=top.env;
+                        controlStmtContext = initialControlStmtContext;} of
         | decExpr(declRefExpr(name(_))) -> nothing()
         | declRefExpr(name(_)) -> nothing()
         | _ ->
@@ -591,9 +589,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       )
     );
 
-  finalFwrd.returnType = top.returnType;
-  finalFwrd.breakValid = top.breakValid;
-  finalFwrd.continueValid = top.continueValid;
+  finalFwrd.controlStmtContext = top.controlStmtContext;
   finalFwrd.env = top.env;
 
   inner.env = 
