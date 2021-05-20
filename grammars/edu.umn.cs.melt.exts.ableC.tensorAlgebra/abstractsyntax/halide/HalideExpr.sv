@@ -9,6 +9,7 @@ top::Stmt ::= output::Name expr::Expr
 {
   top.pp = expr.pp;
   top.functionDefs := [];
+  top.labelDefs := [];
 
   local out::TensorExpr =
     tensorBaseExpr(
@@ -216,6 +217,7 @@ top::Stmt ::= output::Name expr::Expr access::[String]
 {
   top.pp = expr.pp;
   top.functionDefs := [];
+  top.labelDefs := [];
 
   local out::TensorExpr =
     tensorBaseExpr(
@@ -418,6 +420,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
       value.pp
     ]);
   top.functionDefs := [];
+  top.labelDefs := [];
     
   local out::TensorExpr =
     tensorAccess(tensor, idx, top.env, location=tensor.location);
@@ -720,6 +723,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
       value.pp
     ]);
   top.functionDefs := [];
+  top.labelDefs := [];
 
   local out::TensorExpr =
     tensorAccess(tensor, idx, top.env, location=tensor.location);

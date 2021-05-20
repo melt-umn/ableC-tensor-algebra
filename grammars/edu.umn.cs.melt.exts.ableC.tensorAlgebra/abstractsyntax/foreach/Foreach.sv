@@ -7,6 +7,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
 {
 
   top.functionDefs := [];
+  top.labelDefs := [];
   top.pp =
     ppConcat([
       text("foreach ("),
@@ -301,7 +302,8 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
   body.env = newEnv;
   -- A break wouldn't behave as expected because we translate into multiple
   -- loops, we could translate it to work as expected (possibly a TODO)
-  body.controlStmtContext = controlStmtContext(top.controlStmtContext.returnType, false, true);
+  body.controlStmtContext = controlStmtContext(top.controlStmtContext.returnType,
+      false, true, tm:empty());
 
   local lErrors :: [Message] =
     --err(var.location, s"Tensor Acc? ${toString(tensorAcc)}") ::
