@@ -31,17 +31,10 @@ top::Expr ::= t::TypeName exs::[Expr]
 
 synthesized attribute buildProd::Maybe<(Expr ::= TypeName [Expr] Location)> occurs on Type, ExtType;
 
-aspect default production
-top::Type ::=
-{
-  top.buildProd = nothing();
-}
-
-aspect production extType
-top::Type ::= q::Qualifiers sub::ExtType
-{
-  top.buildProd = sub.buildProd;
-}
+aspect buildProd on Type of
+| extType(_, sub) -> sub.buildProd
+| _ -> nothing()
+end;
 
 aspect default production
 top::ExtType ::=
