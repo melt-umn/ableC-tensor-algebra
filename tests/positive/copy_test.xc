@@ -27,8 +27,7 @@ int main() {
   org[3,5] = 6;
   org[5,9] = 7;
 
-  tensor<mat> t1 = {0};
-  t1 = build(tensor<mat>)({10, 10});
+  tensor<mat> t1 = build(tensor<mat>)({10, 10});
   t1[0,0] = 1;
   t1[1,2] = 2;
   t1[2,0] = 3;
@@ -37,11 +36,13 @@ int main() {
   t1[3,5] = 6;
   t1[5,9] = 7;
 
-  tensor<mat> t2 = {0};
+  tensor<mat> t2;
+  memset(&t2, 0, sizeof(t2));
   t2 = org;
   t2 = t1;
 
-  tensor<tst> t3 = {0};
+  tensor<tst> t3;
+  memset(&t3, 0, sizeof(t3));
   t3 = org;
 
   assert(org[0,0], 1.0); assert(t1[0,0], 1.0); assert(t2[0,0], 1.0); assert(t3[0,0], 1.0);

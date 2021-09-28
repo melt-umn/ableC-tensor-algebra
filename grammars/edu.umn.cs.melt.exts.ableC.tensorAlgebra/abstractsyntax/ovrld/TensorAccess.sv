@@ -93,7 +93,8 @@ top::Expr ::= tensor::Expr idx::Expr
 
   local idxInitializer :: Initializer =
     objectInitializer(
-      generateInitList(idx, top.env)
+      generateInitList(idx, top.env),
+      location=builtin
     );
 
   local fwrd::Expr =
@@ -156,7 +157,7 @@ function generateInitList
 InitList ::= ex::Expr env::Decorated Env
 {
   ex.env = env;
-  ex.returnType = nothing();
+  ex.controlStmtContext = initialControlStmtContext;
 
   return
     case ex of
@@ -164,14 +165,14 @@ InitList ::= ex::Expr env::Decorated Env
     | commaExpr(l, r) ->
       consInit(
         positionalInit(
-          exprInitializer(l)
+          exprInitializer(l, location=builtin)
         ),
         generateInitList(r, env)
       )
     | _ ->
       consInit(
         positionalInit(
-          exprInitializer(ex)
+          exprInitializer(ex, location=builtin)
         ),
         nilInit()
       )
@@ -184,7 +185,7 @@ function getTypereps
 [Type] ::= idx::Expr env::Decorated Env
 {
   idx.env = env;
-  idx.returnType = nothing();
+  idx.controlStmtContext = initialControlStmtContext;
 
   return
     case idx of
@@ -200,7 +201,7 @@ function getCount
 Integer ::= idx::Expr env::Decorated Env
 {
   idx.env = env;
-  idx.returnType = nothing();
+  idx.controlStmtContext = initialControlStmtContext;
 
   return
     case idx of

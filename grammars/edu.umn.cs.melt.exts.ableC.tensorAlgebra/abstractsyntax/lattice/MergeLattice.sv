@@ -38,7 +38,7 @@ LatticePoint ::=
     | tensorBaseExpr(_, _) -> latticePoint([], value, allCond(var))
     | tensorAccess(_, _, _) -> 
       let i::Integer =
-        positionOf(stringEq, var, head(value.accesses))
+        positionOf(var, head(value.accesses))
       in
       let f::TensorFormat =
         head(tm:lookup(value.tensorName, fmts))
@@ -178,6 +178,7 @@ LatticePoint ::=
         tensorAdd(expr, pnt.value, env, location=loc),
         condOr(generateCond(expr, var, loc, fmts, loop), pnt.cond, loop)
       )
+    | _ -> error("lc must be 0 or 1")
     end;
 }
 
@@ -223,6 +224,7 @@ LatticePoint ::=
         tensorSub(expr, pnt.value, env, location=loc),
         condOr(generateCond(expr, var, loc, fmts, loop), pnt.cond, loop)
       )
+    | _ -> error("lc must be 0 or 1")
     end;
 }
 
@@ -264,6 +266,7 @@ LatticePoint ::=
         tensorMul(expr, pnt.value, env, location=loc),
         condAnd(generateCond(expr, var, loc, fmts, loop), pnt.cond, loop)
       )
+    | _ -> error("lc must be 0 or 1")
     end;
 }
 
@@ -305,6 +308,7 @@ LatticePoint ::=
         tensorDiv(expr, pnt.value, env, location=loc),
         condAnd(generateCond(expr, var, loc, fmts, loop), pnt.cond, loop)
       )
+    | _ -> error("lc must be 0 or 1")
     end;
 }
 
@@ -320,7 +324,7 @@ TensorCond ::=
     | tensorBaseExpr(_, _) -> allCond(var)
     | tensorAccess(_, _, _) ->
       let i::Integer = 
-        positionOf(stringEq, var, head(expr.accesses))
+        positionOf(var, head(expr.accesses))
       in
       let f::TensorFormat = 
         head(tm:lookup(expr.tensorName, fmts))

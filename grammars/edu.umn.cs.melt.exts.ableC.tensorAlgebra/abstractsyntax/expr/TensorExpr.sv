@@ -76,7 +76,7 @@ abstract production tensorAccess
 top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
 {
   tensor.env = env;
-  tensor.returnType = nothing();
+  tensor.controlStmtContext = initialControlStmtContext;
 
   top.exprName = "__none";
   top.exprs = [];
@@ -115,22 +115,12 @@ top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
 
   top.tensors = [top];
 
-  top.isAvail =
-    !containsAny(
-      stringEq,
-      top.remaining,
-      access
-    );
+  top.isAvail = !containsAny(top.remaining, access);
 
   local f::TensorFormat =
     head(tm:lookup(top.tensorName, top.fmts));
 
-  local dim::Integer =
-    positionOf(
-      stringEq,
-      top.variable,
-      access
-    );
+  local dim::Integer = positionOf(top.variable, access);
 
   local prs::Maybe<Pair<Integer Pair<Integer Integer>>> =
     getElem(f.storage, dim);
@@ -278,7 +268,7 @@ function getAccess
 [String] ::= idx::Expr env::Decorated Env
 {
   idx.env = env;
-  idx.returnType = nothing();
+  idx.controlStmtContext = initialControlStmtContext;
 
   return
     case idx of
@@ -301,7 +291,7 @@ function getIterAccess
 [Either<Expr String>] ::= idx::Expr env::Decorated Env
 {
   idx.env = env;
-  idx.returnType = nothing();
+  idx.controlStmtContext = initialControlStmtContext;
 
   return
     case idx of

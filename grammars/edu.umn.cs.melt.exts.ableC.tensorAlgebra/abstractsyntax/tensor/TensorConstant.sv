@@ -68,16 +68,19 @@ t::TensorConstant ::= sub::[TensorConstant]
               decorate 
                 (decorate c with {env=t.env;}).tensor_asExpr 
               with 
-              {env=t.env; returnType=nothing();} 
+              {env=t.env; controlStmtContext=initialControlStmtContext;
+                initializerPos = ""; inObject = false; expectedType = errorType();}
             of
             | objectInitializer(l) -> l
+            | _ -> error("must be an objectInitializer")
             end
           ,
           sub
         )
       in
       concatInitList(lsts)
-      end
+      end,
+      location=builtin
     );
 
   -- An initializer for the array of the dimensions of
@@ -87,18 +90,22 @@ t::TensorConstant ::= sub::[TensorConstant]
       consInit(
         positionalInit(
           exprInitializer(
-            mkIntConst(t.tensor_size, t.location)
+            mkIntConst(t.tensor_size, t.location),
+            location=builtin
           )
         ),
         case 
           decorate 
             (decorate head(sub) with {env=t.env;}).tensor_dimExpr 
           with 
-          {env=t.env; returnType=nothing();} 
+          {env=t.env; controlStmtContext=initialControlStmtContext;
+          initializerPos = ""; inObject = false; expectedType = errorType();} 
         of
         | objectInitializer(l) -> l
+        | _ -> error("must be an objectInitializer")
         end
-      )
+      ),
+      location=builtin
     );
 }
 
@@ -133,25 +140,28 @@ t::TensorConstant ::= sub::[Expr]
         \ sb::Expr lst::InitList ->
           consInit(
             positionalInit(
-              exprInitializer(sb)
+              exprInitializer(sb, location=builtin)
             ),
             lst
           )
         ,
         nilInit(),
         sub
-      )
+      ),
+      location=builtin
     );
   t.tensor_dimExpr =
     objectInitializer(
       consInit(
         positionalInit(
           exprInitializer(
-            mkIntConst(t.tensor_size, t.location)
+            mkIntConst(t.tensor_size, t.location),
+            location=builtin
           )
         ),
         nilInit()
-      )
+      ),
+      location=builtin
     );
 }
 
@@ -192,8 +202,9 @@ function errorChecking
 [Message] ::= h::Expr tl::[Expr] env::Decorated Env
 {
   h.env = env;
-  
-  h.returnType = nothing();
+ 
+  h.controlStmtContext = initialControlStmtContext;
+
   return
     (
     if null(h.errors)

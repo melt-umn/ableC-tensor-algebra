@@ -6,5 +6,5 @@ imports edu:umn:cs:melt:ableC:abstractsyntax:host;
 imports silver:langutil;
 imports silver:langutil:pp;
 
-imports silver:util:raw:treemap as tm;
+imports silver:util:treemap as tm;
 

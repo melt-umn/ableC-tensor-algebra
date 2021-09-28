@@ -44,7 +44,8 @@ top::Expr ::= type::TypeName dims::[Expr]
     ++
     flatMap(
       \ e::Expr
-      -> let ex::Decorated Expr = decorate e with {env=top.env;returnType=nothing();}
+      -> let ex::Decorated Expr = decorate e with {env=top.env;
+                controlStmtContext=initialControlStmtContext;}
          in
          if null(ex.errors)
          then if ex.typerep.isIntegerType
@@ -65,7 +66,7 @@ top::Expr ::= type::TypeName dims::[Expr]
         \ e::Expr lst::InitList ->
           consInit(
             positionalInit(
-              exprInitializer(e)
+              exprInitializer(e, location=builtin)
             )
             ,
             lst
@@ -73,7 +74,8 @@ top::Expr ::= type::TypeName dims::[Expr]
         ,
         nilInit(),
         dims
-      )
+      ),
+      location=builtin
     );
 
   local fwrd::Expr =
@@ -178,7 +180,7 @@ top::Expr ::= type::TypeName args::[Expr]
   local dimens::Integer = fmt.dimensions;
 
   dims.env = top.env;
-  dims.returnType = nothing();  
+  dims.controlStmtContext = initialControlStmtContext;
 
   local lErrors::[Message] = 
     checkTensorHeader(top.location, top.env)
