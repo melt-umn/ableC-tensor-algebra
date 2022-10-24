@@ -10,7 +10,7 @@ parser extendedParser :: cst:Root {
 }
 
 function main
-IOVal<Integer> ::= args::[String] io_in::IO
+IOVal<Integer> ::= args::[String] io_in::IOToken
 {
   return driver(args, io_in, extendedParser);
 }

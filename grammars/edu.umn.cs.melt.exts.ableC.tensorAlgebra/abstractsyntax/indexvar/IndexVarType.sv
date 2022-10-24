@@ -21,7 +21,7 @@ top::ExtType ::=
       top.givenQualifiers,
       refIdExtType(
         structSEU(),
-        s"tensor_indexvar",
+        just("tensor_indexvar"),
         s"edu:umn:cs:melt:exts:ableC:tensorAlgebra:tensor_indexvar"));
   top.mangledName = s"indexvar";
   top.isEqualTo =

@@ -10,6 +10,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
 {
   top.pp = text("// Halide Tensor Expr Setup");
   top.functionDefs := [];
+  top.labelDefs := [];
 
   local out::TensorExpr = -- Build the output into a TensorExpr
     tensorAccess(tensor, idx, top.env, location=tensor.location);
@@ -28,7 +29,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
   local tensorFormats::[TensorFormat] =
     map(
       \ e::TensorExpr ->
-        getTensorFormat(e, tm:empty(compareString))
+        getTensorFormat(e, tm:empty())
       ,
       tensors
     );
@@ -39,7 +40,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     mapWithTail(
       \ n::String o::[String] ->
         let c::Integer = 
-          count(stringEq, n, o)
+          count(n, o)
         in
         if c > 0
         then n ++ toString(c) ++ "_"
@@ -73,11 +74,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
   outNew.fmts = fmts;
   exNew.fmts = fmts;
 
-  local access :: [String] =
-    nubBy(
-      stringEq, 
-      concat(out.accesses ++ ex.accesses)
-    );
+  local access :: [String] = nub(concat(out.accesses ++ ex.accesses));
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
@@ -86,17 +83,10 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
         newNames,
         tensorFormats
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
-  local originalNames :: [String] =
-    nubBy(
-      stringEq,
-      map(
-        getTensorName(_),
-        ex.tensors
-      )
-    );
+  local originalNames :: [String] = nub(map(getTensorName, ex.tensors));
 
   {- If any tensor is an Expr other than a declRefExpr,
      declare it with a generated name, so as to only
@@ -106,7 +96,8 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
       \ e::TensorExpr ->
         case e of
         | tensorAccess(ex, _, _) ->
-          case decorate ex with {env=e.envr; returnType=nothing();} of
+          case decorate ex with {env=e.envr;
+                            controlStmtContext=initialControlStmtContext;} of
           | decExpr(declRefExpr(name(_))) -> nothing()
           | declRefExpr(name(_)) -> nothing()
           | _ ->
@@ -135,7 +126,8 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
   local exprDecls :: [Stmt] =
     maybeMap(
       \ e::Expr ->
-        case decorate e with {env=top.env; returnType=nothing();} of
+        case decorate e with {env=top.env;
+                            controlStmtContext=initialControlStmtContext;} of
         | decExpr(declRefExpr(name(_))) -> nothing()
         | declRefExpr(name(_)) -> nothing()
         | _ ->
@@ -282,7 +274,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     };
 
   fwrd.env = top.env;
-  fwrd.returnType = top.returnType;
+  fwrd.controlStmtContext = top.controlStmtContext;
 
   inner.env = 
     addEnv(
@@ -338,6 +330,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
 {
   top.pp = text("// Halide Tensor Expr Setup");
   top.functionDefs := [];
+  top.labelDefs := [];
 
   local ex::TensorExpr =
     expr.tensorExp;
@@ -351,11 +344,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       tensors
     );
 
-  local originalNames :: [String] =
-    nubBy(
-      stringEq,
-      tensorNames
-    );
+  local originalNames :: [String] = nub(tensorNames);
 
   local requestLocks :: Stmt =
     foldl(
@@ -385,7 +374,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
 
   local tensorFormats::[TensorFormat] =
     map(
-      getTensorFormat(_, tm:empty(compareString)),
+      getTensorFormat(_, tm:empty()),
       tensors
     );
 
@@ -393,7 +382,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
     mapWithTail(
       \ n::String o::[String] ->
         let c::Integer =
-          count(stringEq, n, o)
+          count(n, o)
         in
         if c > 0
         then n ++ toString(c) ++ "_"
@@ -425,11 +414,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       location=expr.location
     );
 
-  local access::[String] =
-    nubBy(
-      stringEq,
-      concat(ex.accesses)
-    );
+  local access::[String] = nub(concat(ex.accesses));
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
@@ -438,7 +423,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
         newNames,
         tensorFormats
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
   local tensorDecls :: [Stmt] =
@@ -446,7 +431,8 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       \ e::TensorExpr ->
         case e of
         | tensorAccess(ex, _, _) ->
-          case decorate ex with {env=e.envr; returnType=nothing();} of
+          case decorate ex with {env=e.envr;
+                        controlStmtContext = initialControlStmtContext;} of
           | decExpr(declRefExpr(name(_))) -> nothing()
           | declRefExpr(name(_)) -> nothing()
           | _ ->
@@ -473,7 +459,8 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
   local exprDecls :: [Stmt] =
     maybeMap(
       \ e::Expr ->
-        case decorate e with {env=top.env; returnType=nothing();} of
+        case decorate e with {env=top.env;
+                        controlStmtContext = initialControlStmtContext;} of
         | decExpr(declRefExpr(name(_))) -> nothing()
         | declRefExpr(name(_)) -> nothing()
         | _ ->
@@ -604,7 +591,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
       )
     );
 
-  finalFwrd.returnType = top.returnType;
+  finalFwrd.controlStmtContext = top.controlStmtContext;
   finalFwrd.env = top.env;
 
   inner.env = 

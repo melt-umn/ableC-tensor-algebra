@@ -51,23 +51,11 @@ top::ComputeGraph ::=
     allDense(getTensorFormat(assign, fmts));
 
   -- Whether any of the remaining vars are used to access the output tensor
-  local isBelowOut::Boolean =
-    !containsAny(
-      stringEq,
-      tail(vars),
-      head(assign.accesses)
-    );
+  local isBelowOut::Boolean = !containsAny(tail(vars), head(assign.accesses));
 
   -- Whether any variable (other than the first) is used to access output
   local above::Boolean =
-    if null(assign.accesses)
-    then false
-    else
-      containsBy(
-        stringEq,
-        last(head(assign.accesses)),
-        tail(vars)
-      );
+    !null(assign.accesses) && contains(last(head(assign.accesses)), tail(vars));
 
   -- Build the lattice Point
   local lp::LatticePoint =
@@ -94,20 +82,12 @@ top::ComputeGraph ::=
         !foldl( -- Include if this has different sparse dimensions than anything before
           \ b::Boolean lat::LatticePoint ->
             b || 
-            let e::Decorated TensorExpr =
+            let e::Decorated TensorExpr with {variable, fmts} =
               decorate c.value with {variable=head(vars); fmts=fmts;}
             in
-            let ex::Decorated TensorExpr =
+            let ex::Decorated TensorExpr with {variable, fmts} =
               decorate lat.value with {variable=head(vars); fmts=fmts;}
-            in
-            listEqual(
-              \ p1::Pair<String Integer>
-                p2::Pair<String Integer> ->
-                p1.fst == p2.fst && p1.snd == p2.snd
-              , 
-              e.sparse, 
-              ex.sparse
-            )
+            in e.sparse == ex.sparse
             end
             end
           ,
@@ -545,7 +525,8 @@ Expr ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
   return
     case e of
     | tensorBaseExpr(ex, _) ->
-      case decorate ex with {env=e.envr; returnType=nothing();} of
+      case decorate ex with {env=e.envr;
+                controlStmtContext = initialControlStmtContext;} of
       | declRefExpr(nm) -> ableC_Expr{$name{nm.name}}
       | _ -> ableC_Expr{$name{"__error"}}
       end
@@ -707,12 +688,7 @@ Stmt ::=
     | tensorAccess(_, _, _) ->
       let acc::[String] =
         head(assign.accesses)
-      in
-      !containsAny(
-        stringEq, 
-        v :: remain,
-        acc
-      )
+      in !containsAny(v :: remain, acc)
       end
     | _ -> true
     end;
@@ -723,18 +699,7 @@ Stmt ::=
     | tensorAccess(_, _, _) ->
       let acc::[String] =
         head(assign.accesses)
-      in
-      !containsAny(
-        stringEq, 
-        remain,
-        acc
-      )
-      &&
-      containsBy(
-        stringEq,
-        v,
-        acc
-      )
+      in !containsAny(remain, acc) && contains(v, acc)
       end
     | _ -> false
     end;
@@ -1005,13 +970,7 @@ Stmt ::=
                                   let possible::[TensorExpr] =
                                     exprCanZero(p.snd)
                                   in
-                                  let i::Integer =
-                                    positionBy(
-                                      \ ex::TensorExpr ->
-                                        exprContained(e, ex, fmts)
-                                      ,
-                                      possible
-                                    )
+                                  let i::Integer = positionOfBy(exprContained(_, _, fmts), e, possible)
                                   in
                                   if i != -1
                                   then
@@ -1167,12 +1126,7 @@ Stmt ::=
   local fmtNm::String =
     getTensorFormat(assign, fmts).proceduralName;
   local oC::Integer =
-    let i :: Integer =
-      positionOf(
-        stringEq,
-        v,
-        head(assign.accesses)
-      )
+    let i :: Integer = positionOf(v, head(assign.accesses))
     in
     getElem(getTensorFormat(assign, fmts).storage, i).fromJust.snd.fst
     end;
@@ -1221,12 +1175,7 @@ Stmt ::=
     | tensorAccess(_, _, _) ->
       let acc::[String] =
         head(assign.accesses)
-      in
-      !containsAny(
-        stringEq, 
-        v :: remain,
-        acc
-      )
+      in !containsAny(v :: remain, acc)
       end
     | _ -> true
     end;
@@ -1236,18 +1185,7 @@ Stmt ::=
     | tensorAccess(_, _, _) ->
       let acc::[String] =
         head(assign.accesses)
-      in
-      !containsAny(
-        stringEq, 
-        remain,
-        acc
-      )
-      &&
-      containsBy(
-        stringEq,
-        v,
-        acc
-      )
+      in !containsAny(remain, acc) && contains(v, acc)
       end
     | _ -> false
     end;

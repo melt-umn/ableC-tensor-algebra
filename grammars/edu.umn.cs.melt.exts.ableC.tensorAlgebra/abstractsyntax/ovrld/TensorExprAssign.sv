@@ -37,7 +37,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   local tensorFormats::[TensorFormat] =
     map(
       \ e::TensorExpr ->
-        getTensorFormat(e, tm:empty(compareString))
+        getTensorFormat(e, tm:empty())
       ,
       tensors
     );
@@ -47,7 +47,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     mapWithTail(
       \ n::String o::[String] ->
         let c::Integer =
-          count(stringEq, n, o)
+          count(n, o)
         in
         if c > 0
         then n ++ toString(c) ++ "_"
@@ -78,20 +78,12 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
   {- Any indexvars that appear only on the lhs -}
   local leftOnly::[String] =
-    let lAcc::[String] =
-      nubBy(
-        stringEq,
-        flatMap(\l::[String] -> l, outNew.accesses)
-      )
+    let lAcc::[String] = nub(flatMap(\l::[String] -> l, outNew.accesses))
     in
-    let rAcc::[String] =
-      nubBy(
-        stringEq,
-        flatMap(\l::[String] -> l, exNew.accesses)
-      )
+    let rAcc::[String] = nub(flatMap(\l::[String] -> l, exNew.accesses))
     in
     filter(
-      \ v::String -> !containsBy(stringEq, v, rAcc)
+      \ v::String -> !contains(v, rAcc)
       ,
       lAcc
     )
@@ -124,7 +116,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
         tensorFormats
       )
       ,
-      tm:empty(compareString)
+      tm:empty()
     );
 
   {- Determine if the expression can be turned into a tensor
@@ -224,6 +216,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
                     (struct $name{s"tensor_${fmtNm}"}) $Expr{ex};
               }
             end
+          | _ -> error("not a tensorAccess")
           end
         }
         pthread_rwlock_wrlock(&(((struct $name{s"tensor_${getTensorFormat(outNew, fmts).proceduralName}"}*) 
@@ -238,7 +231,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   local exprs :: [Pair<String Expr>] =
     maybeMap(
       \ e::Expr ->
-        case decorate e with {env=top.env; returnType=nothing();} of
+        case decorate e with {env=top.env;
+                      controlStmtContext = initialControlStmtContext;} of
         | decExpr(declRefExpr(name(_))) -> nothing()
         | declRefExpr(name(_)) -> nothing()
         | _ ->
@@ -267,7 +261,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       \ t::TensorExpr ->
         case t of
         | tensorAccess(ex, _, _) ->
-          case decorate ex with{env=top.env; returnType=nothing();} of
+          case decorate ex with{env=top.env;
+                      controlStmtContext = initialControlStmtContext;} of
           | decExpr(declRefExpr(name(_))) -> nothing()
           | declRefExpr(name(_)) -> nothing()
           | _ ->
@@ -275,7 +270,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
               pair(
                 pair(
                   getTensorName(t),
-                  getTensorFormat(t, tm:empty(compareString)).proceduralName
+                  getTensorFormat(t, tm:empty()).proceduralName
                 ),
                 ex
               )
@@ -307,7 +302,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       ,
       map(
         \ t::TensorExpr ->
-          pair(getTensorName(t), getTensorFormat(t, tm:empty(compareString)).proceduralName)
+          pair(getTensorName(t), getTensorFormat(t, tm:empty()).proceduralName)
         ,
         ex.tensors
       )
@@ -334,7 +329,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     maybeMapWithTail(
       \ n ::Pair<String TensorFormat> o :: [Pair<String TensorFormat>] ->
         let c :: Integer =
-          count(stringEq, n.fst, map(\p::Pair<String TensorFormat>->p.fst, o))
+          count(n.fst, map(\p::Pair<String TensorFormat>->p.fst, o))
         in
         if c > 0
         then
@@ -349,7 +344,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       ,
       map(
         \ t::TensorExpr ->
-          pair(getTensorName(t), getTensorFormat(t, tm:empty(compareString)))
+          pair(getTensorName(t), getTensorFormat(t, tm:empty()))
         ,
         ex.tensors
       )
@@ -635,7 +630,7 @@ top::Expr ::= output::Expr expr::Expr
   local tensorFormats::[TensorFormat] =
     map(
       \ e::TensorExpr ->
-        getTensorFormat(e, tm:empty(compareString))
+        getTensorFormat(e, tm:empty())
       ,
       tensors
     );
@@ -644,7 +639,7 @@ top::Expr ::= output::Expr expr::Expr
     mapWithTail(
       \ n::String o::[String] ->
         let c::Integer =
-          count(stringEq, n, o)
+          count(n, o)
         in
         if c > 0
         then n ++ toString(c) ++ "_"
@@ -680,7 +675,7 @@ top::Expr ::= output::Expr expr::Expr
         newNames,
         tensorFormats
       ),
-      tm:empty(compareString)
+      tm:empty()
     );
 
   local lErrors::[Message] =
@@ -725,7 +720,8 @@ top::Expr ::= output::Expr expr::Expr
   local exprs :: [Pair<String Expr>] =
     maybeMap(
       \ e::Expr ->
-        case decorate e with {env=top.env; returnType=nothing();} of
+        case decorate e with {env=top.env;
+                      controlStmtContext = initialControlStmtContext;} of
         | declRefExpr(name(_)) -> nothing()
         | _ ->
           just(pair(getExprName(e, top.env), e))
@@ -751,14 +747,15 @@ top::Expr ::= output::Expr expr::Expr
       \ t::TensorExpr ->
         case t of
         | tensorAccess(ex, _, _) ->
-          case decorate ex with {env=top.env; returnType=nothing();} of
+          case decorate ex with {env=top.env;
+                      controlStmtContext = initialControlStmtContext;} of
           | declRefExpr(name(_)) -> nothing()
           | _ ->
             just(
               pair(
                 pair(
                   getTensorName(t),
-                  getTensorFormat(t, tm:empty(compareString)).proceduralName
+                  getTensorFormat(t, tm:empty()).proceduralName
                 ),
                 ex
               )
@@ -789,7 +786,7 @@ top::Expr ::= output::Expr expr::Expr
       ,
       map(
         \ t::TensorExpr ->
-          pair(getTensorName(t), getTensorFormat(t, tm:empty(compareString)).proceduralName)
+          pair(getTensorName(t), getTensorFormat(t, tm:empty()).proceduralName)
         ,
         ex.tensors
       )
@@ -812,7 +809,7 @@ top::Expr ::= output::Expr expr::Expr
     maybeMapWithTail(
       \ n::Pair<String TensorFormat> o::[Pair<String TensorFormat>] ->
         let c::Integer =
-          count(stringEq, n.fst, map(\p::Pair<String TensorFormat>->p.fst, o))
+          count(n.fst, map(\p::Pair<String TensorFormat>->p.fst, o))
         in
         if c > 0
         then
@@ -827,7 +824,7 @@ top::Expr ::= output::Expr expr::Expr
       ,
       map(
         \ t::TensorExpr ->
-          pair(getTensorName(t), getTensorFormat(t, tm:empty(compareString)))
+          pair(getTensorName(t), getTensorFormat(t, tm:empty()))
         ,
         ex.tensors
       )
@@ -992,7 +989,7 @@ Maybe<[String]> ::= orders::[[String]]
   local safe::[Boolean] =
     map(
       \ v::String ->
-        !containsBy(stringEq, v, lowers)
+        !contains(v, lowers)
       ,
       top
     );

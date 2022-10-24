@@ -7,6 +7,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
 {
 
   top.functionDefs := [];
+  top.labelDefs := [];
   top.pp =
     ppConcat([
       text("foreach ("),
@@ -34,14 +35,15 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
 
   local tensor :: TensorExpr =
     bounds.tensorExp;
-  tensor.fmts = tm:empty(compareString);
+  tensor.fmts = tm:empty();
 
   local fmt :: TensorFormat =
     if tensorAcc
-    then getTensorFormat(tensor, tm:empty(compareString))
+    then getTensorFormat(tensor, tm:empty())
     else 
       case bounds.typerep of
       | extType(_, tensorType(f)) -> new(f.tensorFormat)
+      | _ -> error("fmt demanded when not a tensorType")
       end;
 
   local access :: [Either<Expr String>] =
@@ -52,7 +54,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
         \ i::Integer ->
           right(s"__v${toString(i)}")
         ,
-        makeList(integerCompare, inc, 0, fmt.dimensions)
+        makeList(inc, 0, fmt.dimensions)
       );
 
   local stmts :: [(Stmt ::= Stmt)] =
@@ -262,7 +264,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
     );
 
   fwrd.env = top.env;
-  fwrd.returnType = top.returnType;
+  fwrd.controlStmtContext = top.controlStmtContext;
 
   local newEnv :: Decorated Env =
     addEnv(
@@ -298,6 +300,10 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
       top.env
     );
   body.env = newEnv;
+  -- A break wouldn't behave as expected because we translate into multiple
+  -- loops, we could translate it to work as expected (possibly a TODO)
+  body.controlStmtContext = controlStmtContext(top.controlStmtContext.returnType,
+      false, true, tm:empty());
 
   local lErrors :: [Message] =
     --err(var.location, s"Tensor Acc? ${toString(tensorAcc)}") ::
@@ -333,7 +339,8 @@ function tensorVals
   return
     case ex of
     | tensorAccess(e, _, _) ->
-      case decorate e with {env=env; returnType=nothing();} of
+      case decorate e with {env=env;
+                      controlStmtContext=initialControlStmtContext;} of
       | declRefExpr(name(_)) -> nullStmt()
       | _ -> 
         ableC_Stmt {
