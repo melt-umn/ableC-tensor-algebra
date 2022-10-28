@@ -27,11 +27,11 @@ synthesized attribute iterAccess :: [Either<Expr String>];
 -- Setting remaining and querying isAvail tells whether
 -- at the current position in the codegen a TensorExpr
 -- is available to calculate.
-autocopy attribute remaining :: [String];
+inherited attribute remaining :: [String];
 synthesized attribute isAvail :: Boolean;
 
 -- The variable that is currently used (being queried of)
-autocopy attribute variable :: String;
+inherited attribute variable :: String;
 
 -- Various ways to determine if layers are dense or sparse.
 -- sparse(_r) and dense(_r) list all dimensions (tensor name and
