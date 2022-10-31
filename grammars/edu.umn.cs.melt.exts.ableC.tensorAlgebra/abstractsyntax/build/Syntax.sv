@@ -11,6 +11,8 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production build_empty
 top::Expr ::= type::TypeName dims::[Expr]
 {
+  propagate controlStmtContext, env;
+
   local format::Name =
     case type.typerep of
     | extType(_, tensorType(fmt)) -> fmt
@@ -97,6 +99,9 @@ top::Expr ::= type::TypeName dims::[Expr]
 abstract production build_data
 top::Expr ::= type::TypeName data::TensorConstant
 {
+  propagate controlStmtContext;
+  type.env = top.env;
+
   local format::Name =
     case type.typerep of
     | extType(_, tensorType(fmt)) -> fmt
@@ -160,6 +165,8 @@ top::Expr ::= type::TypeName data::TensorConstant
 abstract production buildTensorExpr
 top::Expr ::= type::TypeName args::[Expr]
 {
+  propagate controlStmtContext, env;
+
   local dims::Expr = head(args);
   
   local format::Name = 

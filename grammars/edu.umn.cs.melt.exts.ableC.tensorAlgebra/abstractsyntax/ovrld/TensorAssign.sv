@@ -10,6 +10,7 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production accessTensorAssign
 top::Expr ::= tensor::Expr idx::Expr right::Expr
 {
+  propagate controlStmtContext, env;
 
   -- Whether the right side of the expression is a tensor_acc or
   -- An actual value

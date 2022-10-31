@@ -11,6 +11,8 @@ top::Expr ::= l::Expr r::Expr
              r.pp
            ]);
 
+  propagate controlStmtContext, env;
+
   top.tensorExp =
     tensorAdd(l.tensorExp, r.tensorExp, top.env, location=top.location);
 

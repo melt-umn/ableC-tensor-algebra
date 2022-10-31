@@ -12,6 +12,9 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
   top.functionDefs := [];
   top.labelDefs := [];
 
+  propagate controlStmtContext;
+  value.env = top.env;
+
   local out::TensorExpr = -- Build the output into a TensorExpr
     tensorAccess(tensor, idx, top.env, location=tensor.location);
   local ex::TensorExpr = -- Get the rhs's TensorExpr
@@ -331,6 +334,9 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
   top.pp = text("// Halide Tensor Expr Setup");
   top.functionDefs := [];
   top.labelDefs := [];
+
+  propagate controlStmtContext;
+  expr.env = top.env;
 
   local ex::TensorExpr =
     expr.tensorExp;

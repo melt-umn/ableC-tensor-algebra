@@ -9,6 +9,8 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 abstract production format
 top::Decl ::= nm::Name specs::[Integer] order::[Integer]
 {
+  propagate controlStmtContext, env;
+
   local errors::[Message] =
     checkTensorHeader(nm.location, top.env)
     ++

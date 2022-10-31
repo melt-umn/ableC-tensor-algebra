@@ -11,6 +11,8 @@ top::Stmt ::= output::Name expr::Expr
   top.functionDefs := [];
   top.labelDefs := [];
 
+  propagate controlStmtContext, env;
+
   local out::TensorExpr =
     tensorBaseExpr(
       declRefExpr(
@@ -219,6 +221,8 @@ top::Stmt ::= output::Name expr::Expr access::[String]
   top.functionDefs := [];
   top.labelDefs := [];
 
+  propagate controlStmtContext, env;
+
   local out::TensorExpr =
     tensorBaseExpr(
       declRefExpr(
@@ -421,6 +425,8 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
     ]);
   top.functionDefs := [];
   top.labelDefs := [];
+
+  propagate controlStmtContext, env;
     
   local out::TensorExpr =
     tensorAccess(tensor, idx, top.env, location=tensor.location);
@@ -724,6 +730,8 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
     ]);
   top.functionDefs := [];
   top.labelDefs := [];
+
+  propagate controlStmtContext, env;
 
   local out::TensorExpr =
     tensorAccess(tensor, idx, top.env, location=tensor.location);

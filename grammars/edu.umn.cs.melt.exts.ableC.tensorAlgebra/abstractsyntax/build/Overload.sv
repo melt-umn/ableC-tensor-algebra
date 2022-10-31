@@ -21,6 +21,8 @@ top::Expr ::= t::TypeName exs::[Expr]
       ++
       [text(")")]
     );
+
+  propagate controlStmtContext, env;
   
   forwards to
     case t.typerep.buildProd of

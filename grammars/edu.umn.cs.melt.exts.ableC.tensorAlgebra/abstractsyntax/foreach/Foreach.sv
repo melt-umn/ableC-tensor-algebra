@@ -19,6 +19,8 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
       body.pp
    ]);
 
+  bounds.controlStmtContext = top.controlStmtContext;
+
   bounds.env = top.env;
 
   local tensorAcc :: Boolean =

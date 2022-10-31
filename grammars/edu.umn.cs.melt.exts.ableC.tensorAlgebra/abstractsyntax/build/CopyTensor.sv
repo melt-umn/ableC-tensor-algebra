@@ -18,6 +18,8 @@ top::Expr ::= l::Expr r::Expr
       r.pp
     ]);
 
+  propagate controlStmtContext, env;
+
   local formatL :: TensorFormat =
     case l.typerep of
     | extType(_, tensorType(f)) -> new(f.tensorFormat)
