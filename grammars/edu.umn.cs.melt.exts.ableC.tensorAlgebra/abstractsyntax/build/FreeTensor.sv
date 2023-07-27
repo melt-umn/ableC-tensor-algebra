@@ -36,9 +36,7 @@ top::Expr ::= tensor::Expr
   local fmtNm::String =
     fmt.proceduralName;
 
-  forwards to
-    mkErrorCheck(lErrors,
-      ableC_Expr {
+  local fwrd::Expr = ableC_Expr {
       ({
         struct $name{s"tensor_${fmtNm}"}* _tensor = (struct $name{s"tensor_${fmtNm}"}*) &$Expr{tensor};
         free(_tensor->data);
@@ -49,5 +47,7 @@ top::Expr ::= tensor::Expr
         pthread_rwlock_destroy(&(_tensor->lock));
         1;
       })
-      });
+    };
+
+  forwards to mkErrorCheck(lErrors, fwrd);
 }

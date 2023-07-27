@@ -942,9 +942,7 @@ top::Expr ::= output::Expr expr::Expr
       originalNames
     );
 
-  forwards to
-    mkErrorCheck(
-      lErrors,
+  local fwrd::Expr =
       eqExpr(
         output, -- set output equal to ...
         stmtExpr( -- perform the compute
@@ -956,7 +954,11 @@ top::Expr ::= output::Expr expr::Expr
           location=top.location
         ),
         location=top.location
-      )
+      );
+  forwards to
+    mkErrorCheck(
+      lErrors,
+      fwrd
     );
 }
 

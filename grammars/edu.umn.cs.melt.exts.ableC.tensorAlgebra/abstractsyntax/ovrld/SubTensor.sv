@@ -16,9 +16,10 @@ top::Expr ::= l::Expr r::Expr
   top.tensorExp =
     tensorSub(l.tensorExp, r.tensorExp, top.env, location=top.location);
 
+  local fwrd::Expr = emptyAccess;
   forwards to 
     mkErrorCheck(
       l.errors ++ r.errors,
-      emptyAccess
+      fwrd
     );
 }
