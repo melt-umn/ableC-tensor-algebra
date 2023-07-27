@@ -112,7 +112,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     tm:add(
       zipWith(
         \ s::String f::TensorFormat ->
-          pair(s, f)
+          (s, f)
         ,
         newNames,
         tensorFormats
@@ -238,7 +238,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
         | decExpr(declRefExpr(name(_))) -> nothing()
         | declRefExpr(name(_)) -> nothing()
         | _ ->
-          just(pair(getExprName(e, top.env), e))
+          just((getExprName(e, top.env), e))
         end
       ,
       exNew.exprs
@@ -269,8 +269,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           | declRefExpr(name(_)) -> nothing()
           | _ ->
             just(
-              pair(
-                pair(
+              (
+                (
                   getTensorName(t),
                   getTensorFormat(t, tm:empty()).proceduralName
                 ),
@@ -304,7 +304,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       ,
       map(
         \ t::TensorExpr ->
-          pair(getTensorName(t), getTensorFormat(t, tm:empty()).proceduralName)
+          (getTensorName(t), getTensorFormat(t, tm:empty()).proceduralName)
         ,
         ex.tensors
       )
@@ -336,8 +336,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
         if c > 0
         then
           just(
-            pair(
-              pair(n.fst ++ toString(c) ++ "_", n.snd.proceduralName),
+            (
+              (n.fst ++ toString(c) ++ "_", n.snd.proceduralName),
               n.fst
             )
           )
@@ -346,7 +346,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       ,
       map(
         \ t::TensorExpr ->
-          pair(getTensorName(t), getTensorFormat(t, tm:empty()))
+          (getTensorName(t), getTensorFormat(t, tm:empty()))
         ,
         ex.tensors
       )
@@ -674,7 +674,7 @@ top::Expr ::= output::Expr expr::Expr
     tm:add(
       zipWith(
         \ s::String f::TensorFormat ->
-          pair(s, f)
+          (s, f)
         ,
         newNames,
         tensorFormats
@@ -728,7 +728,7 @@ top::Expr ::= output::Expr expr::Expr
                       controlStmtContext = initialControlStmtContext;} of
         | declRefExpr(name(_)) -> nothing()
         | _ ->
-          just(pair(getExprName(e, top.env), e))
+          just((getExprName(e, top.env), e))
         end
       ,
       exNew.exprs
@@ -756,8 +756,8 @@ top::Expr ::= output::Expr expr::Expr
           | declRefExpr(name(_)) -> nothing()
           | _ ->
             just(
-              pair(
-                pair(
+              (
+                (
                   getTensorName(t),
                   getTensorFormat(t, tm:empty()).proceduralName
                 ),
@@ -790,7 +790,7 @@ top::Expr ::= output::Expr expr::Expr
       ,
       map(
         \ t::TensorExpr ->
-          pair(getTensorName(t), getTensorFormat(t, tm:empty()).proceduralName)
+          (getTensorName(t), getTensorFormat(t, tm:empty()).proceduralName)
         ,
         ex.tensors
       )
@@ -818,8 +818,8 @@ top::Expr ::= output::Expr expr::Expr
         if c > 0
         then
           just(
-            pair(
-              pair(n.fst ++ toString(c) ++ "_", n.snd.proceduralName),
+            (
+              (n.fst ++ toString(c) ++ "_", n.snd.proceduralName),
               n.fst
             )
           )
@@ -828,7 +828,7 @@ top::Expr ::= output::Expr expr::Expr
       ,
       map(
         \ t::TensorExpr ->
-          pair(getTensorName(t), getTensorFormat(t, tm:empty()))
+          (getTensorName(t), getTensorFormat(t, tm:empty()))
         ,
         ex.tensors
       )

@@ -309,7 +309,7 @@ function extractPoints_helper
 [Pair<LatticePoint Integer>] ::= p::LatticePoint lvl::Integer
 {
   return
-    pair(p, lvl) ::
+    (p, lvl) ::
     flatMap(
       \ pnt::LatticePoint ->
         extractPoints_helper(pnt, lvl+1)
@@ -337,7 +337,7 @@ function listSubs_helper
 
   return
     if e.isAvail && !isExpr(e)
-    then [pair(s"t${var}${if idx == 0 then "" else toString(idx)}", e)]
+    then [(s"t${var}${if idx == 0 then "" else toString(idx)}", e)]
     else
       case e of
       | tensorAdd(l, r, _) ->
@@ -409,7 +409,7 @@ Pair<TensorExpr Integer> ::=
   return
     if e.isAvail && !isExpr(e)
     then
-      pair(
+      (
         tensorBaseExpr(
           declRefExpr(
             name(s"t${var}${if idx == 0 then "" else toString(idx)}", location=e.location),
@@ -424,30 +424,30 @@ Pair<TensorExpr Integer> ::=
       case e of
       | tensorAdd(l, r, en) ->
         if l.isAvail && isBelowOut
-        then pair(r, idx+1)
+        then (r, idx+1)
         else if r.isAvail && isBelowOut
-        then pair(l, idx+1)
+        then (l, idx+1)
         else 
           let sL::Pair<TensorExpr Integer> =
             makeSubs_helper(l, var, remain, isBelowOut, idx, fmts)
           in let sR::Pair<TensorExpr Integer> =
             makeSubs_helper(r, var, remain, isBelowOut, sL.snd, fmts)
           in
-          pair(tensorAdd(sL.fst, sR.fst, en, location=e.location), sR.snd)
+          (tensorAdd(sL.fst, sR.fst, en, location=e.location), sR.snd)
           end
           end
       | tensorSub(l, r, en) ->
         if l.isAvail && isBelowOut
-        then pair(r, idx+1)
+        then (r, idx+1)
         else if r.isAvail && isBelowOut
-        then pair(l, idx+1)
+        then (l, idx+1)
         else
           let sL::Pair<TensorExpr Integer> =
             makeSubs_helper(l, var, remain, isBelowOut, idx, fmts)
           in let sR::Pair<TensorExpr Integer> =
             makeSubs_helper(r, var, remain, isBelowOut, sL.snd, fmts)
           in
-          pair(tensorSub(sL.fst, sR.fst, en, location=e.location), sR.snd)
+          (tensorSub(sL.fst, sR.fst, en, location=e.location), sR.snd)
           end
           end
       | tensorMul(l, r, en) ->
@@ -456,7 +456,7 @@ Pair<TensorExpr Integer> ::=
         in let sR::Pair<TensorExpr Integer> =
           makeSubs_helper(r, var, remain, false, sL.snd, fmts)
         in
-        pair(tensorMul(sL.fst, sR.fst, en, location=e.location), sR.snd)
+        (tensorMul(sL.fst, sR.fst, en, location=e.location), sR.snd)
         end
         end
       | tensorDiv(l, r, en) ->
@@ -465,10 +465,10 @@ Pair<TensorExpr Integer> ::=
         in let sR::Pair<TensorExpr Integer> = 
           makeSubs_helper(r, var, remain, false, sL.snd, fmts)
         in
-        pair(tensorDiv(sL.fst, sR.fst, en, location=e.location), sR.snd)
+        (tensorDiv(sL.fst, sR.fst, en, location=e.location), sR.snd)
         end
         end
-      | _ -> pair(e, idx)
+      | _ -> (e, idx)
       end;
 }
 
@@ -783,7 +783,7 @@ Stmt ::=
       if top
       then 
         case outSparse of
-        | just(pair(s, d)) ->
+        | just((s, d)) ->
           ableC_Stmt {
             unsigned long $name{s"p${s}${toString(d+1)}"} =
               $name{s"${s}${toString(d+1)}_pos"}
@@ -845,7 +845,7 @@ Stmt ::=
           // Start 5 (If it output is sparse, align out indexing variable to the proper value)
           $Stmt{
             case outSparse of
-            | just(pair(s, d)) ->
+            | just((s, d)) ->
               ableC_Stmt {
                 while($name{s"${s}${toString(d+1)}_idx"}[$name{s"p${s}${toString(d+1)}"}] < $name{v}) {
                   $name{s"p${s}${toString(d+1)}"}++;
@@ -879,7 +879,7 @@ Stmt ::=
           // Start 6 (If output is dense, calculate indexing variable for it)
           $Stmt{
             case outDense of
-            | just(pair(s, d)) ->
+            | just((s, d)) ->
               ableC_Stmt {
                 unsigned long $name{s"p${s}${toString(d+1)}"} =
                   $Expr{
@@ -997,7 +997,7 @@ Stmt ::=
                         // Start C (if the output is sparse, increment counter)
                         $Stmt{
                           case outSparse of
-                          | just(pair(s, d)) ->
+                          | just((s, d)) ->
                             ableC_Stmt {
                               $name{s"p${s}${toString(d+1)}"}++;
                             }
@@ -1433,13 +1433,13 @@ Pair<TensorExpr Integer> ::=
 
   return
     if ex.isAvail 
-    then pair(ex, idx) -- if the value is already available, we don't change it
+    then (ex, idx) -- if the value is already available, we don't change it
     else
       case ex of
       | tensorBaseExpr(_, _) ->
-        pair(ex, idx) -- expressions are always available
+        (ex, idx) -- expressions are always available
       | tensorAccess(_, _, en) ->
-        pair( -- If it's just an access, we just give it an automatic name and move on
+        ( -- If it's just an access, we just give it an automatic name and move on
           tensorBaseExpr(
             declRefExpr(
               name(s"t${head(remain)}${toString(idx)}", location=ex.location),
@@ -1498,7 +1498,7 @@ Pair<TensorExpr Integer> ::=
         let rSub::Pair<TensorExpr Integer> =
           reduceDeeper_helper(r, var, remain, lSub.snd, fmts)
         in
-        pair(
+        (
           prod(lSub.fst, rSub.fst, en, l.location),
           rSub.snd
         )
@@ -1512,7 +1512,7 @@ Pair<TensorExpr Integer> ::=
         let rSub::Pair<TensorExpr Integer> =
           -- If no part of the expression is available, replace the who thing with
           -- a name based on the next variable, and our count of indices
-          pair(
+          (
             tensorBaseExpr(
               declRefExpr(
                 name(
@@ -1527,7 +1527,7 @@ Pair<TensorExpr Integer> ::=
             lSub.snd+1
           )
         in
-        pair(
+        (
           prod(lSub.fst, rSub.fst, en, l.location),
           rSub.snd
         )
@@ -1536,7 +1536,7 @@ Pair<TensorExpr Integer> ::=
       else if anyAvail(r, remain, fmts)
       then 
         let lSub::Pair<TensorExpr Integer> =
-          pair(
+          (
             tensorBaseExpr(
               declRefExpr(
                 name(
@@ -1554,14 +1554,14 @@ Pair<TensorExpr Integer> ::=
         let rSub::Pair<TensorExpr Integer> =
           reduceDeeper_helper(r, var, remain, lSub.snd, fmts)
         in
-        pair(
+        (
           prod(lSub.fst, rSub.fst, en, l.location),
           rSub.snd
         )
         end
         end
       else
-        pair( -- If nothing is available, the whole expression is substituted 
+        ( -- If nothing is available, the whole expression is substituted 
           tensorBaseExpr(
             declRefExpr(
               name(
@@ -1584,7 +1584,7 @@ Pair<TensorExpr Integer> ::=
          -- a(i) = b(i) + sum for all j of c(j)
       if l.isAvail && !availSimul(r, remain, fmts)
       then
-        pair(
+        (
           tensorBaseExpr(
             declRefExpr(
               name(
@@ -1603,14 +1603,14 @@ Pair<TensorExpr Integer> ::=
         let rSub::Pair<TensorExpr Integer> =
           reduceDeeper_helper(r, var, remain, idx, fmts)
         in
-        pair(
+        (
           prod(l, rSub.fst, en, l.location),
           rSub.snd
         )
         end
       else if r.isAvail && !availSimul(l, remain, fmts)
       then
-        pair(
+        (
           tensorBaseExpr(
             declRefExpr(
               name(
@@ -1629,13 +1629,13 @@ Pair<TensorExpr Integer> ::=
         let lSub::Pair<TensorExpr Integer> =
           reduceDeeper_helper(l, var, remain, idx, fmts)
         in
-        pair(
+        (
           prod(lSub.fst, r, en, l.location),
           lSub.snd
         )
         end
       else
-        pair(
+        (
           tensorBaseExpr(
             declRefExpr(
               name(
@@ -1674,14 +1674,14 @@ Pair<[Pair<String TensorExpr>] Integer> ::=
 
   return
     if ex.isAvail
-    then pair([], idx)
+    then ([], idx)
     else
       case ex of
       | tensorBaseExpr(_, _) ->
-        pair([], idx)
+        ([], idx)
       | tensorAccess(_, _, en) ->
-        pair(
-          [pair(s"t${head(remain)}${toString(idx)}", ex)],
+        (
+          [(s"t${head(remain)}${toString(idx)}", ex)],
           idx+1
         )
       | tensorAdd(l, r, en) ->
@@ -1726,7 +1726,7 @@ Pair<[Pair<String TensorExpr>] Integer> ::=
         let rSub::Pair<[Pair<String TensorExpr>] Integer> =
           list_reduceDeeper_helper(r, remain, lSub.snd, fmts)
         in
-        pair(
+        (
           lSub.fst ++ rSub.fst,
           rSub.snd
         )
@@ -1738,12 +1738,12 @@ Pair<[Pair<String TensorExpr>] Integer> ::=
           list_reduceDeeper_helper(l, remain, idx, fmts)
         in
         let rSub::Pair<[Pair<String TensorExpr>] Integer> =
-          pair(
-            [pair(s"t${head(remain)}${toString(lSub.snd)}", r)],
+          (
+            [(s"t${head(remain)}${toString(lSub.snd)}", r)],
             lSub.snd+1
           )
         in
-        pair(
+        (
           lSub.fst ++ rSub.fst,
           rSub.snd
         )
@@ -1752,30 +1752,30 @@ Pair<[Pair<String TensorExpr>] Integer> ::=
       else if anyAvail(r, remain, fmts)
       then
         let lSub::Pair<[Pair<String TensorExpr>] Integer> =
-          pair(
-            [pair(s"t${head(remain)}${toString(idx)}", l)],
+          (
+            [(s"t${head(remain)}${toString(idx)}", l)],
             idx+1
           )
         in
         let rSub::Pair<[Pair<String TensorExpr>] Integer> =
           list_reduceDeeper_helper(r, remain, lSub.snd, fmts)
         in
-        pair(
+        (
           lSub.fst ++ rSub.fst,
           rSub.snd
         )
         end
         end
       else
-        pair(
-          [pair(s"t${head(remain)}${toString(idx)}", expr)],
+        (
+          [(s"t${head(remain)}${toString(idx)}", expr)],
           idx+1
         )
     else -- mul / div
       if l.isAvail && !availSimul(r, remain, fmts)
       then
-        pair(
-          [pair(s"t${head(remain)}${toString(idx)}", expr)],
+        (
+          [(s"t${head(remain)}${toString(idx)}", expr)],
           idx+1
         )
       else if l.isAvail
@@ -1783,16 +1783,16 @@ Pair<[Pair<String TensorExpr>] Integer> ::=
         list_reduceDeeper_helper(r, remain, idx, fmts)
       else if r.isAvail && !availSimul(l, remain, fmts)
       then
-        pair(
-          [pair(s"t${head(remain)}${toString(idx)}", expr)],
+        (
+          [(s"t${head(remain)}${toString(idx)}", expr)],
           idx+1
         )
       else if r.isAvail
       then
         list_reduceDeeper_helper(l, remain, idx, fmts)
       else
-        pair(
-          [pair(s"t${head(remain)}${toString(idx)}", expr)],
+        (
+          [(s"t${head(remain)}${toString(idx)}", expr)],
           idx+1
         );
 }

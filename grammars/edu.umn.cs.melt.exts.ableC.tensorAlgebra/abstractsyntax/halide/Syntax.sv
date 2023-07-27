@@ -147,7 +147,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
         else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
       ,
       [],
-      zipWith(pair, tensors, allDense)
+      zip(tensors, allDense)
     )
     ++
     tns.errors
@@ -359,7 +359,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
         else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
       ,
       [],
-      zipWith(pair, tensors, allDense)
+      zip(tensors, allDense)
     )
     ++
     tns.errors
@@ -505,7 +505,7 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
         else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
       ,
       [],
-      zipWith(pair, tensors, allDense)
+      zip(tensors, allDense)
     )
     ++
     val.errors;
@@ -647,7 +647,7 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
         else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
       ,
       [],
-      zipWith(pair, tensors, allDense)
+      zip(tensors, allDense)
     )
     ++
     val.errors;

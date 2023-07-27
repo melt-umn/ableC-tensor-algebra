@@ -32,11 +32,11 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
 
   -- Pairs used to access the right hand side tensor in proper order and
   -- then correspond the index to the correct index in on the left-hand side
-  local access:: [Pair< Pair<Integer Integer> Pair<Integer Integer> >] =
+  local access:: [((Integer, Integer), (Integer, Integer))] =
     zipWith(
-      \ r::Pair<Integer Pair<Integer Integer>> lNum :: Integer ->
-        pair(
-          pair(r.fst, let e::Pair<Integer Pair<Integer Integer>> = getElem(lFmt.storage, lNum).fromJust in e.snd.fst end),
+      \ r::(Integer, Integer, Integer) lNum :: Integer ->
+        (
+          (r.1, getElem(lFmt.storage, lNum).fromJust.2),
           r.snd
         )
       ,

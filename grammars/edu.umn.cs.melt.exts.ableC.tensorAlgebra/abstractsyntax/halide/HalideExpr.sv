@@ -73,8 +73,7 @@ top::Stmt ::= output::Name expr::Expr
 
   local accesses :: tm:Map<String Expr> =
     tm:add(
-      zipWith(
-        pair,
+      zip(
         newNames,
         accessCalc
       ),
@@ -119,7 +118,7 @@ top::Stmt ::= output::Name expr::Expr
     tm:add(
       zipWith(
         \ s::String f::TensorFormat ->
-          pair(s, f)
+          (s, f)
         ,
         newNames,
         tensorFormats
@@ -149,7 +148,7 @@ top::Stmt ::= output::Name expr::Expr
         else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
       ,
       [],
-      zipWith(pair, tensors, allDense)
+      zip(tensors, allDense)
     )
     ++
     expr.errors
@@ -164,7 +163,7 @@ top::Stmt ::= output::Name expr::Expr
   local innerVars :: [Pair<String Maybe<TensorExpr>>] =
     mapWithTail(
       \ v::String rm::[String] ->
-        pair(v, denseReduce(exNew, v, rm, fmts))
+        (v, denseReduce(exNew, v, rm, fmts))
       ,
       access
     );
@@ -279,8 +278,7 @@ top::Stmt ::= output::Name expr::Expr access::[String]
 
   local accesses :: tm:Map<String Expr> =
     tm:add(
-      zipWith(
-        pair,
+      zip(
         newNames,
         accessCalc
       ),
@@ -323,8 +321,7 @@ top::Stmt ::= output::Name expr::Expr access::[String]
 
   local fmts :: tm:Map<String TensorFormat> =
     tm:add(
-      zipWith(
-        pair,
+      zip(
         newNames,
         tensorFormats
       ),
@@ -352,7 +349,7 @@ top::Stmt ::= output::Name expr::Expr access::[String]
         else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
       ,
       [],
-      zipWith(pair, tensors, allDense)
+      zip(tensors, allDense)
     )
     ++
     expr.errors
@@ -364,7 +361,7 @@ top::Stmt ::= output::Name expr::Expr access::[String]
   local innerVars :: [Pair<String Maybe<TensorExpr>>] =
     mapWithTail(
       \ v::String rm::[String] ->
-        pair(v, denseReduce(exNew, v, rm, fmts))
+        (v, denseReduce(exNew, v, rm, fmts))
       ,
       access
     );
@@ -475,8 +472,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
 
   local accesses :: tm:Map<String Expr> =
     tm:add(
-      zipWith(
-        pair,
+      zip(
         newNames,
         accessCalc
       ),
@@ -551,7 +547,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
     tm:add(
       zipWith(
         \ s::String f::TensorFormat ->
-          pair(s, f)
+          (s, f)
         ,
         newNames,
         tensorFormats
@@ -580,7 +576,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
         else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
       ,
       [],
-      zipWith(pair, tensors, allDense)
+      zip(tensors, allDense)
     )
     ++
     tensor.errors
@@ -628,7 +624,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr
     in
     mapWithTail(
       \ v::String rm::[String] ->
-        pair(v, denseReduce(exNew, v, rm, fmts))
+        (v, denseReduce(exNew, v, rm, fmts))
       ,
       drop(i+1, access)
     )
@@ -778,8 +774,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
 
   local accesses :: tm:Map<String Expr> =
     tm:add(
-      zipWith(
-        pair,
+      zip(
         newNames,
         accessCalc
       ),
@@ -846,8 +841,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
-      zipWith(
-        pair,
+      zip(
         newNames,
         tensorFormats
       ),
@@ -875,7 +869,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
         else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
       ,
       [],
-      zipWith(pair, tensors, allDense)
+      zip(tensors, allDense)
     )
     ++
     tensor.errors
@@ -914,7 +908,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr access::[String]
     in
     mapWithTail(
       \ v::String rm::[String] ->
-        pair(v, denseReduce(exNew, v, rm, fmts))
+        (v, denseReduce(exNew, v, rm, fmts))
       ,
       drop(i+1, access)
     )
