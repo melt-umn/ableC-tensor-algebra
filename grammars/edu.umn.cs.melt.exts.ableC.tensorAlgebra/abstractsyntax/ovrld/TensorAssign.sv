@@ -95,7 +95,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     then
       if arrType.isIntegerType
       then []
-      else [err(idx.location, s"Expected an integer array, instead got ${showType(arrType)} array.")]
+      else [errFromOrigin(idx, s"Expected an integer array, instead got ${showType(arrType)} array.")]
     else
       flatMap(
         \ t::Type
@@ -104,7 +104,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
            if listLength(t.errors) != 0 || t.isIntegerType ||
              case t of extType(_, indexvarType()) -> true | _ -> false end
            then []
-           else [err(tensor.location, s"Expected integer type, got ${showType(t)}")]
+           else [errFromOrigin(tensor, s"Expected integer type, got ${showType(t)}")]
         ,
         getTypereps(idx, top.env)
       )
@@ -112,22 +112,22 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     ++
     case tensor.typerep of
     | extType(_, tensorType(f)) -> f.tensorFormatLookupCheck
-    | x -> [err(tensor.location, s"Expected a tensor type, got ${showType(x)}")]
+    | x -> [errFromOrigin(tensor, s"Expected a tensor type, got ${showType(x)}")]
     end
     ++
     if !rightTensorExpr && allIndexVars
-    then [err(tensor.location, s"Cannot have indexvars on only the left-hand side.")]
+    then [errFromOrigin(tensor, s"Cannot have indexvars on only the left-hand side.")]
     else [];
 
   local sErrors::[Message] =
     if !arrayAccess && getCount(idx, top.env) != fmt.dimensions
-    then [err(tensor.location, s"Number of dimensions specified does not match, expected ${toString(fmt.dimensions)}, got ${toString(getCount(idx, top.env))}.")]
+    then [errFromOrigin(tensor, s"Number of dimensions specified does not match, expected ${toString(fmt.dimensions)}, got ${toString(getCount(idx, top.env))}.")]
     else [];
 
   local format::Name =
     case tensor.typerep of
     | extType(_, tensorType(fmt)) -> fmt
-    | _ -> name("__error__", location=tensor.location)
+    | _ -> name("__error__")
     end;
   format.env = top.env;
 
@@ -142,8 +142,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
   local idxInit :: Initializer =
     objectInitializer(
-      generateInitList(idx, top.env),
-      location=builtin
+      generateInitList(idx, top.env)
     );
 
   local fwrd::Expr =
@@ -159,7 +158,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
             _idx[__d] = __idx[__d];
           }
           pthread_rwlock_wrlock(&(_tensor->lock));
-          __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
+          __tensor_location = $stringLiteralExpr{s"At ${getParsedOriginLocationOrFallback(top).unparse}"};
           double* res = $name{s"tensor_getPointer_locked_${fmtNm}"}(_tensor, _idx);
           *res = $Expr{right};
           pthread_rwlock_unlock(&(_tensor->lock));
@@ -171,16 +170,16 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     then
       if allIndexVars
       then -- x[i] = A[i,j]
-        tensorAssignToTensor(tensor, idx, right, location=top.location) -- perhaps we should add op to this
+        tensorAssignToTensor(tensor, idx, right) -- perhaps we should add op to this
       else -- x = A[i,j] (handled by seperate overload)
-        errorExpr([err(top.location, "This should not occur")], location=top.location)
+        errorExpr([errFromOrigin(top, "This should not occur")])
     else -- x[i] = a
       ableC_Expr {
         ({
           struct $name{s"tensor_${fmtNm}"}* _tensor = (struct $name{s"tensor_${fmtNm}"}*) &$Expr{tensor};
           unsigned long __index[$intLiteralExpr{fmt.dimensions}] = $Initializer{idxInit};
           pthread_rwlock_wrlock(&(_tensor->lock));
-          __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
+          __tensor_location = $stringLiteralExpr{s"At ${getParsedOriginLocationOrFallback(top).unparse}"};
           double* res = $name{s"tensor_getPointer_locked_${fmtNm}"}(_tensor, __index);
           *res = $Expr{right};
           pthread_rwlock_unlock(&(_tensor->lock));
@@ -202,7 +201,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
     else []
     ++
     if indexVarErr
-    then [err(top.location, "Some dimensions of the tensor were accessed using index variables, others were not. This is not supported.")]
+    then [errFromOrigin(top, "Some dimensions of the tensor were accessed using index variables, others were not. This is not supported.")]
     else [];
 
   forwards to

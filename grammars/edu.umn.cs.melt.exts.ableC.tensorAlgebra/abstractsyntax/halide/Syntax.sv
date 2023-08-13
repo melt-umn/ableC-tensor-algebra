@@ -22,7 +22,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
   propagate controlStmtContext, env;
 
   local out::TensorExpr =
-    tensorAccess(tns, idx, top.env, location=tns.location);
+    tensorAccess(tns, idx, top.env);
   local ex::TensorExpr =
     val.tensorExp;
 
@@ -63,7 +63,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
     map(
       \ fmt::TensorFormat ->
         case fmt of
-        | tensorFormat(specs, _, _) -> !contains(storeSparse, specs)
+        | tensorFormat(specs, _) -> !contains(storeSparse, specs)
         | _ -> false
         end
       ,
@@ -93,10 +93,9 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
             )
           ),
           baseTypeExpr(),
-          name(s, location=val.location),
+          name(s),
           declRefExpr(
-            name("edu_umn_cs_melt_exts_ableC_tensorAlgebra", location=val.location),
-            location=val.location
+            name("edu_umn_cs_melt_exts_ableC_tensorAlgebra")
           ),
           var
         )
@@ -117,10 +116,9 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
               )
             ),
             baseTypeExpr(),
-            name(v, location=val.location),
+            name(v),
             declRefExpr(
-              name("edu_umn_cs_melt_exts_ableC_tensorAlgebra", location=val.location),
-              location=val.location
+              name("edu_umn_cs_melt_exts_ableC_tensorAlgebra")
             ),
             nilIterVar()
           ),
@@ -138,13 +136,13 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
     );
 
   local sErrors :: [Message] =
-    checkTensorHeader(tns.location, top.env)
+    checkTensorHeader(top.env)
     ++
     foldl(
       \ lst::[Message] fmt::Pair<TensorExpr Boolean> ->
         if fmt.snd
         then lst
-        else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
+        else errFromOrigin(fmt.fst, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
       ,
       [],
       zip(tensors, allDense)
@@ -162,10 +160,10 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
     if null(sErrors)
     then
       if invalidLeftVar
-      then [err(tns.location, s"Cannot generate code for this tensor expression because the variable(s) ${implode(",", leftOnly)} only occur on the left-hand side.")]
+      then [errFromOrigin(tns, s"Cannot generate code for this tensor expression because the variable(s) ${implode(",", leftOnly)} only occur on the left-hand side.")]
       else 
         case order of
-        | nothing() -> [err(tns.location, s"Cannot generate code for this tensor expression due to cyclical access pattern. Specify \"order loops\" to fix.")]
+        | nothing() -> [errFromOrigin(tns, s"Cannot generate code for this tensor expression due to cyclical access pattern. Specify \"order loops\" to fix.")]
         | _ -> 
           map(
             \ msg::Message -> 
@@ -233,7 +231,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
   propagate controlStmtContext, env;
 
   local out::TensorExpr =
-    tensorAccess(tns, idx, top.env, location=tns.location);
+    tensorAccess(tns, idx, top.env);
   local ex::TensorExpr =
     val.tensorExp;
 
@@ -275,7 +273,7 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
     map(
       \ fmt::TensorFormat ->
         case fmt of
-        | tensorFormat(specs, _, _) -> !contains(storeSparse, specs)
+        | tensorFormat(specs, _) -> !contains(storeSparse, specs)
         | _ -> false
         end
       ,
@@ -305,10 +303,9 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
             )
           ),
           baseTypeExpr(),
-          name(s, location=val.location),
+          name(s),
           declRefExpr(
-            name("edu_umn_cs_melt_exts_ableC_tensorAlgebra", location=val.location),
-            location=val.location
+            name("edu_umn_cs_melt_exts_ableC_tensorAlgebra")
           ),
           var
         )
@@ -329,10 +326,9 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
               )
             ),
             baseTypeExpr(),
-            name(v, location=val.location),
+            name(v),
             declRefExpr(
-              name("edu_umn_cs_melt_exts_ableC_tensorAlgebra", location=val.location),
-              location=val.location
+              name("edu_umn_cs_melt_exts_ableC_tensorAlgebra")
             ),
             nilIterVar()
           ),
@@ -350,13 +346,13 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
     );
 
   local sErrors :: [Message] =
-    checkTensorHeader(tns.location, top.env)
+    checkTensorHeader(top.env)
     ++
     foldl(
       \ lst::[Message] fmt::Pair<TensorExpr Boolean> ->
         if fmt.snd
         then lst
-        else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
+        else errFromOrigin(fmt.fst, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
       ,
       [],
       zip(tensors, allDense)
@@ -374,10 +370,10 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
     if null(sErrors)
     then
       if invalidLeftVar
-      then [err(tns.location, s"Cannot generate code for this tensor expression because the variable(s) ${implode(",", leftOnly)} only occur on the left-hand side.")]
+      then [errFromOrigin(tns, s"Cannot generate code for this tensor expression because the variable(s) ${implode(",", leftOnly)} only occur on the left-hand side.")]
       else
         if missingVar
-        then [err(tns.location, s"Specified order for the loops cannot be used, as some dimensions are missing.")]
+        then [errFromOrigin(tns, s"Specified order for the loops cannot be used, as some dimensions are missing.")]
         else
           map(
             \ msg::Message -> 
@@ -462,7 +458,7 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
     map(
       \ fmt::TensorFormat ->
         case fmt of
-        | tensorFormat(specs, _, _) -> !contains(storeSparse, specs)
+        | tensorFormat(specs, _) -> !contains(storeSparse, specs)
         | _ -> false
         end
       ,
@@ -481,10 +477,9 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
               )
             ),
             baseTypeExpr(),
-            name(v, location=val.location),
+            name(v),
             declRefExpr(
-              name("edu_umn_cs_melt_exts_ableC_tensorAlgebra", location=val.location),
-              location=val.location
+              name("edu_umn_cs_melt_exts_ableC_tensorAlgebra")
             ),
             nilIterVar()
           ),
@@ -496,13 +491,13 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
     );
 
   local sErrors :: [Message] =
-    checkTensorHeader(nm.location, top.env)
+    checkTensorHeader(top.env)
     ++
     foldl(
       \ lst::[Message] fmt::Pair<TensorExpr Boolean> ->
         if fmt.snd
         then lst
-        else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
+        else errFromOrigin(fmt.fst, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
       ,
       [],
       zip(tensors, allDense)
@@ -516,7 +511,7 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
     if null(sErrors)
     then
       case order of
-      | nothing() -> [err(nm.location, s"Cannot generate code for this tensor expression due to cyclical access pattern. Specify \"order loops\" to fix.")]
+      | nothing() -> [errFromOrigin(nm, s"Cannot generate code for this tensor expression due to cyclical access pattern. Specify \"order loops\" to fix.")]
       | _ -> 
         map(
           \ msg::Message -> 
@@ -604,7 +599,7 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
     map(
       \ fmt::TensorFormat ->
         case fmt of
-        | tensorFormat(specs, _, _) -> !contains(storeSparse, specs)
+        | tensorFormat(specs, _) -> !contains(storeSparse, specs)
         | _ -> false
         end
       ,
@@ -623,10 +618,9 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
               )
             ),
             baseTypeExpr(),
-            name(v, location=val.location),
+            name(v),
             declRefExpr(
-              name("edu_umn_cs_melt_exts_ableC_tensorAlgebra", location=val.location),
-              location=val.location
+              name("edu_umn_cs_melt_exts_ableC_tensorAlgebra")
             ),
             nilIterVar()
           ),
@@ -638,13 +632,13 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
     );
 
   local sErrors :: [Message] =
-    checkTensorHeader(nm.location, top.env)
+    checkTensorHeader(top.env)
     ++
     foldl(
       \ lst::[Message] fmt::Pair<TensorExpr Boolean> ->
         if fmt.snd
         then lst
-        else err(fmt.fst.location, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
+        else errFromOrigin(fmt.fst, s"Tensor ${getTensorName(fmt.fst)} has sparse dimensions. Halide transforming is only supported on equations with only dense tensors.") :: lst
       ,
       [],
       zip(tensors, allDense)
@@ -658,7 +652,7 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
     if null(sErrors)
     then
       if missingVar
-      then [err(nm.location, s"Specified order for the loops cannot be used, as some dimensions are missing.")]
+      then [errFromOrigin(nm, s"Specified order for the loops cannot be used, as some dimensions are missing.")]
       else
         map(
           \ msg::Message -> 

@@ -14,7 +14,7 @@ synthesized attribute ifCondition :: Expr; -- The condition used in the if
 synthesized attribute condition :: String;
 synthesized attribute ifCond :: String;
 
-nonterminal TensorCond with condition, ifCond, cnd, ifCondition;
+tracked nonterminal TensorCond with condition, ifCond, cnd, ifCondition;
 
 -- All for this variable (Expr in the expression)
 abstract production allCond

@@ -10,7 +10,7 @@ top::Expr ::= tensor::Expr idx::Expr
   propagate controlStmtContext, env;
 
   top.tensorExp =
-    tensorAccess(tensor, idx, top.env, location=top.location);
+    tensorAccess(tensor, idx, top.env);
 
   local fmt::TensorFormat =
     case tensor.typerep of
@@ -58,7 +58,7 @@ top::Expr ::= tensor::Expr idx::Expr
     then 
       if arrType.isIntegerType
       then []
-      else [err(idx.location, s"Expected an integer array, instead got ${showType(arrType)} array.")]
+      else [errFromOrigin(idx, s"Expected an integer array, instead got ${showType(arrType)} array.")]
     else
       flatMap(
         \ t::Type
@@ -67,7 +67,7 @@ top::Expr ::= tensor::Expr idx::Expr
            if listLength(t.errors) != 0 || t.isIntegerType ||
              case t of extType(_, indexvarType()) -> true | _ -> false end
            then []
-           else [err(idx.location, s"Expected integer type, got ${showType(t)}")]
+           else [errFromOrigin(idx, s"Expected integer type, got ${showType(t)}")]
         ,
         getTypereps(idx, top.env)
       )
@@ -75,12 +75,12 @@ top::Expr ::= tensor::Expr idx::Expr
     ++
     case tensor.typerep of
     | extType(_, tensorType(f)) -> f.tensorFormatLookupCheck
-    | x -> [err(tensor.location, s"Expected a tensor type, got ${showType(x)}")]
+    | x -> [errFromOrigin(tensor, s"Expected a tensor type, got ${showType(x)}")]
     end;
   
   local sErrors::[Message] =
     if !arrayAccess && getCount(idx, top.env) != fmt.dimensions
-    then [err(tensor.location, s"Number of dimensions specified does not match, expected ${toString(fmt.dimensions)}, got ${toString(getCount(idx, top.env))}.")]
+    then [errFromOrigin(tensor, s"Number of dimensions specified does not match, expected ${toString(fmt.dimensions)}, got ${toString(getCount(idx, top.env))}.")]
     else [];
   
   local fmtNm::String = fmt.proceduralName;
@@ -94,8 +94,7 @@ top::Expr ::= tensor::Expr idx::Expr
 
   local idxInitializer :: Initializer =
     objectInitializer(
-      generateInitList(idx, top.env),
-      location=builtin
+      generateInitList(idx, top.env)
     );
 
   local fwrd::Expr =
@@ -111,7 +110,7 @@ top::Expr ::= tensor::Expr idx::Expr
             _idx[__d] = __idx[__d]; // Copy to get type right
           }
           $name{s"tensor_pack_${fmtNm}"}(_tensor);
-          __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
+          __tensor_location = $stringLiteralExpr{s"At ${getParsedOriginLocationOrFallback(top).unparse}"};
           double res = $name{s"tensor_get_${fmtNm}"}(_tensor, _idx);
           res;
         })
@@ -126,7 +125,7 @@ top::Expr ::= tensor::Expr idx::Expr
           struct $name{s"tensor_${fmtNm}"}* _tensor = (struct $name{s"tensor_${fmtNm}"}*) &$Expr{tensor};
           unsigned long __index[$intLiteralExpr{fmt.dimensions}] = $Initializer{idxInitializer};
           $name{s"tensor_pack_${fmtNm}"}(_tensor);
-          __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
+          __tensor_location = $stringLiteralExpr{s"At ${getParsedOriginLocationOrFallback(top).unparse}"};
           $name{s"tensor_get_${fmtNm}"}(_tensor, __index);
         })
       };
@@ -166,14 +165,14 @@ InitList ::= ex::Expr env::Decorated Env
     | commaExpr(l, r) ->
       consInit(
         positionalInit(
-          exprInitializer(l, location=builtin)
+          exprInitializer(l)
         ),
         generateInitList(r, env)
       )
     | _ ->
       consInit(
         positionalInit(
-          exprInitializer(ex, location=builtin)
+          exprInitializer(ex)
         ),
         nilInit()
       )

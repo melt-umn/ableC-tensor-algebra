@@ -20,14 +20,14 @@ top::Expr ::= tensor::Expr
   local format::Name =
     case tensor.typerep of
     | extType(_, tensorType(fmt)) -> fmt
-    | _ -> name("__error__", location=top.location)
+    | _ -> name("__error__")
     end;
   format.env = top.env;
 
   local lErrors :: [Message] =
     case tensor.typerep of
     | extType(_, tensorType(_)) -> format.tensorFormatLookupCheck
-    | _ -> [err(top.location, s"freeTensor expected a tensor type (got ${showType(tensor.typerep)})")]
+    | _ -> [errFromOrigin(top, s"freeTensor expected a tensor type (got ${showType(tensor.typerep)})")]
     end;
 
   local fmt::TensorFormat =

@@ -83,7 +83,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                     unsigned long temp = $Expr{e.fst.fromLeft};
                     if(temp >= $name{s"size_${toString(e.snd.fst+1)}"}) {
                       fprintf(stderr, 
-                        $stringLiteralExpr{let loc::Location = e.fst.fromLeft.location in s"Size out of bounds in foreach loop. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
+                        $stringLiteralExpr{s"Size out of bounds in foreach loop. (At ${getParsedOriginLocationOrFallback(e.fst.fromLeft).unparse})\n"});
                       exit(1);
                     }
                     $name{s"p${toString(e.snd.fst+1)}"} = temp;
@@ -97,7 +97,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                     unsigned long temp = $Expr{e.fst.fromLeft};
                     if(temp >= $name{s"size_${toString(e.snd.fst+1)}"}) {
                       fprintf(stderr, 
-                        $stringLiteralExpr{let loc::Location = e.fst.fromLeft.location in s"Size out of bounds in foreach loop. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
+                        $stringLiteralExpr{s"Size out of bounds in foreach loop. (At ${getParsedOriginLocationOrFallback(e.fst.fromLeft).unparse})\n"});
                       exit(1);
                     }
                     $name{s"p${toString(e.snd.fst+1)}"} = ($name{s"p${toString(e.snd.fst)}"} * $name{s"size_${toString(e.snd.fst+1)}"}) + temp;
@@ -133,7 +133,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                   unsigned long target = $Expr{e.fst.fromLeft};
                   if(target >= $name{s"size_${toString(e.snd.fst+1)}"}) {
                     fprintf(stderr, 
-                      $stringLiteralExpr{let loc::Location = e.fst.fromLeft.location in s"Size out of bounds in foreach loop. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
+                      $stringLiteralExpr{s"Size out of bounds in foreach loop. (At ${getParsedOriginLocationOrFallback(e.fst.fromLeft).unparse})\n"});
                     exit(1);
                   }
                   for(unsigned long p1 = pos_1[0]; p1 < pos_1[1]; p1++) {
@@ -148,7 +148,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                   unsigned long target = $Expr{e.fst.fromLeft};
                   if(target >= $name{s"size_${toString(e.snd.fst+1)}"}) {
                     fprintf(stderr, 
-                      $stringLiteralExpr{let loc::Location = e.fst.fromLeft.location in s"Size out of bounds in foreach loop. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
+                      $stringLiteralExpr{s"Size out of bounds in foreach loop. (At ${getParsedOriginLocationOrFallback(e.fst.fromLeft).unparse})\n"});
                     exit(1);
                   }
                   for(unsigned long $name{s"p${toString(e.snd.fst+1)}"} = $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}]; $name{s"p${toString(e.snd.fst+1)}"} < $name{s"pos_${toString(e.snd.fst+1)}"}[$name{s"p${toString(e.snd.fst)}"}+1]; $name{s"p${toString(e.snd.fst+1)}"}++) {
@@ -307,10 +307,10 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
       false, true, tm:empty());
 
   local lErrors :: [Message] =
-    --err(var.location, s"Tensor Acc? ${toString(tensorAcc)}") ::
-    --err(var.location, s"Tensor Access? ${toString(length(access))}") ::
-    --testing(bounds, var.location) ::
-    checkTensorHeader(var.location, top.env)
+    --errFromOrigin(var, s"Tensor Acc? ${toString(tensorAcc)}") ::
+    --errFromOrigin(var, s"Tensor Access? ${toString(length(access))}") ::
+    --testing(bounds) ::
+    checkTensorHeader(top.env)
     ++
     bounds.errors
     ++
@@ -322,9 +322,9 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
     then 
       case bounds.typerep of
       | extType(_, tensorType(_)) -> []
-      | _ -> [err(bounds.location, s"Tensor for-each loop expected a tensor type. Instead got ${showType(bounds.typerep)}.")]
+      | _ -> [errFromOrigin(bounds, s"Tensor for-each loop expected a tensor type. Instead got ${showType(bounds.typerep)}.")]
       end
-    else [err(bounds.location, s"Tensor for-each loop expected a tensor access expression. Instead got ${showType(bounds.typerep)}.")];
+    else [errFromOrigin(bounds, s"Tensor for-each loop expected a tensor access expression. Instead got ${showType(bounds.typerep)}.")];
 
   forwards to
     if !null(lErrors)
@@ -336,6 +336,7 @@ function tensorVals
 [Stmt] ::= ex::TensorExpr fmt::TensorFormat env::Decorated Env
 {
   local nm::String = getTensorName(ex);
+  local loc::Location = getParsedOriginLocation(ex).fromJust;
 
   return
     case ex of
@@ -345,7 +346,7 @@ function tensorVals
       | declRefExpr(name(_)) -> nullStmt()
       | _ -> 
         ableC_Stmt {
-          struct $name{s"tensor_${fmt.proceduralName}"} $name{s"_tensor_${toString(ex.location.line)}_${toString(e.location.column)}"} = (struct $name{s"tensor_${fmt.proceduralName}"}) $Expr{e};
+          struct $name{s"tensor_${fmt.proceduralName}"} $name{s"_tensor_${toString(loc.line)}_${toString(loc.column)}"} = (struct $name{s"tensor_${fmt.proceduralName}"}) $Expr{e};
         }
       end
     | _ -> nullStmt()
@@ -385,12 +386,6 @@ function tensorVals
       fmt.storage
     );
 }
-
-function testing
-Message ::= e::Decorated Expr loc::Location
-{
-  return err(loc, test(e));
-} -- TODO: Remove
 
 function test
 String ::= e::Decorated Expr

@@ -10,7 +10,7 @@ synthesized attribute tensor_size::Integer;
 synthesized attribute tensor_asExpr :: Initializer;
 synthesized attribute tensor_dimExpr :: Initializer;
 
-nonterminal TensorConstant with location, pp, errors, env, tensor_dims, tensor_size, tensor_asExpr, tensor_dimExpr;
+tracked nonterminal TensorConstant with pp, errors, env, tensor_dims, tensor_size, tensor_asExpr, tensor_dimExpr;
 
 abstract production tensor_higher
 t::TensorConstant ::= sub::[TensorConstant]
@@ -30,19 +30,19 @@ t::TensorConstant ::= sub::[TensorConstant]
 
   t.errors := 
     case sub of
-    | [] -> [err(t.location, "Tensor cannot be produced from no tensors, cannot hae dimension of 0")]
+    | [] -> [errFromOrigin(t, "Tensor cannot be produced from no tensors, cannot hae dimension of 0")]
     | _ -> []
     end
     ++
     (
     if !checkDimensions(sub)
-    then [err(t.location, "Tensor cannot be produced from tensors of different dimensionality")]
+    then [errFromOrigin(t, "Tensor cannot be produced from tensors of different dimensionality")]
     else []
     )
     ++
     (
     if !checkSizes(sub)
-    then [err(t.location, "Tensor cannot be ragged, sizes of all sub tensors must be the same")]
+    then [errFromOrigin(t, "Tensor cannot be ragged, sizes of all sub tensors must be the same")]
     else []
     )
     ++
@@ -79,8 +79,7 @@ t::TensorConstant ::= sub::[TensorConstant]
         )
       in
       concatInitList(lsts)
-      end,
-      location=builtin
+      end
     );
 
   -- An initializer for the array of the dimensions of
@@ -90,8 +89,7 @@ t::TensorConstant ::= sub::[TensorConstant]
       consInit(
         positionalInit(
           exprInitializer(
-            mkIntConst(t.tensor_size, t.location),
-            location=builtin
+            mkIntConst(t.tensor_size)
           )
         ),
         case 
@@ -104,8 +102,7 @@ t::TensorConstant ::= sub::[TensorConstant]
         | objectInitializer(l) -> l
         | _ -> error("must be an objectInitializer")
         end
-      ),
-      location=builtin
+      )
     );
 }
 
@@ -125,7 +122,7 @@ t::TensorConstant ::= sub::[Expr]
          ]);
   t.errors := 
     case sub of
-    | [] -> [err(t.location, s"Tensor cannot be produced from no values, cannot have dimension of 0")]
+    | [] -> [errFromOrigin(t, s"Tensor cannot be produced from no values, cannot have dimension of 0")]
     | _ -> []
     end
     ++
@@ -140,28 +137,25 @@ t::TensorConstant ::= sub::[Expr]
         \ sb::Expr lst::InitList ->
           consInit(
             positionalInit(
-              exprInitializer(sb, location=builtin)
+              exprInitializer(sb)
             ),
             lst
           )
         ,
         nilInit(),
         sub
-      ),
-      location=builtin
+      )
     );
   t.tensor_dimExpr =
     objectInitializer(
       consInit(
         positionalInit(
           exprInitializer(
-            mkIntConst(t.tensor_size, t.location),
-            location=builtin
+            mkIntConst(t.tensor_size)
           )
         ),
         nilInit()
-      ),
-      location=builtin
+      )
     );
 }
 
@@ -211,7 +205,7 @@ function errorChecking
     then 
       if h.typerep.isArithmeticType -- The data in a tensor must be arithmetic
       then []
-      else [err(h.location, "Expected an arithmetic value, got ${showType(h.typerep)}.")]
+      else [errFromOrigin(h, "Expected an arithmetic value, got ${showType(h.typerep)}.")]
     else h.errors
     )
     ++

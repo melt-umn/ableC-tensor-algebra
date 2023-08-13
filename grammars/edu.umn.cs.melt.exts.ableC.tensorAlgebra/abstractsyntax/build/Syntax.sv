@@ -16,7 +16,7 @@ top::Expr ::= type::TypeName dims::[Expr]
   local format::Name =
     case type.typerep of
     | extType(_, tensorType(fmt)) -> fmt
-    | _ -> name("error", location=top.location)
+    | _ -> name("error")
     end;
   format.env = top.env;
 
@@ -32,16 +32,16 @@ top::Expr ::= type::TypeName dims::[Expr]
   local dimens::Integer = fmt.dimensions;
   
   local lErrors::[Message] =
-    checkTensorHeader(top.location, top.env)
+    checkTensorHeader(top.env)
     ++
     case type.typerep of
     | extType(_, tensorType(_)) -> 
         format.tensorFormatLookupCheck
         ++
         if dimens > 0 && dimens != listLength(dims)
-        then [err(top.location, "Number of dimensions specified does not match format.")]
+        then [errFromOrigin(top, "Number of dimensions specified does not match format.")]
         else []
-    | _ -> [err(top.location, s"Tensor cannot be built using a non-tensor type. Got ${showType(type.typerep)}")]
+    | _ -> [errFromOrigin(top, s"Tensor cannot be built using a non-tensor type. Got ${showType(type.typerep)}")]
     end
     ++
     flatMap(
@@ -52,7 +52,7 @@ top::Expr ::= type::TypeName dims::[Expr]
          if null(ex.errors)
          then if ex.typerep.isIntegerType
               then []
-              else [err(ex.location, s"Expected an integer type, got a ${showType(ex.typerep)}")]
+              else [errFromOrigin(ex, s"Expected an integer type, got a ${showType(ex.typerep)}")]
          else ex.errors
          end,
       dims
@@ -68,7 +68,7 @@ top::Expr ::= type::TypeName dims::[Expr]
         \ e::Expr lst::InitList ->
           consInit(
             positionalInit(
-              exprInitializer(e, location=builtin)
+              exprInitializer(e)
             )
             ,
             lst
@@ -76,8 +76,7 @@ top::Expr ::= type::TypeName dims::[Expr]
         ,
         nilInit(),
         dims
-      ),
-      location=builtin
+      )
     );
 
   local fwrd::Expr =
@@ -105,7 +104,7 @@ top::Expr ::= type::TypeName data::TensorConstant
   local format::Name =
     case type.typerep of
     | extType(_, tensorType(fmt)) -> fmt
-    | _ -> name("__error__", location=top.location)
+    | _ -> name("__error__")
     end;
   format.env = top.env;
   
@@ -122,23 +121,23 @@ top::Expr ::= type::TypeName data::TensorConstant
   data.env = top.env;
   
   local lErrors::[Message] =
-    checkTensorHeader(top.location, top.env)
+    checkTensorHeader(top.env)
     ++
     case type.typerep of
     | extType(_, tensorType(_)) -> 
        format.tensorFormatLookupCheck
        ++
        if null(format.tensorFormatLookupCheck) && dimens != data.tensor_dims
-       then [err(top.location, "Number of dimensions specified does not match format.")]
+       then [errFromOrigin(top, "Number of dimensions specified does not match format.")]
        else []
-    | _ -> [err(top.location, s"Tensor cannot be built using a non-tensor type. Got ${showType(type.typerep)}")]
+    | _ -> [errFromOrigin(top, s"Tensor cannot be built using a non-tensor type. Got ${showType(type.typerep)}")]
     end
     ++
     data.errors;
   
   local fmtNm::String = fmt.proceduralName;
   
-  -- by setting __tensor_location, error messages from tensor_makeFilled
+  -- by setting __tensor_error messages from tensor_makeFilled
   -- will have the file name and line / column that resulted in the call
   local fwrd::Expr =
     ableC_Expr {
@@ -147,7 +146,7 @@ top::Expr ::= type::TypeName data::TensorConstant
         unsigned long __tensor_dims[] = $Initializer{data.tensor_dimExpr};
 
         struct $name{s"tensor_${fmtNm}"} _tensor = {0};
-        __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
+        __tensor_location = $stringLiteralExpr{"At " ++ getParsedOriginLocationOrFallback(top).unparse};
         $name{s"tensor_makeFilled_${fmtNm}"}(&_tensor, __tensor_dims, __tensor_data);
         ($BaseTypeExpr{tensorTypeExpr(nilQualifier(), format)}) _tensor;
       })
@@ -172,7 +171,7 @@ top::Expr ::= type::TypeName args::[Expr]
   local format::Name = 
     case type.typerep of
     | extType(_, tensorType(fmt)) -> fmt
-    | _ -> name("__error__", location=top.location)
+    | _ -> name("__error__")
     end;
   format.env = top.env;
   
@@ -190,28 +189,28 @@ top::Expr ::= type::TypeName args::[Expr]
   dims.controlStmtContext = initialControlStmtContext;
 
   local lErrors::[Message] = 
-    checkTensorHeader(top.location, top.env)
+    checkTensorHeader(top.env)
     ++
     case type.typerep of
     | extType(_, tensorType(_)) -> format.tensorFormatLookupCheck
-    | _ -> [err(top.location, s"Tensor cannot be built using a non-tensor type. Got ${showType(type.typerep)}")]
+    | _ -> [errFromOrigin(top, s"Tensor cannot be built using a non-tensor type. Got ${showType(type.typerep)}")]
     end
     ++
     case args of
-    | [] -> [err(dims.location, "Tensor must be built using one expression, not zero.")]
+    | [] -> [errFromOrigin(dims, "Tensor must be built using one expression, not zero.")]
     | _::[] ->
       case dims.typerep of
       | arrayType(type, _, _, _) ->
         if type.isIntegerType
         then []
-        else [err(dims.location, s"Tensor must be built using an array of integer dimensions. Got ${showType(dims.typerep)}.")]
+        else [errFromOrigin(dims, s"Tensor must be built using an array of integer dimensions. Got ${showType(dims.typerep)}.")]
       | pointerType(_, type) ->
         if type.isIntegerType
         then []
-        else [err(dims.location, s"Tensor must be built using a pointer of integer type. Got ${showType(dims.typerep)}.")]
-      | _ -> [err(dims.location, s"Tensor must be built using an array of integer types. Got ${showType(dims.typerep)}.")]
+        else [errFromOrigin(dims, s"Tensor must be built using a pointer of integer type. Got ${showType(dims.typerep)}.")]
+      | _ -> [errFromOrigin(dims, s"Tensor must be built using an array of integer types. Got ${showType(dims.typerep)}.")]
       end
-    | _::_ -> [err(dims.location, "Tensor must be built using one expression, not multiple.")]
+    | _::_ -> [errFromOrigin(dims, "Tensor must be built using one expression, not multiple.")]
     end;
   
   

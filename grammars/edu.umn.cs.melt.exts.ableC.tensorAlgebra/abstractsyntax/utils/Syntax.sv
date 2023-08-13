@@ -15,7 +15,7 @@ top::Expr ::= tp::TypeName
 
   propagate controlStmtContext, env;
 
-  forwards to orderof(tp.typerep, location=top.location);
+  forwards to orderof(tp.typerep);
 }
 
 {- The orderof production when an Expr is used -}
@@ -31,7 +31,7 @@ top::Expr ::= e::Expr
 
   propagate controlStmtContext, env;
 
-  local fwrd::Expr = orderof(e.typerep, location=top.location);
+  local fwrd::Expr = orderof(e.typerep);
   forwards to 
     mkErrorCheck(
       e.errors,
@@ -55,18 +55,18 @@ top::Expr ::= tp::Type
   local format::Name =
     case tp of
     | extType(_, tensorType(fmt)) -> fmt
-    | _ -> name("__error__", location=top.location)
+    | _ -> name("__error__")
     end;
   format.env = top.env;
   
   local lErrors::[Message] =
-    checkTensorHeader(top.location, top.env) ++
+    checkTensorHeader(top.env) ++
     case tp of
     | extType(_, tensorType(_)) -> format.tensorFormatLookupCheck
-    | _ -> [err(top.location, s"orderof expected a tensor type (got ${showType(tp)})")]
+    | _ -> [errFromOrigin(top, s"orderof expected a tensor type (got ${showType(tp)})")]
     end;
   
-  local fwrd::Expr = mkIntConst(format.tensorFormat.dimensions, top.location);
+  local fwrd::Expr = mkIntConst(format.tensorFormat.dimensions);
   forwards to 
     mkErrorCheck(
       lErrors, 
@@ -95,11 +95,11 @@ top::Expr ::= tensor::Expr dim::Expr
   propagate controlStmtContext, env;
 
   local lErrors::[Message] =
-    checkTensorHeader(top.location, top.env)
+    checkTensorHeader(top.env)
     ++
     case tensor.typerep of
     | extType(_, tensorType(fmt)) -> fmt.tensorFormatLookupCheck
-    | _ -> [err(top.location, s"dimenof expected a tensor type (got ${showType(tensor.typerep)})")]
+    | _ -> [errFromOrigin(top, s"dimenof expected a tensor type (got ${showType(tensor.typerep)})")]
     end
     ++
     tensor.errors
@@ -113,16 +113,16 @@ top::Expr ::= tensor::Expr dim::Expr
         let c::Integer = dim.integerConstantValue.fromJust
         in
         if c < 0 || c >= fmt.dimensions
-        then [err(top.location, s"attempting to access an invalid dimension of the tensor with dimenof (requested ${toString(c)}, have ${toString(fmt.dimensions)})")]
+        then [errFromOrigin(top, s"attempting to access an invalid dimension of the tensor with dimenof (requested ${toString(c)}, have ${toString(fmt.dimensions)})")]
         else []
         end
       else []
-    else [err(top.location, s"dimenof expected an integer for dimension (got ${showType(dim.typerep)})")]; 
+    else [errFromOrigin(top, s"dimenof expected an integer for dimension (got ${showType(dim.typerep)})")]; 
   
   local format::Name =
     case tensor.typerep of
     | extType(_, tensorType(fmt)) -> fmt
-    | _ -> name("__error__", location=top.location)
+    | _ -> name("__error__")
     end;
   format.env = top.env;
   
@@ -142,7 +142,7 @@ top::Expr ::= tensor::Expr dim::Expr
           unsigned long dim = $Expr{dim};
           if(dim >= $intLiteralExpr{fmt.dimensions}) {
             fprintf(stderr, 
-              $stringLiteralExpr{s"Attempted to access dimenof at dimension %lu, tensor only has %d dimensions. (${top.location.filename}, Line ${toString(top.location.line)}, Col ${toString(top.location.column)})\n"}, 
+              $stringLiteralExpr{s"Attempted to access dimenof at dimension %lu, tensor only has %d dimensions. (At ${getParsedOriginLocationOrFallback(top).unparse})\n"}, 
               dim, 
               $intLiteralExpr{fmt.dimensions});
             exit(1);

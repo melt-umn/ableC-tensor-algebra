@@ -14,7 +14,7 @@ top::Expr ::= l::Expr r::Expr
   propagate controlStmtContext, env;
 
   top.tensorExp =
-    tensorSub(l.tensorExp, r.tensorExp, top.env, location=top.location);
+    tensorSub(l.tensorExp, r.tensorExp, top.env);
 
   local fwrd::Expr = emptyAccess;
   forwards to 

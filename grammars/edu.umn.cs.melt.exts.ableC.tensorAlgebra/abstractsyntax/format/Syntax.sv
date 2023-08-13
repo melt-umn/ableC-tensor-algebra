@@ -12,24 +12,24 @@ top::Decl ::= nm::Name specs::[Integer] order::[Integer]
   propagate controlStmtContext, env;
 
   local errors::[Message] =
-    checkTensorHeader(nm.location, top.env)
+    checkTensorHeader(top.env)
     ++
     (
     if listLength(specs) == 0
-    then [err(nm.location, "Zero dimensional tensors (scalars) cannot be declared as tensor formats. Declare values as normal double values.")]
+    then [errFromOrigin(nm, "Zero dimensional tensors (scalars) cannot be declared as tensor formats. Declare values as normal double values.")]
     else []
     )
     ++
     (
     if listLength(specs) != listLength(order)
-    then [err(nm.location, "Tensor format must have same number of dimensions in specifiers and order.")]
+    then [errFromOrigin(nm, "Tensor format must have same number of dimensions in specifiers and order.")]
     else []
     )
     ++
     (
     if containsAll(makeList(inc, 0, listLength(order)), order)
     then []
-    else [err(nm.location, s"Tensor format's order must contain each dimension once, represented as an integer 0, 1, ..., ${toString(listLength(specs)-1)}.")]
+    else [errFromOrigin(nm, s"Tensor format's order must contain each dimension once, represented as an integer 0, 1, ..., ${toString(listLength(specs)-1)}.")]
     )
     ++
     nm.tensorFormatRedeclarationCheck;
@@ -46,7 +46,7 @@ top::Decl ::= nm::Name specs::[Integer] order::[Integer]
              text("});")
            ]);
 
-  local fmt::TensorFormat = tensorFormat(specs, order, nm.location);
+  local fmt::TensorFormat = tensorFormat(specs, order);
   
   local fwrd::Decl =
     decls(consDecl(

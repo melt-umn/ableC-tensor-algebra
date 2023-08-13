@@ -20,7 +20,7 @@ synthesized attribute compute :: Stmt; -- Compute code
 inherited attribute canPar :: Boolean;
 inherited attribute thdCnt :: Maybe<Integer>;
 
-nonterminal ComputeGraph with 
+tracked nonterminal ComputeGraph with 
   conds, exprs, ifCnd, frthr, asmbl, compute,
   canPar, thdCnt;
 
@@ -43,7 +43,7 @@ top::ComputeGraph ::=
 abstract production computeGraph
 top::ComputeGraph ::=
   assign::TensorExpr fmts::tm:Map<String TensorFormat> value::TensorExpr
-  vars::[String] loc::Location env::Decorated Env
+  vars::[String] env::Decorated Env
 {
   assign.fmts = fmts;
 
@@ -59,7 +59,7 @@ top::ComputeGraph ::=
 
   -- Build the lattice Point
   local lp::LatticePoint =
-    lattice_points(assign, fmts, value, head(vars), loc, env, true);
+    lattice_points(assign, fmts, value, head(vars), env, true);
 
   -- Flatten the lattice point into a list of points
   local pnts::[LatticePoint] =
@@ -123,7 +123,7 @@ top::ComputeGraph ::=
            lattice_points(
              assign, fmts,
              e.value, head(vars),
-             loc, env, false
+             env, false
            )
           in 
           let pnts::[LatticePoint] =
@@ -194,7 +194,7 @@ top::ComputeGraph ::=
                 else
                   lp.value
                 ),
-                tail(vars), loc,
+                tail(vars),
                 env
               )
             ,
@@ -412,11 +412,9 @@ Pair<TensorExpr Integer> ::=
       (
         tensorBaseExpr(
           declRefExpr(
-            name(s"t${var}${if idx == 0 then "" else toString(idx)}", location=e.location),
-            location=e.location
+            name(s"t${var}${if idx == 0 then "" else toString(idx)}")
           ),
-          e.envr,
-          location=e.location
+          e.envr
         ),
         idx+1
       )
@@ -433,7 +431,7 @@ Pair<TensorExpr Integer> ::=
           in let sR::Pair<TensorExpr Integer> =
             makeSubs_helper(r, var, remain, isBelowOut, sL.snd, fmts)
           in
-          (tensorAdd(sL.fst, sR.fst, en, location=e.location), sR.snd)
+          (tensorAdd(sL.fst, sR.fst, en), sR.snd)
           end
           end
       | tensorSub(l, r, en) ->
@@ -447,7 +445,7 @@ Pair<TensorExpr Integer> ::=
           in let sR::Pair<TensorExpr Integer> =
             makeSubs_helper(r, var, remain, isBelowOut, sL.snd, fmts)
           in
-          (tensorSub(sL.fst, sR.fst, en, location=e.location), sR.snd)
+          (tensorSub(sL.fst, sR.fst, en), sR.snd)
           end
           end
       | tensorMul(l, r, en) ->
@@ -456,7 +454,7 @@ Pair<TensorExpr Integer> ::=
         in let sR::Pair<TensorExpr Integer> =
           makeSubs_helper(r, var, remain, false, sL.snd, fmts)
         in
-        (tensorMul(sL.fst, sR.fst, en, location=e.location), sR.snd)
+        (tensorMul(sL.fst, sR.fst, en), sR.snd)
         end
         end
       | tensorDiv(l, r, en) ->
@@ -465,7 +463,7 @@ Pair<TensorExpr Integer> ::=
         in let sR::Pair<TensorExpr Integer> = 
           makeSubs_helper(r, var, remain, false, sL.snd, fmts)
         in
-        (tensorDiv(sL.fst, sR.fst, en, location=e.location), sR.snd)
+        (tensorDiv(sL.fst, sR.fst, en), sR.snd)
         end
         end
       | _ -> (e, idx)
@@ -1442,33 +1440,31 @@ Pair<TensorExpr Integer> ::=
         ( -- If it's just an access, we just give it an automatic name and move on
           tensorBaseExpr(
             declRefExpr(
-              name(s"t${head(remain)}${toString(idx)}", location=ex.location),
-              location=ex.location
+              name(s"t${head(remain)}${toString(idx)}")
             ),
-            en,
-            location=ex.location
+            en
           )
           ,
           idx+1
         )
       | tensorAdd(l, r, en) ->
         reduceDeeper_function( -- Apply function with production being add
-          tensorAdd(_, _, _, location=_), var, remain, 
+          tensorAdd(_, _, _), var, remain, 
           idx, en, l, r, fmts, true
         )
       | tensorSub(l, r, en) ->
         reduceDeeper_function( -- Apply with sub
-          tensorSub(_, _, _, location=_), var, remain,
+          tensorSub(_, _, _), var, remain,
           idx, en, l, r, fmts, true
         )
       | tensorMul(l, r, en) ->
         reduceDeeper_function( -- with mul
-          tensorMul(_, _, _, location=_), var, remain, 
+          tensorMul(_, _, _), var, remain, 
           idx, en, l, r, fmts, false
         )
       | tensorDiv(l, r, en) ->
         reduceDeeper_function( -- with div
-          tensorDiv(_, _, _, location=_), var, remain,
+          tensorDiv(_, _, _), var, remain,
           idx, en, l, r, fmts, false
         )
       end;
@@ -1476,7 +1472,7 @@ Pair<TensorExpr Integer> ::=
 
 function reduceDeeper_function
 Pair<TensorExpr Integer> ::= 
-  prod::(TensorExpr ::= TensorExpr TensorExpr Decorated Env Location)
+  prod::(TensorExpr ::= TensorExpr TensorExpr Decorated Env)
   var::String remain::[String] idx::Integer en::Decorated Env
   l::TensorExpr r::TensorExpr fmts::tm:Map<String TensorFormat>
   addSub::Boolean
@@ -1499,7 +1495,7 @@ Pair<TensorExpr Integer> ::=
           reduceDeeper_helper(r, var, remain, lSub.snd, fmts)
         in
         (
-          prod(lSub.fst, rSub.fst, en, l.location),
+          prod(lSub.fst, rSub.fst, en),
           rSub.snd
         )
         end
@@ -1516,19 +1512,16 @@ Pair<TensorExpr Integer> ::=
             tensorBaseExpr(
               declRefExpr(
                 name(
-                  s"t${head(remain)}${toString(lSub.snd)}",
-                  location=l.location
-                ),
-                location=l.location
+                  s"t${head(remain)}${toString(lSub.snd)}"
+                )
               ),
-              en,
-              location=l.location
+              en
             ),
             lSub.snd+1
           )
         in
         (
-          prod(lSub.fst, rSub.fst, en, l.location),
+          prod(lSub.fst, rSub.fst, en),
           rSub.snd
         )
         end
@@ -1540,13 +1533,10 @@ Pair<TensorExpr Integer> ::=
             tensorBaseExpr(
               declRefExpr(
                 name(
-                  s"t${head(remain)}${toString(idx)}",
-                  location=l.location
-                ),
-                location=l.location
+                  s"t${head(remain)}${toString(idx)}"
+                )
               ),
-              en,
-              location=l.location
+              en
             ),
             idx+1
           )
@@ -1555,7 +1545,7 @@ Pair<TensorExpr Integer> ::=
           reduceDeeper_helper(r, var, remain, lSub.snd, fmts)
         in
         (
-          prod(lSub.fst, rSub.fst, en, l.location),
+          prod(lSub.fst, rSub.fst, en),
           rSub.snd
         )
         end
@@ -1565,13 +1555,10 @@ Pair<TensorExpr Integer> ::=
           tensorBaseExpr(
             declRefExpr(
               name(
-                s"t${head(remain)}${toString(idx)}",
-                location=l.location
-              ),
-              location=l.location
+                s"t${head(remain)}${toString(idx)}"
+              )
             ),
-            en,
-            location=l.location
+            en
           )
           ,
           idx+1
@@ -1588,13 +1575,10 @@ Pair<TensorExpr Integer> ::=
           tensorBaseExpr(
             declRefExpr(
               name(
-                s"t${head(remain)}${toString(idx)}",
-                location=l.location
-              ),
-              location=l.location
+                s"t${head(remain)}${toString(idx)}"
+              )
             ),
-            en,
-            location=l.location
+            en
           ),
           idx+1
         )
@@ -1604,7 +1588,7 @@ Pair<TensorExpr Integer> ::=
           reduceDeeper_helper(r, var, remain, idx, fmts)
         in
         (
-          prod(l, rSub.fst, en, l.location),
+          prod(l, rSub.fst, en),
           rSub.snd
         )
         end
@@ -1614,13 +1598,10 @@ Pair<TensorExpr Integer> ::=
           tensorBaseExpr(
             declRefExpr(
               name(
-                s"t${head(remain)}${toString(idx)}",
-                location=l.location
-              ),
-              location=l.location
+                s"t${head(remain)}${toString(idx)}"
+              )
             ),
-            en,
-            location=l.location
+            en
           ),
           idx+1
         )
@@ -1630,7 +1611,7 @@ Pair<TensorExpr Integer> ::=
           reduceDeeper_helper(l, var, remain, idx, fmts)
         in
         (
-          prod(lSub.fst, r, en, l.location),
+          prod(lSub.fst, r, en),
           lSub.snd
         )
         end
@@ -1639,13 +1620,10 @@ Pair<TensorExpr Integer> ::=
           tensorBaseExpr(
             declRefExpr(
               name(
-                s"t${head(remain)}${toString(idx)}",
-                location=l.location
-              ),
-              location=l.location
+                s"t${head(remain)}${toString(idx)}"
+              )
             ),
-            en,
-            location=l.location
+            en
           ),
           idx+1
         );
@@ -1878,7 +1856,7 @@ function exprCanZero
         \ eL::TensorExpr ->
           map(
             \ eR::TensorExpr ->
-              tensorAdd(eL, eR, n, location=ex.location)
+              tensorAdd(eL, eR, n)
             ,
             exprCanZero(r)
           ),
@@ -1891,7 +1869,7 @@ function exprCanZero
         \ eL::TensorExpr ->
           map(
             \ eR::TensorExpr ->
-              tensorSub(eL, eR, n, location=ex.location)
+              tensorSub(eL, eR, n)
             ,
             exprCanZero(r)
           ),
@@ -1902,7 +1880,7 @@ function exprCanZero
         \ eL::TensorExpr ->
           map(
             \ eR::TensorExpr ->
-              tensorMul(eL, eR, n, location=ex.location)
+              tensorMul(eL, eR, n)
             ,
             exprCanZero(r)
           ),
@@ -1913,7 +1891,7 @@ function exprCanZero
         \ eL::TensorExpr ->
           map(
             \ eR::TensorExpr ->
-              tensorDiv(eL, eR, n, location=ex.location)
+              tensorDiv(eL, eR, n)
             ,
             exprCanZero(r)
           ),
@@ -1995,13 +1973,10 @@ TensorExpr ::=
       tensorBaseExpr(
         declRefExpr(
           name(
-            sb.fst,
-            location=ex.location
-          ),
-          location=ex.location
+            sb.fst
+          )
         ),
-        ex.envr,
-        location=ex.location
+        ex.envr
       )
     else
       case ex of
@@ -2011,29 +1986,25 @@ TensorExpr ::=
         tensorAdd(
           performSub_helper(l, sb, fmts),
           performSub_helper(r, sb, fmts),
-          n,
-          location=ex.location
+          n
         )
       | tensorSub(l, r, n) ->
         tensorSub(
           performSub_helper(l, sb, fmts),
           performSub_helper(r, sb, fmts),
-          n,
-          location=ex.location
+          n
         )
       | tensorMul(l, r, n) ->
         tensorMul(
           performSub_helper(l, sb, fmts),
           performSub_helper(r, sb, fmts),
-          n,
-          location=ex.location
+          n
         )
       | tensorDiv(l, r, n) ->
         tensorDiv(
           performSub_helper(l, sb, fmts),
           performSub_helper(r, sb, fmts),
-          n,
-          location=ex.location
+          n
         )
       end;
 }

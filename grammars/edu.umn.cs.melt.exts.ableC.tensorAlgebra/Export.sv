@@ -9,7 +9,6 @@ exports edu:umn:cs:melt:exts:ableC:halide;
 
 global storeSparse::Integer = 0;
 global storeDense ::Integer = 1;
-global builtin::Location = builtinLoc("tensorAlgebra");
 
 global emitParallel::String =
   "edu_umn_cs_melt_exts_ableC_tensorAlgebra_parallel";

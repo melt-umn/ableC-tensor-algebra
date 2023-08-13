@@ -9,7 +9,7 @@ synthesized attribute tensorExp :: TensorExpr occurs on Expr;
 aspect default production
 top::Expr ::=
 {
-  top.tensorExp = tensorBaseExpr(top, top.env, location=top.location);
+  top.tensorExp = tensorBaseExpr(top, top.env);
 }
 
 aspect production parenExpr
