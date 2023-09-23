@@ -15,6 +15,8 @@ top::Expr ::= tensor::Expr
       text(")")
     ]);
 
+  propagate controlStmtContext, env;
+
   local format::Name =
     case tensor.typerep of
     | extType(_, tensorType(fmt)) -> fmt

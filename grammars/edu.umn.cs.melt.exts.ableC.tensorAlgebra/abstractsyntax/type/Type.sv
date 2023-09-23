@@ -11,6 +11,8 @@ top::BaseTypeExpr ::= q::Qualifiers fmt::Name
   local localErrors::[Message] =
     checkTensorHeader(fmt.location, top.env) ++ fmt.tensorFormatLookupCheck;
   
+  propagate env;
+
   forwards to
     if !null(localErrors)
     then errorTypeExpr(localErrors)

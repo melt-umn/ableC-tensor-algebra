@@ -14,6 +14,8 @@ top::Expr ::= l::Expr r::Expr
   top.tensorExp =
     tensorDiv(l.tensorExp, r.tensorExp, top.env, location=top.location);
 
+  propagate controlStmtContext, env;
+
   forwards to 
     mkErrorCheck(
       l.errors ++ r.errors,

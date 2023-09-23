@@ -10,6 +10,8 @@ top::Expr ::= tensor::Expr deref::Boolean nm::Name
     then pp"${tensor.pp}->${text(nm.name)}"
     else pp"${tensor.pp}.${text(nm.name)}";
 
+  propagate controlStmtContext, env;
+
   local fmt::TensorFormat =
     case tensor.typerep of
     | extType(_, tensorType(f)) -> new(f.tensorFormat)

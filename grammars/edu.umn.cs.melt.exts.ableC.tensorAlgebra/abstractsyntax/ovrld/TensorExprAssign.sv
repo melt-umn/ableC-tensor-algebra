@@ -18,6 +18,8 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       text("] = "),
       right.pp
     ]);
+
+  propagate controlStmtContext, env;
   
   local out::TensorExpr =
     tensorAccess(tensor, idx, top.env, location=top.location);
@@ -602,6 +604,8 @@ top::Expr ::= output::Expr expr::Expr
       text(" = "),
       expr.pp
     ]);
+
+  propagate controlStmtContext, env;
 
   local out::TensorExpr =
     tensorBaseExpr(

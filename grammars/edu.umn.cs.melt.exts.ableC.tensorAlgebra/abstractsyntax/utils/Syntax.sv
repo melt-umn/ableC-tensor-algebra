@@ -13,6 +13,8 @@ top::Expr ::= tp::TypeName
       text(")")
     ]);
 
+  propagate controlStmtContext, env;
+
   forwards to orderof(tp.typerep, location=top.location);
 }
 
@@ -26,6 +28,8 @@ top::Expr ::= e::Expr
       e.pp,
       text(")")
     ]);
+
+  propagate controlStmtContext, env;
 
   forwards to 
     mkErrorCheck(
@@ -85,6 +89,8 @@ top::Expr ::= tensor::Expr dim::Expr
       dim.pp,
       text("]")
     ]);
+
+  propagate controlStmtContext, env;
 
   local lErrors::[Message] =
     checkTensorHeader(top.location, top.env)

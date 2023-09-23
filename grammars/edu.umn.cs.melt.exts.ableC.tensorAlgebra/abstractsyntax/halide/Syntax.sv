@@ -19,6 +19,8 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ts::Transformation
   top.functionDefs := [];
   top.labelDefs := [];
 
+  propagate controlStmtContext, env;
+
   local out::TensorExpr =
     tensorAccess(tns, idx, top.env, location=tns.location);
   local ex::TensorExpr =
@@ -228,6 +230,8 @@ top::Stmt ::= tns::Expr idx::Expr val::Expr ord::[String] ts::Transformation
   top.functionDefs := [];
   top.labelDefs := [];
 
+  propagate controlStmtContext, env;
+
   local out::TensorExpr =
     tensorAccess(tns, idx, top.env, location=tns.location);
   local ex::TensorExpr =
@@ -432,6 +436,8 @@ top::Stmt ::= nm::Name val::Expr ts::Transformation
   top.functionDefs := [];
   top.labelDefs := [];
 
+  propagate controlStmtContext, env;
+
   local ex::TensorExpr =
     val.tensorExp;
 
@@ -570,6 +576,8 @@ top::Stmt ::= nm::Name val::Expr ord::[String] ts::Transformation
     ]);
   top.functionDefs := [];
   top.labelDefs := [];
+
+  propagate controlStmtContext, env;
 
   local ex::TensorExpr =
     val.tensorExp;

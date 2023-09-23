@@ -12,9 +12,10 @@ synthesized attribute value :: TensorExpr; -- a TensorExpr of the rhs
 synthesized attribute cond :: TensorCond; -- the condition for this merge
 synthesized attribute pnts :: [LatticePoint]; -- subpoints
 
-autocopy attribute fmts :: tm:Map<String TensorFormat>;
+inherited attribute fmts :: tm:Map<String TensorFormat>;
 
 nonterminal LatticePoint with value, fmts, cond, pnts;
+propagate fmts on LatticePoint;
 
 abstract production latticePoint
 top::LatticePoint ::= pnts::[LatticePoint] value::TensorExpr cond::TensorCond
