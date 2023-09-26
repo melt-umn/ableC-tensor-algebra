@@ -6,7 +6,7 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 synthesized attribute proceduralName::String;
 synthesized attribute dimensions::Integer;
-synthesized attribute storage::[Pair<Integer Pair<Integer Integer>>]; -- pair(order, pair(dimen, spec))
+synthesized attribute storage::[(Integer, Integer, Integer)]; -- (order, dimen, spec)
 
 nonterminal TensorFormat with proceduralName, dimensions, storage, sourceLocation;
 
@@ -94,7 +94,7 @@ top::Def ::=
 abstract production tensorFormatDef
 top::Def ::= s::String fmt::TensorFormat
 {
-  top.tensorFormatContribs = [pair(s, fmt)];
+  top.tensorFormatContribs = [(s, fmt)];
 }
 
 function lookupTensorFormat

@@ -136,7 +136,7 @@ top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
     then []
     else
       if type == storeSparse
-      then [pair(top.tensorName, dim)]
+      then [(top.tensorName, dim)]
       else [];
   
   top.sparse_r =
@@ -144,7 +144,7 @@ top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
     then []
     else
       if type == storeSparse
-      then [pair(top.tensorName, prs.fromJust.snd.fst)]
+      then [(top.tensorName, prs.fromJust.snd.fst)]
       else [];
 
   top.dense =
@@ -152,7 +152,7 @@ top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
     then []
     else
       if type == storeDense
-      then [pair(top.tensorName, dim)]
+      then [(top.tensorName, dim)]
       else [];
 
   top.dense_r =
@@ -160,7 +160,7 @@ top::TensorExpr ::= tensor::Expr idx::Expr env::Decorated Env
     then []
     else
       if type == storeDense
-      then [pair(top.tensorName, prs.fromJust.snd.fst)]
+      then [(top.tensorName, prs.fromJust.snd.fst)]
       else [];
 }
 

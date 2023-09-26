@@ -179,8 +179,7 @@ top::Stmt ::= var::Name bounds::Expr body::Stmt
                 }
         end
       ,
-      zipWith(
-        pair,
+      zip(
         access, -- expr or indexvar 
         fmt.storage
       )

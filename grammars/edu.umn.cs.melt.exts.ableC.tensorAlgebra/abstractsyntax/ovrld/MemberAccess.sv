@@ -29,8 +29,9 @@ top::Expr ::= tensor::Expr deref::Boolean nm::Name
     | _ -> [err(top.location, "Invalid Tensor Member Access")]
     end;
 
-  forwards to
-    mkErrorCheck(lErrors, ableC_Expr {
+  local fwrd::Expr = ableC_Expr {
       ((struct $name{s"tensor_${fmt.proceduralName}"}) $Expr{tensor}).$name{nm.name}
-    });
+    };
+  forwards to
+    mkErrorCheck(lErrors, fwrd);
 }

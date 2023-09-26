@@ -31,7 +31,7 @@ function formStorage
     | [] -> []
     | o::os ->
        case getElem(specs, o) of
-       | just(x) -> pair(idx, pair(o, x)) :: formStorage(specs, os, idx+1)
+       | just(x) -> (idx, (o, x)) :: formStorage(specs, os, idx+1)
        | _ -> []
        end
     end;

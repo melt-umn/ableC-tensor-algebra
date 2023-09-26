@@ -81,8 +81,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
-      zipWith(
-        pair,
+      zip(
         newNames,
         tensorFormats
       ),
@@ -219,15 +218,14 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
         )
       ,
       nullStmt(),
-      zipWith(
-        pair,
+      zip(
         map(
           \ f::TensorFormat ->
             f.proceduralName
           ,
           tensorFormats
         ),
-        zipWith(pair, newNames, tensorNames)
+        zip(newNames, tensorNames)
       )
     );
 
@@ -424,8 +422,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
 
   local fmts::tm:Map<String TensorFormat> =
     tm:add(
-      zipWith(
-        pair,
+      zip(
         newNames,
         tensorFormats
       ),
@@ -515,15 +512,14 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
         )
       ,
       nullStmt(),
-      zipWith(
-        pair,
+      zip(
         map(
           \ f::TensorFormat ->
             f.proceduralName
           ,
           tensorFormats
         ),
-        zipWith(pair, newNames, tensorNames)
+        zip(newNames, tensorNames)
       )
     );
 

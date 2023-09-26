@@ -31,10 +31,11 @@ top::Expr ::= e::Expr
 
   propagate controlStmtContext, env;
 
+  local fwrd::Expr = orderof(e.typerep, location=top.location);
   forwards to 
     mkErrorCheck(
       e.errors,
-      orderof(e.typerep, location=top.location)
+      fwrd
     );
 }
 
@@ -65,10 +66,11 @@ top::Expr ::= tp::Type
     | _ -> [err(top.location, s"orderof expected a tensor type (got ${showType(tp)})")]
     end;
   
+  local fwrd::Expr = mkIntConst(format.tensorFormat.dimensions, top.location);
   forwards to 
     mkErrorCheck(
       lErrors, 
-      mkIntConst(format.tensorFormat.dimensions, top.location)
+      fwrd
     );
 }
 

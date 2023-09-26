@@ -16,9 +16,10 @@ top::Expr ::= l::Expr r::Expr
 
   propagate controlStmtContext, env;
 
+  local fwrd::Expr = emptyAccess;
   forwards to 
     mkErrorCheck(
       l.errors ++ r.errors,
-      emptyAccess
+      fwrd
     );
 }
