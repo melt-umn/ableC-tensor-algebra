@@ -6,7 +6,7 @@ abstract production indexvar
 top::Decl ::= nms::[Name]
 {
   local errors::[Message] =
-    checkTensorHeader(head(nms).location, top.env);
+    attachNote logicalLocationFromOrigin(head(nms)) on checkTensorHeader(top.env) end;
 
   top.pp = ppConcat([
              text("indexvar "),

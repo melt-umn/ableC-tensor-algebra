@@ -26,12 +26,12 @@ top::Expr ::= t::TypeName exs::[Expr]
   
   forwards to
     case t.typerep.buildProd of
-    | just(prod) -> prod(t, exs, top.location)
-    | nothing() -> explicitCastExpr(t, head(exs), location=top.location)
+    | just(prod) -> prod(t, exs)
+    | nothing() -> explicitCastExpr(t, head(exs))
     end;
 }
 
-synthesized attribute buildProd::Maybe<(Expr ::= TypeName [Expr] Location)> occurs on Type, ExtType;
+synthesized attribute buildProd::Maybe<(Expr ::= TypeName [Expr])> occurs on Type, ExtType;
 
 aspect default production
 top::Type ::=
@@ -54,5 +54,5 @@ top::ExtType ::=
 aspect production tensorType
 top::ExtType ::= fmt::Decorated Name
 {
-  top.buildProd = just(buildTensorExpr(_, _, location=_));
+  top.buildProd = just(buildTensorExpr);
 }

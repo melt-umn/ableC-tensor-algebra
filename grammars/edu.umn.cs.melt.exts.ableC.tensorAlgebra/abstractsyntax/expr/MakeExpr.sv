@@ -7,6 +7,7 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 function getTensorName
 String ::= e::TensorExpr
 {
+  local loc::Location = getParsedOriginLocation(e).fromJust;
   return
     case e of
     | tensorAccess(ex, _, _) -> 
@@ -14,7 +15,7 @@ String ::= e::TensorExpr
                   controlStmtContext=initialControlStmtContext;} of
       | decExpr(declRefExpr(name(s))) -> s
       | declRefExpr(name(s)) -> s
-      | _ -> s"_tensor_${toString(e.location.line)}_${toString(e.location.column)}"
+      | _ -> s"_tensor_${toString(loc.line)}_${toString(loc.column)}"
       end
     | _ -> s"__error"
     end;
@@ -42,10 +43,11 @@ TensorFormat ::= e::TensorExpr fmts::tm:Map<String TensorFormat>
 function getExprName
 String ::= e::Expr env::Decorated Env
 {
+  local loc::Location = getParsedOriginLocation(e).fromJust;
   return
     case decorate e with {env=env;
                   controlStmtContext=initialControlStmtContext;} of
     | declRefExpr(nm) -> nm.name
-    | _ -> s"_expr_${toString(e.location.line)}_${toString(e.location.column)}"
+    | _ -> s"_expr_${toString(loc.line)}_${toString(loc.column)}"
     end;
 }

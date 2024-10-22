@@ -51,8 +51,7 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
     if !null(missing)
     then 
       errorExpr(
-        [err(top.location, s"Tensor tranpose failed because the variable(s) ${implode(", ", missing)} appear only on one side.")],
-        location=top.location
+        [errFromOrigin(top, s"Tensor tranpose failed because the variable(s) ${implode(", ", missing)} appear only on one side.")]
       )
     else
       ableC_Expr {
@@ -71,7 +70,7 @@ top::Expr ::= lNm::String lAcc::[String] lFmt::TensorFormat
                 if(((struct $name{s"tensor_${lFmtNm}"})$name{lNm}).dims[$intLiteralExpr{lPos}] 
                   != ((struct $name{s"tensor_${rFmtNm}"})$name{rNm}).dims[$intLiteralExpr{rPos}]) {
                   fprintf(stderr, 
-                    $stringLiteralExpr{let loc::Location = top.location in  s"Tensors ${lNm} and ${rNm} do not have the same dimensionality for ${var} (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})" end});
+                    $stringLiteralExpr{s"Tensors ${lNm} and ${rNm} do not have the same dimensionality for ${var} (At ${getParsedOriginLocationOrFallback(top).unparse})"});
                   error = 1;
                 }
                 $Stmt{inn}

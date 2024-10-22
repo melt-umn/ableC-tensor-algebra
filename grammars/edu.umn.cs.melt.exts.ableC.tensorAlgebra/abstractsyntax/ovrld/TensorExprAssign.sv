@@ -22,7 +22,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   propagate controlStmtContext, env;
   
   local out::TensorExpr =
-    tensorAccess(tensor, idx, top.env, location=top.location);
+    tensorAccess(tensor, idx, top.env);
   
   local ex::TensorExpr =
     right.tensorExp;
@@ -138,13 +138,13 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
 
   local lErrors::[Message] =
     if invalidLeftVar
-    then [err(top.location, s"Cannot generate code for this tensor expression because the variable(s) ${implode(", ", leftOnly)} only occur on the left-hand side.")]
+    then [errFromOrigin(top, s"Cannot generate code for this tensor expression because the variable(s) ${implode(", ", leftOnly)} only occur on the left-hand side.")]
     else []
     ++
     if !isTranspose
     then
       case order of
-      | nothing() -> [err(top.location, "Cannot generate code for this tensor expression due to cyclical access patterns")]
+      | nothing() -> [errFromOrigin(top, "Cannot generate code for this tensor expression due to cyclical access patterns")]
       | just(_) -> []
       end
     else [];
@@ -152,7 +152,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
   local graph::ComputeGraph =
     computeGraph(
       outNew, fmts, exNew, access,
-      top.location, top.env
+      top.env
     );
 
   {- Lookup to see whether the programmer enabled OpenMP
@@ -413,7 +413,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       foldl(
         \ inn::Stmt var::String ->
           ableC_Stmt {
-            $Stmt{checkVar(outNew, exNew, var, fmts, top.location)}
+            $Stmt{checkVar(outNew, exNew, var, fmts)}
             $Stmt{inn}
           }
         ,
@@ -569,11 +569,10 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
       stmtExpr(
         lockOut(declTensor(tensorSub(
           ableC_Stmt {
-            $Expr{transpose(outNew.tensorName, head(outNew.accesses), getTensorFormat(outNew, fmts), exNew.tensorName, head(exNew.accesses), getTensorFormat(exNew, fmts), location=top.location)};
+            $Expr{transpose(outNew.tensorName, head(outNew.accesses), getTensorFormat(outNew, fmts), exNew.tensorName, head(exNew.accesses), getTensorFormat(exNew, fmts))};
             $Stmt{setFormat}
           }))),
-        ableC_Expr { $name{outNew.tensorName} },
-        location=top.location
+        ableC_Expr { $name{outNew.tensorName} }
       )
     else
       stmtExpr(
@@ -581,8 +580,7 @@ top::Expr ::= tensor::Expr idx::Expr right::Expr
           assembleOut(outVal(comp(setFormat)))))))))),
         ableC_Expr {
           $name{outNew.tensorName}
-        },
-        location=top.location
+        }
       );
 
   forwards to
@@ -611,13 +609,10 @@ top::Expr ::= output::Expr expr::Expr
     tensorBaseExpr(
       declRefExpr(
         name(
-          "__out__",
-          location=top.location
-        ),
-        location=top.location
+          "__out__"
+        )
       ), 
-      top.env,
-      location=top.location);
+      top.env);
 
   local ex::TensorExpr =
     expr.tensorExp;
@@ -684,14 +679,14 @@ top::Expr ::= output::Expr expr::Expr
 
   local lErrors::[Message] =
     case order of
-    | nothing() -> [err(top.location, "Cannot generate code for this tensor expression due to cyclical access patterns")]
+    | nothing() -> [errFromOrigin(top, "Cannot generate code for this tensor expression due to cyclical access patterns")]
     | just(_) -> []
     end;
 
   local graph::ComputeGraph =
     computeGraph(
       out, fmts, exNew, access,
-      top.location, top.env
+      top.env
     );
   
   local canParallel :: Boolean =
@@ -892,7 +887,7 @@ top::Expr ::= output::Expr expr::Expr
       foldl(
         \ inn::Stmt var::String ->
           ableC_Stmt {
-            $Stmt{checkVar(out, exNew, var, fmts, top.location)}
+            $Stmt{checkVar(out, exNew, var, fmts)}
             $Stmt{inn}
           }
         ,
@@ -950,10 +945,8 @@ top::Expr ::= output::Expr expr::Expr
             outVal(comp(setFormats)))))))),
           ableC_Expr { // the value tx0
             $name{s"t${head(access)}0"}
-          },
-          location=top.location
-        ),
-        location=top.location
+          }
+        )
       );
   forwards to
     mkErrorCheck(
@@ -1041,7 +1034,7 @@ Maybe<[String]> ::= orders::[[String]]
    size -}
 function checkVar
 Stmt ::= out::TensorExpr ex::TensorExpr var::String 
-         fmts::tm:Map<String TensorFormat> loc::Location
+         fmts::tm:Map<String TensorFormat>
 {
   out.variable = var;
   ex.variable = var;
@@ -1072,7 +1065,7 @@ Stmt ::= out::TensorExpr ex::TensorExpr var::String
               if(((struct $name{s"tensor_${fmtNm0}"}) $name{nm}).dims[$intLiteralExpr{h.snd}] 
                 != ((struct $name{s"tensor_${fmtNm1}"}) $name{p.fst}).dims[$intLiteralExpr{p.snd}]) {
                 fprintf(stderr, 
-                  $stringLiteralExpr{s"Tensor ${nm} and ${p.fst} do not have the same dimensionality for ${var}. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n"});
+                  $stringLiteralExpr{s"Tensor ${nm} and ${p.fst} do not have the same dimensionality for ${var}. (At ${getParsedOriginLocationOrFallback(ambientOrigin()).unparse})\n"});
                 error = 1;
               }
               $Stmt{inn}

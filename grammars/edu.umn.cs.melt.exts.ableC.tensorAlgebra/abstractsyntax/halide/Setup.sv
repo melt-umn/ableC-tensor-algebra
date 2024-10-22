@@ -16,7 +16,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
   value.env = top.env;
 
   local out::TensorExpr = -- Build the output into a TensorExpr
-    tensorAccess(tensor, idx, top.env, location=tensor.location);
+    tensorAccess(tensor, idx, top.env);
   local ex::TensorExpr = -- Get the rhs's TensorExpr
     value.tensorExp;
 
@@ -257,7 +257,7 @@ top::Stmt ::= tensor::Expr idx::Expr value::Expr inner::Stmt
     };
 
   local lErrors :: [Message] =
-    checkTensorHeader(tensor.location, top.env);
+    checkTensorHeader(top.env);
 
   local fwrd::Stmt =
     ableC_Stmt {
@@ -409,13 +409,10 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
     tensorBaseExpr( 
       declRefExpr(
         name(
-          "__out__",
-          location=expr.location
-        ),
-        location=expr.location
+          "__out__"
+        )
       ),
-      top.env,
-      location=expr.location
+      top.env
     );
 
   local access::[String] = nub(concat(ex.accesses));
@@ -540,7 +537,7 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
     halide_check_dims(out, exNew, access, fmts);
 
   local lErrors :: [Message] =
-    checkTensorHeader(output.location, top.env);
+    checkTensorHeader(top.env);
 
   local fwrd::Expr =
     stmtExpr(
@@ -569,27 +566,22 @@ top::Stmt ::= output::Name expr::Expr inner::Stmt
         )
       ),
       declRefExpr(
-        name("__result", location=expr.location),
-        location=expr.location
-      ),
-      location=expr.location
+        name("__result")
+      )
     );
 
   local finalFwrd :: Stmt =
     exprStmt(
       eqExpr(
         declRefExpr(
-          output, -- set output (a name) equal to
-          location=output.location
+          output -- set output (a name) equal to
         ),
         stmtExpr(
           ableC_Stmt {
             double __result = 0.0; // declare __result
           },
-          fwrd, -- the Expr generated above
-          location=expr.location
-        ),
-        location=expr.location
+          fwrd -- the Expr generated above
+        )
       )
     );
 
@@ -708,7 +700,7 @@ Stmt ::=
               != ((struct $name{s"tensor_${head(tm:lookup(pr.fst, fmts)).proceduralName}"})$name{pr.fst})
                 .dims[$intLiteralExpr{pr.snd}]) {
             fprintf(stderr, 
-              $stringLiteralExpr{let loc::Location = out.location in s"Tensor ${nm} and ${pr.fst} do not have the same dimensionality for ${var}. (At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)})\n" end});
+              $stringLiteralExpr{s"Tensor ${nm} and ${pr.fst} do not have the same dimensionality for ${var}. (At ${getParsedOriginLocationOrFallback(out).unparse})\n"});
             error = 1;
           }
         }

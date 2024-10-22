@@ -4,7 +4,7 @@ import edu:umn:cs:melt:exts:ableC:tensorAlgebra;
 
 synthesized attribute list<a>::[a];
 
-nonterminal SpecifierList_c with list<Integer>, location;
+tracked nonterminal SpecifierList_c with list<Integer>;
 concrete productions top::SpecifierList_c
 | 'dense'
   {
@@ -24,7 +24,7 @@ concrete productions top::SpecifierList_c
   }
 
 
-nonterminal IntegerList_c with list<Integer>, location;
+tracked nonterminal IntegerList_c with list<Integer>;
 concrete productions top::IntegerList_c
 | num::DecConstant_t
   {
@@ -35,7 +35,7 @@ concrete productions top::IntegerList_c
     top.list = toInteger(num.lexeme) :: lst.list;
   }
 
-nonterminal NameList_c with list<Name>, location;
+tracked nonterminal NameList_c with list<Name>;
 concrete productions top::NameList_c
 | nm::Identifier_t
   {
@@ -47,7 +47,7 @@ concrete productions top::NameList_c
   }
 
 
-nonterminal TensorRepList_c with list<TensorConstant>, location;
+tracked nonterminal TensorRepList_c with list<TensorConstant>;
 concrete productions top::TensorRepList_c
 | rep::TensorRep_c
   {
@@ -59,7 +59,7 @@ concrete productions top::TensorRepList_c
   }
 
 
-nonterminal ExprList_c with list<Expr>, location;
+tracked nonterminal ExprList_c with list<Expr>;
 concrete productions top::ExprList_c
 | ex::AssignExpr_c
   {

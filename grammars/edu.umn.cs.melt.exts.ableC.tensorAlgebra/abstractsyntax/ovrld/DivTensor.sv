@@ -12,7 +12,7 @@ top::Expr ::= l::Expr r::Expr
            ]);
 
   top.tensorExp =
-    tensorDiv(l.tensorExp, r.tensorExp, top.env, location=top.location);
+    tensorDiv(l.tensorExp, r.tensorExp, top.env);
 
   propagate controlStmtContext, env;
 

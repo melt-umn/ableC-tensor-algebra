@@ -42,11 +42,11 @@ synthesized attribute dense :: [Pair<String Integer>];
 synthesized attribute sparse_r :: [Pair<String Integer>];
 synthesized attribute dense_r :: [Pair<String Integer>];
 
-nonterminal TensorExpr with
+tracked nonterminal TensorExpr with
   exprName, tensorName, accesses, envr, 
   tensors, exprs, remaining, isAvail, 
   variable, fmts, sparse, dense, sparse_r, dense_r,
-  iterAccess, location;
+  iterAccess;
 propagate remaining on TensorExpr;
 propagate variable on TensorExpr;
 propagate fmts on TensorExpr;
@@ -257,9 +257,8 @@ top::TensorExpr ::= env::Decorated Env
 {
   forwards to
     tensorBaseExpr(
-      mkIntConst(0, top.location),
-      env,
-      location=top.location
+      mkIntConst(0),
+      env
     );
 }
 
@@ -364,14 +363,11 @@ TensorExpr ::= names::[String] ex::TensorExpr
         tensorAccess(
           declRefExpr(
             name(
-              head(names),
-              location=ex.location
-            ),
-            location=ex.location
+              head(names)
+            )
           ),
           i,
-          n,
-          location=ex.location
+          n
         )
       else ex
     | tensorAdd(l, r, n) ->
@@ -390,8 +386,7 @@ TensorExpr ::= names::[String] ex::TensorExpr
           ),
           r
         ),
-        n,
-        location=ex.location
+        n
       )
     | tensorSub(l, r, n) ->
       tensorSub(
@@ -409,8 +404,7 @@ TensorExpr ::= names::[String] ex::TensorExpr
           ),
           r
         ),
-        n,
-        location=ex.location
+        n
       )
     | tensorMul(l, r, n) ->
       tensorMul(
@@ -428,8 +422,7 @@ TensorExpr ::= names::[String] ex::TensorExpr
           ),
           r
         ),
-        n,
-        location=ex.location
+        n
       )
     | tensorDiv(l, r, n) ->
       tensorDiv(
@@ -447,8 +440,7 @@ TensorExpr ::= names::[String] ex::TensorExpr
           ),
           r
         ),
-        n,
-        location=ex.location
+        n
       )
     end;
 }

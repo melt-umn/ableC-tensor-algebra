@@ -20,33 +20,33 @@ concrete productions top::Declaration_c
 concrete productions top::AssignExpr_c
 | 'build' '(' type::TypeName_c ')' '(' '{' dims::ExprList_c  '}' ')' 
   {
-    top.ast = build_empty(type.ast, dims.list, location=top.location);
+    top.ast = build_empty(type.ast, dims.list);
   }
 | 'build' '(' type::TypeName_c ')' '(' data::TensorRep_c ')'
   {
-    top.ast = build_data(type.ast, data.tensor, location=top.location);
+    top.ast = build_data(type.ast, data.tensor);
   }
 | 'build' '(' type::TypeName_c ')' '(' args::ArgumentExprList_c ')'
   {
-    top.ast = build(type.ast, args.ast, location=top.location);
+    top.ast = build(type.ast, args.ast);
   }
 
 concrete productions top::UnaryExpr_c
 | 'orderof' '(' tp::TypeName_c ')'
   {
-    top.ast = orderofType(tp.ast, location=top.location);
+    top.ast = orderofType(tp.ast);
   }
 | 'orderof' '(' tn::Expr_c ')'
   {
-    top.ast = orderofExpr(tn.ast, location=top.location);
+    top.ast = orderofExpr(tn.ast);
   }
 | 'dimenof' '(' tn::Expr_c ')' '[' dim::Expr_c ']'
   {
-    top.ast = dimenof(tn.ast, dim.ast, location=top.location);
+    top.ast = dimenof(tn.ast, dim.ast);
   }
 | 'freeTensor' '(' tn::Expr_c ')'
   {
-    top.ast = freeTensor(tn.ast, location=top.location);
+    top.ast = freeTensor(tn.ast);
   }
 
 concrete productions top::TypeSpecifier_c

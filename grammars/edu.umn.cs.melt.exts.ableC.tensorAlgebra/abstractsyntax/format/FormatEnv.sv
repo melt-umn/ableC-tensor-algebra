@@ -8,10 +8,10 @@ synthesized attribute proceduralName::String;
 synthesized attribute dimensions::Integer;
 synthesized attribute storage::[(Integer, Integer, Integer)]; -- (order, dimen, spec)
 
-nonterminal TensorFormat with proceduralName, dimensions, storage, sourceLocation;
+tracked nonterminal TensorFormat with proceduralName, dimensions, storage;
 
 abstract production tensorFormat
-top::TensorFormat ::= specifiers::[Integer] dimenOrder::[Integer] source::Location
+top::TensorFormat ::= specifiers::[Integer] dimenOrder::[Integer]
 {
   top.proceduralName = 
     case specifiers, dimenOrder of
@@ -20,7 +20,6 @@ top::TensorFormat ::= specifiers::[Integer] dimenOrder::[Integer] source::Locati
     end;
   top.dimensions = listLength(specifiers);
   top.storage = formStorage(specifiers, dimenOrder, 0);
-  top.sourceLocation = source;
 }
 
 abstract production errorTensorFormat
@@ -29,7 +28,6 @@ top::TensorFormat ::=
   top.proceduralName = "error";
   top.dimensions = -1;
   top.storage = [];
-  top.sourceLocation = builtin;
 }
 
 
@@ -114,7 +112,7 @@ top::Name ::= n::String
   local tensorFormats::[TensorFormat] = lookupTensorFormat(n, top.env);
   top.tensorFormatLookupCheck =
     case tensorFormats of
-    | [] -> [err(top.location, "Undeclared tensor format " ++ n)]
+    | [] -> [errFromOrigin(top, "Undeclared tensor format " ++ n)]
     | _ :: _ -> []
     end;
   
@@ -122,9 +120,9 @@ top::Name ::= n::String
     case tensorFormats of
     | [] -> []
     | v :: _ ->
-      [err(top.location,
-        "Redeclaration of " ++ n ++ ". Original (from line " ++
-        toString(v.sourceLocation.line) ++ ")")]
+      [errFromOrigin(top,
+        "Redeclaration of " ++ n ++ ". Original (from " ++
+        getParsedOriginLocationOrFallback(v).unparse ++ ")")]
     end;
   
   local tensorFormat::TensorFormat =

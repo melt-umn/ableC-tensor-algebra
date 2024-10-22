@@ -37,7 +37,7 @@ top::Expr ::= l::Expr r::Expr
     | extType(_, tensorType(_)), extType(_, tensorType(_)) ->
       if formatL.dimensions == formatR.dimensions
       then []
-      else [err(top.location, "Format changes can only be performed between tensors of the same order.")]
+      else [errFromOrigin(top, "Format changes can only be performed between tensors of the same order.")]
     | extType(_, tensorType(_)), _ ->
       case r of
       | build_empty(_, _) -> []
@@ -45,9 +45,9 @@ top::Expr ::= l::Expr r::Expr
       | buildTensorExpr(_, _) -> []
       | directCallExpr(_, _) -> []
       | callExpr(_, _) -> []
-      | _ -> [err(top.location, "Tensor Deep Copy can only be performed on tensors. (This error should not occur)")]
+      | _ -> [errFromOrigin(top, "Tensor Deep Copy can only be performed on tensors. (This error should not occur)")]
       end
-    | _, _ -> [err(top.location, "Tensor Deep Copy can only be performed on tensors. (This error should not occur)")]
+    | _, _ -> [errFromOrigin(top, "Tensor Deep Copy can only be performed on tensors. (This error should not occur)")]
     end
     ++
     l.errors
@@ -102,10 +102,10 @@ top::Expr ::= l::Expr r::Expr
           struct $name{s"tensor_${formatL.proceduralName}"}* _l = (struct $name{s"tensor_${formatL.proceduralName}"}*) &$Expr{l};
           struct $name{s"tensor_${formatR.proceduralName}"}* _r = (struct $name{s"tensor_${formatR.proceduralName}"}*) &$Expr{r};
          
-          if(_l->indices) { $Expr{freeTensor(l, location=top.location)}; }
+          if(_l->indices) { $Expr{freeTensor(l)}; }
           // uses .indices as a check of whether things are initialized
 
-          __tensor_location = $stringLiteralExpr{let loc::Location = top.location in s"At ${loc.filename}, Line ${toString(loc.line)}, Col ${toString(loc.column)}" end};
+          __tensor_location = $stringLiteralExpr{"At " ++ getParsedOriginLocationOrFallback(top).unparse};
 
           memset(_l, 0, sizeof(struct $name{s"tensor_${formatL.proceduralName}"}));
           $name{s"tensor_make_${formatL.proceduralName}"}(_l, _r->dims);
@@ -199,7 +199,7 @@ top::Expr ::= l::Expr r::Expr
           *_l;
         })
         }
-    | _ -> eqExpr(l, r, location=top.location)
+    | _ -> eqExpr(l, r)
     end;
 
   forwards to

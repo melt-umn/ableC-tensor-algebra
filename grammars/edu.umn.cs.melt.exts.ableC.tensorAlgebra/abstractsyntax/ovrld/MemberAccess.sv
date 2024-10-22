@@ -21,12 +21,12 @@ top::Expr ::= tensor::Expr deref::Boolean nm::Name
   local lErrors :: [Message] =
     case nm.name of
     | "dataLen" -> []
-    | _ -> [err(top.location, s"Tensors do not have a '${nm.name}' member")]
+    | _ -> [errFromOrigin(top, s"Tensors do not have a '${nm.name}' member")]
     end
     ++
     case tensor.typerep of
     | extType(_, tensorType(_)) -> []
-    | _ -> [err(top.location, "Invalid Tensor Member Access")]
+    | _ -> [errFromOrigin(top, "Invalid Tensor Member Access")]
     end;
 
   local fwrd::Expr = ableC_Expr {
